@@ -1,0 +1,14 @@
+{
+  "name": "Sunrise",
+  "description": "Gradual warm white ramp",
+  "segments": [
+    {"id": 0, "keyframes": [
+      {"t": 0, "color": "1A0000"},
+      {"t": 30000, "color": "FF6600"},
+      {"t": 60000, "color": "FFCC66"},
+      {"t": 120000, "color": "FFFAF0"}
+    ]}
+  ],
+  "loop": false,
+  "fps": 30
+}

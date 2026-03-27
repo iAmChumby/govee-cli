@@ -1,0 +1,22 @@
+{
+  "name": "Party",
+  "description": "Multi-color strobe effect",
+  "segments": [
+    {"id": 0, "keyframes": [
+      {"t": 0, "color": "FF0000"},
+      {"t": 250, "color": "00FF00"},
+      {"t": 500, "color": "0000FF"},
+      {"t": 750, "color": "FF00FF"},
+      {"t": 1000, "color": "00FFFF"}
+    ]},
+    {"id": 1, "keyframes": [
+      {"t": 0, "color": "00FF00"},
+      {"t": 250, "color": "0000FF"},
+      {"t": 500, "color": "FF00FF"},
+      {"t": 750, "color": "00FFFF"},
+      {"t": 1000, "color": "FF0000"}
+    ]}
+  ],
+  "loop": true,
+  "fps": 30
+}

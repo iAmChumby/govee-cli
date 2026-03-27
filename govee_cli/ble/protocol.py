@@ -143,19 +143,26 @@ def parse_state(data: bytes) -> LightState:
 
     Format is TBD — placeholder that needs real captures.
     """
-    if len(data) < 4:
+    if len(data) < 1:
         raise ValueError(f"State data too short: {data!r}")
 
     power_byte = data[0]
     brightness = data[1] if len(data) > 1 else 0
 
     if len(data) >= 4:
-        r, g, b = data[2], data[3], data[4]
+        r, g, b = data[2], data[3], data[4] if len(data) > 4 else 0
     else:
         r, g, b = 255, 255, 255
+
+    color_temp: int | None = None
+    if len(data) >= 6:
+        # 2-byte LE Kelvin value (TBD — placeholder)
+        import struct as struct_module
+        color_temp = struct_module.unpack("<H", data[4:6])[0]
 
     return LightState(
         power=(power_byte & 0x01) == 1,
         brightness=brightness,
         color=(r, g, b),
+        color_temp=color_temp,
     )

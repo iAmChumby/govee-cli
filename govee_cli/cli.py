@@ -6,6 +6,7 @@ import click
 import structlog
 
 from govee_cli import __version__
+from govee_cli.config import load_config
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -32,13 +33,21 @@ def setup_logging(verbose: bool = False) -> None:
 def main(ctx: click.Context, verbose: bool) -> None:
     """govee-cli — control Govee lights over Bluetooth BLE."""
     setup_logging(verbose)
+    # Load config and inject default MAC so all commands can use it
+    cfg = load_config()
     ctx.ensure_object(dict)
+    ctx.obj["default_mac"] = cfg.default_mac
+    ctx.obj["default_adapter"] = cfg.default_adapter
+    ctx.obj["default_timeout"] = cfg.default_timeout
 
 
 # Import command objects and register with explicit names to avoid
 # collisions when multiple modules define a function named "command"
 from govee_cli.commands.brightness import command as brightness_cmd
 from govee_cli.commands.color import command as color_cmd
+from govee_cli.commands.completion import completion
+from govee_cli.commands.config_cmd import command as config_cmd
+from govee_cli.commands.daemon import command as daemon_cmd
 from govee_cli.commands.effect import command as effect_cmd
 from govee_cli.commands.group import group as group_cmd
 from govee_cli.commands.info import command as info_cmd
@@ -66,6 +75,9 @@ main.add_command(schedule_cmd, name="schedule")
 main.add_command(group_cmd, name="group")
 main.add_command(scan_cmd, name="scan")
 main.add_command(info_cmd, name="info")
+main.add_command(daemon_cmd, name="daemon")
+main.add_command(config_cmd, name="config")
+main.add_command(completion, name="completion")
 
 
 if __name__ == "__main__":
