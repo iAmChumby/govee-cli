@@ -34,12 +34,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          python-version: "3.10"
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
-      - name: Install bleak for scan test
-        run: pip install bleak>=0.21.0
+      - name: Install package
+        run: pip install -e .
       - name: Smoke test — help
         run: python -m govee_cli --help
