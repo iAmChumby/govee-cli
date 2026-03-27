@@ -6,7 +6,7 @@ a parser and the built-in scene library.
 
 import json
 import pathlib
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import structlog
 
@@ -76,32 +76,35 @@ class BuiltInScene:
     name: str
     description: str = ""
 
+    @staticmethod
+    def get_available_scenes() -> list["BuiltInScene"]:
+        """Return the full built-in scene library."""
+        return [
+            BuiltInScene(1, "Sunrise", "Gradual warm white ramp"),
+            BuiltInScene(2, "Sunset", "Gradual warm-to-cool fade"),
+            BuiltInScene(3, "Ocean", "Blue waves with subtle brightness oscillation"),
+            BuiltInScene(4, "Forest", "Green hues with gentle pulsing"),
+            BuiltInScene(5, "Party", "Multi-color strobe effect"),
+            BuiltInScene(6, "Romance", "Soft red/pink oscillation"),
+            BuiltInScene(7, "Rainbow", "Full spectrum cycling"),
+            BuiltInScene(8, "Fireplace", "Warm orange flicker"),
+            BuiltInScene(9, "Night Light", "Dim warm white"),
+            BuiltInScene(10, "Reading", "Bright neutral white"),
+        ]
 
-# Built-in scene library — IDs verified from Govee H6056 captures
-BUILT_IN_SCENES: list[BuiltInScene] = [
-    # These IDs are derived from community research and need verification
-    BuiltInScene(1, "Sunrise", "Gradual warm white ramp"),
-    BuiltInScene(2, "Sunset", "Gradual warm-to-cool fade"),
-    BuiltInScene(3, "Ocean", "Blue waves with subtle brightness oscillation"),
-    BuiltInScene(4, "Forest", "Green hues with gentle pulsing"),
-    BuiltInScene(5, "Party", "Multi-color strobe effect"),
-    BuiltInScene(6, "Romance", "Soft red/pink oscillation"),
-    BuiltInScene(7, "Rainbow", "Full spectrum cycling"),
-    BuiltInScene(8, "Fireplace", "Warm orange flicker"),
-    BuiltInScene(9, "Night Light", "Dim warm white"),
-    BuiltInScene(10, "Reading", "Bright neutral white"),
-]
+    @staticmethod
+    def get_by_id(scene_id: int) -> "BuiltInScene | None":
+        """Return a built-in scene by its ID."""
+        for scene in BuiltInScene.get_available_scenes():
+            if scene.id == scene_id:
+                return scene
+        return None
 
-
-def list_built_in_scenes() -> list[BuiltInScene]:
-    """Return the built-in scene library."""
-    return BUILT_IN_SCENES
-
-
-def find_scene_by_name(name: str) -> BuiltInScene | None:
-    """Find a built-in scene by name (case-insensitive)."""
-    name_lower = name.lower()
-    for scene in BUILT_IN_SCENES:
-        if scene.name.lower() == name_lower:
-            return scene
-    return None
+    @staticmethod
+    def get_by_name(name: str) -> "BuiltInScene | None":
+        """Find a built-in scene by name (case-insensitive)."""
+        name_lower = name.lower()
+        for scene in BuiltInScene.get_available_scenes():
+            if scene.name.lower() == name_lower:
+                return scene
+        return None

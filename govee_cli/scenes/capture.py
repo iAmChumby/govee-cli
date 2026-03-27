@@ -12,14 +12,12 @@ Usage:
 
 import asyncio
 import json
-import logging
 import signal
-import sys
-from dataclasses import dataclass, asdict
+import time
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import bleak
-
 import structlog
 
 logger = structlog.get_logger(__name__)
@@ -39,6 +37,9 @@ class CapturedPacket:
 class CaptureSession:
     """Records BLE writes and notifications to a file."""
 
+    # Placeholder — must be verified with BLE sniffer
+    STATE_CHAR = "0000fff7-0000-1000-8000-00805f9b34fb"
+
     def __init__(self, output_path: Path):
         self.output_path = output_path
         self.packets: list[CapturedPacket] = []
@@ -57,23 +58,22 @@ class CaptureSession:
         try:
             self._client = bleak.BleakClient(mac, timeout=timeout)
 
-            def on_notification(handle: int, data: bytes, char_uuid: str) -> None:
+            async def on_notification(
+                char: bleak.BleakGATTCharacteristic, data: bytearray
+            ) -> None:
                 self.packets.append(
                     CapturedPacket(
-                        timestamp=asyncio.get_event_loop().time(),
-                        handle=handle,
+                        timestamp=time.time(),
+                        handle=char.handle,
                         direction="notify",
                         data=data.hex(),
-                        characteristic_uuid=char_uuid,
+                        characteristic_uuid=str(char.uuid),
                     )
                 )
-                logger.debug("notification", handle=handle, data=data.hex())
+                logger.debug("notification", handle=char.handle, data=data.hex())
 
             await self._client.connect()
-            await self._client.start_notify(
-                "0000fff7-0000-1000-8000-00805f9b34fb",  # STATE char (placeholder)
-                on_notification,
-            )
+            await self._client.start_notify(self.STATE_CHAR, on_notification)
 
             # Write packets to file periodically
             while self._running:
@@ -90,9 +90,7 @@ class CaptureSession:
         """Stop BLE client cleanly."""
         if self._client and self._client.is_connected:
             try:
-                await self._client.stop_notify(
-                    "0000fff7-0000-1000-8000-00805f9b34fb"
-                )
+                await self._client.stop_notify(self.STATE_CHAR)
                 await self._client.disconnect()
             except Exception as e:
                 logger.warning("disconnect_error", error=str(e))

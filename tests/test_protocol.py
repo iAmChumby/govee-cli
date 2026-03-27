@@ -87,8 +87,8 @@ class TestEncodeTemp:
 
     def test_cool_white(self) -> None:
         cmd = encode_temp(6500)
-        # LE uint16: 6500 = 0x1964
-        assert cmd.payload == b"\x64\x96"
+        # LE uint16: 6500 = 0x1964 → bytes are 0x64, 0x19
+        assert cmd.payload == b"\x64\x19"
 
     def test_too_low(self) -> None:
         with pytest.raises(ValueError, match="2700-6500"):
@@ -130,8 +130,9 @@ class TestBuildPacket:
         assert packet[3] == 0x02
 
     def test_checksum_wraps(self) -> None:
-        # For a payload that sums > 255, checksum wraps
+        # Checksum includes the command type byte: [0x33, type(3), r(100), g(100), b(100), checksum]
+        # body = [3, 100, 100, 100] = 303 & 0xFF = 47
         cmd = encode_color(100, 100, 100)
         packet = build_packet(cmd)
-        checksum = (100 + 100 + 100) & 0xFF
-        assert packet[-1] == checksum
+        body_sum = cmd.type.value + 100 + 100 + 100
+        assert packet[-1] == (body_sum & 0xFF)

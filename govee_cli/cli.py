@@ -1,7 +1,6 @@
 """Govee CLI — root command group."""
 
 import logging
-import sys
 
 import click
 import structlog
@@ -36,38 +35,37 @@ def main(ctx: click.Context, verbose: bool) -> None:
     ctx.ensure_object(dict)
 
 
-# Import commands here to register them with the CLI
-from govee_cli.commands import (  # noqa: E402, F401
-    power,
-    brightness,
-    color,
-    temp,
-    segments,
-    scene,
-    record,
-    replay,
-    effect,
-    music,
-    schedule,
-    group,
-    scan,
-    info,
-)
+# Import command objects and register with explicit names to avoid
+# collisions when multiple modules define a function named "command"
+from govee_cli.commands.brightness import command as brightness_cmd
+from govee_cli.commands.color import command as color_cmd
+from govee_cli.commands.effect import command as effect_cmd
+from govee_cli.commands.group import group as group_cmd
+from govee_cli.commands.info import command as info_cmd
+from govee_cli.commands.music import command as music_cmd
+from govee_cli.commands.power import command as power_cmd
+from govee_cli.commands.record import command as record_cmd
+from govee_cli.commands.replay import command as replay_cmd
+from govee_cli.commands.scan import command as scan_cmd
+from govee_cli.commands.scene import command as scene_cmd
+from govee_cli.commands.schedule import schedule as schedule_cmd
+from govee_cli.commands.segments import command as segments_cmd
+from govee_cli.commands.temp import command as temp_cmd
 
-main.add_command(power.command)
-main.add_command(brightness.command)
-main.add_command(color.command)
-main.add_command(temp.command)
-main.add_command(segments.command)
-main.add_command(scene.command)
-main.add_command(record.command)
-main.add_command(replay.command)
-main.add_command(effect.command)
-main.add_command(music.command)
-main.add_command(schedule.command)
-main.add_command(group.command)
-main.add_command(scan.command)
-main.add_command(info.command)
+main.add_command(power_cmd, name="power")
+main.add_command(brightness_cmd, name="brightness")
+main.add_command(color_cmd, name="color")
+main.add_command(temp_cmd, name="temp")
+main.add_command(segments_cmd, name="segments")
+main.add_command(scene_cmd, name="scene")
+main.add_command(record_cmd, name="record")
+main.add_command(replay_cmd, name="replay")
+main.add_command(effect_cmd, name="effect")
+main.add_command(music_cmd, name="music")
+main.add_command(schedule_cmd, name="schedule")
+main.add_command(group_cmd, name="group")
+main.add_command(scan_cmd, name="scan")
+main.add_command(info_cmd, name="info")
 
 
 if __name__ == "__main__":

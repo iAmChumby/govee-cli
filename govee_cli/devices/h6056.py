@@ -1,9 +1,9 @@
 """Device handler for the Govee H6056 Flow Plus Light Bars."""
 
-from dataclasses import dataclass
+
+from govee_cli.scenes.effects import BuiltInScene
 
 
-@dataclass
 class SegmentLayout:
     """Physical segment layout for the H6056.
 
@@ -26,35 +26,6 @@ class SegmentLayout:
     DEFAULT_ORDER = list(range(COUNT))
 
 
-class BuiltInScene:
-    """Mapping of built-in scene IDs to their names.
-
-    These IDs are derived from community captures of the Govee app.
-    They MUST be verified against a real BLE capture from the H6056
-    before use.
-    """
-
-    # Placeholder scenes — IDs are unverified
-    SCENES = {
-        1: "Sunrise",
-        2: "Sunset",
-        3: "Ocean",
-        4: "Forest",
-        5: "Party",
-        6: "Romance",
-        7: "Rainbow",
-        8: "Fireplace",
-        9: "Night Light",
-        10: "Reading",
-        # Add more as they are discovered
-    }
-
-    @classmethod
-    def get_name(cls, scene_id: int) -> str:
-        """Return scene name for an ID, or 'Unknown' if not known."""
-        return cls.SCENES.get(scene_id, f"Unknown ({scene_id})")
-
-
 class H6056:
     """Device handler for the Govee H6056 Flow Plus Light Bars.
 
@@ -64,11 +35,7 @@ class H6056:
     MODEL = "H6056"
     SEGMENT_COUNT = SegmentLayout.COUNT
     SEGMENT_MAP = SegmentLayout.SEGMENT_MAP
-    SCENES = BuiltInScene.SCENES
-
-    # The built-in scene method appears to work by writing a scene ID
-    # to the SCENE characteristic. The exact packet format is TBR.
-    SCENE_PACKET_FMT = "TBD after capture"
+    SCENES = {s.id: s.name for s in BuiltInScene.get_available_scenes()}
 
     def validate_segment_id(self, segment_id: int) -> None:
         """Raise ValueError if segment_id is invalid for this device."""

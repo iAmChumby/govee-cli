@@ -6,8 +6,8 @@ import click
 
 from govee_cli.ble import GoveeBLE
 from govee_cli.ble.protocol import encode_scene
-from govee_cli.devices.h6056 import BuiltInScene
 from govee_cli.exceptions import GoveeError
+from govee_cli.scenes.effects import BuiltInScene
 
 
 @click.command()
@@ -18,20 +18,34 @@ from govee_cli.exceptions import GoveeError
 def command(
     ctx: click.Context, scene_name: str, mac: str | None, adapter: str
 ) -> None:
-    """Play a built-in scene by name (e.g. ocean, fireplace)."""
+    """Play a built-in scene by name (e.g. ocean, fireplace).
+
+    Run 'govee-cli scene list' to see available scenes.
+    """
     mac = mac or ctx.obj.get("default_mac")
     if not mac:
         raise click.ClickException("No device MAC specified. Use --device or set default.")
 
-    scene = BuiltInScene.get_name(scene_name)
-    # TODO: look up scene ID once registry is built
-    raise click.ClickException(
-        f"Scene '{scene_name}' lookup not yet implemented — "
-        "GATT characteristics still need reverse engineering."
-    )
+    # Handle 'list' subcommand
+    if scene_name == "list":
+        scenes = BuiltInScene.get_available_scenes()
+        click.echo("Available built-in scenes:")
+        for s in scenes:
+            click.echo(f"  {s.id}: {s.name}")
+        return
+
+    # Look up scene by name
+    scene = BuiltInScene.get_by_name(scene_name)
+    if scene is None:
+        available = [s.name for s in BuiltInScene.get_available_scenes()]
+        raise click.ClickException(
+            f"Unknown scene: '{scene_name}'. Available: {', '.join(available)}"
+        )
 
     async def run() -> None:
-        pass  # placeholder
+        async with GoveeBLE(mac, adapter=adapter) as client:
+            await client.execute(encode_scene(scene.id))
+            click.echo(f"Playing scene: {scene.name}")
 
     try:
         asyncio.run(run())

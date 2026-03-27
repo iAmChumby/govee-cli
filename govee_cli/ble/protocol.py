@@ -9,9 +9,9 @@ derived from community research and must be verified against actual
 device captures before use.
 """
 
+import struct
 from dataclasses import dataclass
 from enum import Enum
-import struct
 
 
 # Govee GATT service and characteristic UUIDs (placeholder — TBD after sniffer)
@@ -32,6 +32,8 @@ class GoveeCharacteristic:
     BRIGHTNESS = "0000fff4-0000-1000-8000-00805f9b34fb"
     SCENE = "0000fff5-0000-1000-8000-00805f9b34fb"
     SEGMENT = "0000fff6-0000-1000-8000-00805f9b34fb"
+    MUSIC = "0000fff8-0000-1000-8000-00805f9b34fb"
+    EFFECT = "0000fff9-0000-1000-8000-00805f9b34fb"
     STATE = "0000fff7-0000-1000-8000-00805f9b34fb"  # Notification subscription
 
 

@@ -4,8 +4,6 @@ import pathlib
 
 import click
 
-from govee_cli.scenes.effects import Effect
-
 
 @click.command()
 @click.option("--file", "-f", type=click.Path(exists=True, path_type=pathlib.Path), required=True)

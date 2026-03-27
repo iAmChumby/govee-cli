@@ -4,7 +4,7 @@ import uuid
 
 import click
 
-from govee_cli.schedule.scheduler import add_rule, list_rules, remove_rule, ScheduleRule
+from govee_cli.schedule.scheduler import ScheduleRule, add_rule, list_rules, remove_rule
 
 
 @click.group()
@@ -33,7 +33,7 @@ def list() -> None:
 @click.option("--command", required=True, help="Command to run (e.g. 'power on')")
 def add(name: str, time_str: str, days: str, command: str) -> None:
     """Add a new schedule rule."""
-    rule = add_rule(
+    add_rule(
         ScheduleRule(
             id=str(uuid.uuid4())[:8],
             name=name,
