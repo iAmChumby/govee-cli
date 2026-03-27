@@ -43,21 +43,18 @@ govee-cli --device D0:C9:07:FE:B6:F0 temp 4000
 
 ## Status
 
-**⚠️ Actively in development.** GATT characteristics need to be verified with a BLE sniffer before most commands will work. See [Reverse Engineering Notes](#reverse-engineering) below.
+**⚠️ Actively in development.** The GATT characteristics and packet formats are placeholders from community research — they need to be verified with a BLE sniffer before the actual light commands will work.
 
-Implemented:
-- ✅ Project scaffolding
-- ✅ Protocol encoder (placeholders for GATT UUIDs)
-- ✅ Command CLI stubs
-- ✅ BLE scanner
-- ✅ Unit tests for protocol encoder
+**Verified working:**
+- ✅ BLE device scanning (`govee-cli scan`) — tested against real H6056
+- ✅ Protocol encoder unit tests (23/23 passing)
+- ✅ CLI registration (all 14 commands)
+- ✅ bleak 3.0 API compatibility
 
-Not yet implemented:
-- ⏳ GATT characteristic verification (requires BLE capture)
-- ⏳ Scene replay
-- ⏳ DIY effects
-- ⏳ Music sync
-- ⏳ Scheduling daemon
+**Needs GATT verification before use:**
+- ⏳ All light control commands (power, color, brightness, temp, segments, scene)
+- ⏳ Built-in scene IDs
+- ⏳ DIY effect playback
 
 ## Reverse Engineering
 

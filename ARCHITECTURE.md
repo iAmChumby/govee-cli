@@ -149,6 +149,19 @@ govee-cli/
         └── ci.yml
 ```
 
+## BLE API Notes (bleak 3.0)
+
+**bleak 3.0 changed the API significantly from 0.x:**
+
+- `BLEDevice.rssi` and `BLEDevice.metadata` — **removed**. RSSI and ManufacturerData now live in `device.details['props']`
+- `start_notify` callback signature — **changed** from `(handle: int, data: bytes)` to `(char: BleakGATTCharacteristic, data: bytearray) → None`
+- `BleakScanner.discover(timeout)` — still works, returns list of `BLEDevice`
+
+Always verify against installed version:
+```bash
+pip show bleak | grep Version
+```
+
 ## Dependencies
 - `bleak` — BLE GATT client
 - `click` — CLI framework
