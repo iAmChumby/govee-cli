@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: |
+          pip install -e ".[dev]"
+
+      - name: Run tests
+        run: pytest --cov=govee_cli --cov-report=term-missing
+
+      - name: Type check
+        run: mypy govee_cli
+
+      - name: Lint
+        run: ruff check govee_cli
+
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          python-version: "3.10"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install bleak for scan test
+        run: pip install bleak>=0.21.0
+      - name: Smoke test — help
+        run: python -m govee_cli --help
