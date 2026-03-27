@@ -4,6 +4,23 @@ This project follows a structured development methodology. Read this before maki
 
 ---
 
+## Required Skills for This Project
+
+Load these from `~/.openclaw/workspace/skills/` before the corresponding phase:
+
+| Phase | Skill | When to load |
+|-------|-------|--------------|
+| **All feature work** | **`subagent-driven-development`** | Golden standard — one implementer per task, two-stage review (spec → quality) after each |
+| GUI work | **`frontend-design`** | Before touching UI components, styling, or visual layouts |
+| Any bug / test failure | **`systematic-debugging`** | Before proposing any fix — investigate root cause first |
+| Any new feature (TDD) | **`test-driven-development`** | Before writing production code — write test first |
+| Before claiming done | **`verification-before-completion`** | Before committing or PRing — run full gate, evidence before claims |
+| Feature complete | **`finishing-a-development-branch`** | When all tasks done — verify tests, present merge/PR/keep options |
+
+> Skills live at `~/.openclaw/workspace/skills/<skill-name>/SKILL.md`. Read the full skill file before starting the phase.
+
+---
+
 ## The Iron Rules
 
 > **NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE**
