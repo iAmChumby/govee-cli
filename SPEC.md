@@ -195,16 +195,19 @@ Local scheduling engine (no cloud dependency).
 | Project scaffolding | ✅ Done | `pyproject.toml`, CI, venv setup |
 | BLE scanner | ✅ Done | bleak 3.0 API verified against real device |
 | BLE GATT client | ✅ Done | bleak 3.0 API — connection, write, notify |
-| Protocol encoder | ✅ Done | Unit tests passing (23/23) |
-| CLI commands (power, color, brightness, temp, segments, scan, info) | ✅ Done | Working — device found at `DD:6E:86:46:44:0C` |
-| CLI commands (scene, record, replay, effect, music, schedule, group) | ⏳ Stub | Stub implementations — require GATT verification |
-| GATT characteristic UUIDs | ⚠️ Placeholder | UUIDs in `ble/protocol.py` are guesses from community research. **Must verify with BLE sniffer before use** |
-| GATT packet formats | ⚠️ Placeholder | Packet structure (0x33 prefix, checksum) derived from community research. **Must verify with capture** |
-| Built-in scene registry | ⚠️ Unverified | Scene IDs in `effects.py` and `h6056.py` are community guesses. **Must verify with capture** |
-| DIY effects | ✅ Format defined | Parser and format complete; playback requires GATT verification |
+| Protocol encoder | ✅ Done | Unit tests passing (26/26) |
+| CLI commands (power, color, brightness, temp, segments, scan, info) | ✅ Done | Connected to BLE layer; needs GATT verification |
+| CLI commands (scene, record, replay, effect, music) | ⏳ Stub | Require GATT verification before use |
+| Config file | ✅ Done | `~/.config/govee-cli/config.json` — default MAC, adapter, groups |
+| Groups | ✅ Done | Create, list, run commands across devices in parallel |
+| Daemon mode | ✅ Done | `govee-cli daemon [--once]` — scheduler as background process |
+| Shell completion | ✅ Done | bash/zsh/fish/powershell via `govee-cli completion` |
+| Built-in scene registry | ⚠️ Unverified | Scene IDs are community guesses. **Must verify with capture** |
+| DIY effects | ✅ Format defined | Parser + JSON format done; playback needs GATT verification |
 | Music sync | ⏳ Not started | Requires audio analysis library + GATT research |
-| Scheduling daemon | ✅ Engine done | Rule engine works; daemon mode not yet wired up |
-| Groups | ⏳ Stub only | Config format not defined |
+| Scheduling engine | ✅ Done | Full CRUD, JSON persistence, daemon mode wired up |
+| GATT characteristic UUIDs | ⚠️ Placeholder | UUIDs in `ble/protocol.py` are community research placeholders. **Must verify with BLE sniffer** |
+| GATT packet formats | ⚠️ Placeholder | Packet structure (0x33 prefix, checksum) derived from community research. **Must verify with capture** |
 
 **Next critical step:** BLE capture to verify GATT UUIDs and packet formats.
 

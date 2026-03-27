@@ -57,6 +57,9 @@ Click command groups. Each command in its own file:
 - `group.py`
 - `scan.py`
 - `info.py`
+- `daemon.py`
+- `config_cmd.py`
+- `completion.py`
 
 ### `govee_cli/scenes/capture.py`
 BLE packet capture utility:
@@ -71,7 +74,13 @@ Built-in scene library + DIY parser.
 Simple scheduler:
 - Rules stored in `~/.config/govee-cli/schedule.json`
 - APScheduler for timing
-- Runs as part of the CLI (daemon mode: `govee-cli serve`)
+- Runs as part of the CLI (daemon mode: `govee-cli daemon`)
+
+### `govee_cli/config.py`
+Global config file:
+- Stored at `~/.config/govee-cli/config.json`
+- Holds default MAC, adapter, timeout, brightness, color, and device groups
+- Loaded on every CLI invocation and injected into command context
 
 ### `govee_cli/cli.py`
 Click root group. Global options, command discovery.
@@ -119,6 +128,7 @@ govee-cli/
 │   ├── __init__.py
 │   ├── __main__.py
 │   ├── cli.py
+│   ├── config.py
 │   ├── exceptions.py
 │   ├── ble/
 │   │   ├── __init__.py
@@ -129,7 +139,7 @@ govee-cli/
 │   │   ├── __init__.py
 │   │   └── h6056.py
 │   ├── commands/
-│   │   └── (one file per command)
+│   │   └── (power, brightness, color, temp, segments, scene, record, replay, effect, music, schedule, group, scan, info, daemon, config_cmd, completion)
 │   ├── scenes/
 │   │   ├── __init__.py
 │   │   ├── effects.py
@@ -141,9 +151,12 @@ govee-cli/
 │   ├── __init__.py
 │   ├── test_protocol.py
 │   ├── test_commands.py
+│   ├── test_config.py
 │   └── (mocked BLE tests)
 ├── scenes/
-│   └── (built-in scene JSONs)
+│   ├── sunrise.json
+│   ├── ocean.json
+│   └── party.json
 └── .github/
     └── workflows/
         └── ci.yml
