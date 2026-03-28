@@ -11,6 +11,7 @@ from govee_cli.ble.protocol import (
     GoveeCharacteristic,
     LightState,
     build_packet,
+    build_query_packet,
     parse_state,
 )
 from govee_cli.exceptions import (
@@ -188,7 +189,7 @@ class GoveeBLE:
             raise ConnectionFailed("Not connected. Call connect() first.")
 
         notify_char = GoveeCharacteristic.NOTIFY
-        if self._client.get_characteristic(notify_char) is None:
+        if self._client.services.get_characteristic(notify_char) is None:
             raise ProtocolError("Notify characteristic not found on this device.")
 
         state_future: asyncio.Future[bytes] = asyncio.Future()
@@ -201,7 +202,12 @@ class GoveeBLE:
 
         try:
             await self._client.start_notify(notify_char, handler)
+            # Send query packet to prompt device to send its current state
+            await self._client.write_gatt_char(
+                GoveeCharacteristic.WRITE, build_query_packet(), response=True
+            )
             data = await asyncio.wait_for(state_future, timeout=self.timeout)
+            logger.debug("state_raw", hex=data.hex(" "), length=len(data))
             return parse_state(data)
         except asyncio.TimeoutError:
             raise TimeoutError("Device did not send state notification.") from None
@@ -212,6 +218,24 @@ class GoveeBLE:
                 await self._client.stop_notify(notify_char)
             except Exception:
                 pass
+
+    async def send(self, command: Command) -> None:
+        """
+        Send a command without waiting for acknowledgment.
+
+        Used for high-frequency updates like effect playback where waiting
+        for a NOTIFY response on every packet would be too slow.
+        """
+        if not self._client or not self._client.is_connected:
+            raise ConnectionFailed("Not connected. Call connect() first.")
+        packet = build_packet(command)
+        logger.debug("sending", command=command.type.name, packet=packet.hex())
+        try:
+            await self._client.write_gatt_char(
+                GoveeCharacteristic.WRITE, packet, response=False
+            )
+        except bleak.exc.BleakError as e:
+            raise ConnectionFailed(f"BLE error during send: {e}") from e
 
     def _verify_response(self, response: bytes, command: Command) -> bool:
         """Basic response verification — placeholder for now."""

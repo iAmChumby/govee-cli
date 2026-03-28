@@ -1,0 +1,13 @@
+{
+  "name": "Demo",
+  "description": "Simple red-to-blue crossfade on segment 0, good for testing effect playback",
+  "fps": 5,
+  "loop": true,
+  "segments": [
+    {"id": 0, "keyframes": [
+      {"t": 0,    "color": "FF0000"},
+      {"t": 2000, "color": "0000FF"},
+      {"t": 4000, "color": "FF0000"}
+    ]}
+  ]
+}

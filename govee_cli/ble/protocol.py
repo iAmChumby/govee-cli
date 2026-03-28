@@ -52,7 +52,7 @@ class LightState:
     """Current state of the light, read from the device."""
 
     power: bool = False
-    brightness: int = 0  # 0-100
+    brightness: int | None = None  # 0-100, None if device did not report it
     color: tuple[int, int, int] = (255, 255, 255)
     color_temp: int | None = None  # Kelvin, if in white mode
     segments: dict[int, tuple[int, int, int]] | None = None
@@ -158,6 +158,21 @@ def encode_segment(segment_id: int, r: int, g: int, b: int) -> Command:
     )
 
 
+def build_query_packet() -> bytes:
+    """
+    Build a Govee state query packet.
+
+    Uses the 0xAA header (keep-alive/query, distinct from the 0x33 command header).
+    Packet: [0xAA, 0x01, 0x00×17, XOR_checksum] = 20 bytes.
+    Confirmed format from community research (egold555, wez/govee-py).
+    """
+    frame = bytes([0xAA, 0x01]) + bytes(17)  # 19 bytes
+    checksum = 0
+    for b in frame:
+        checksum ^= b
+    return frame + bytes([checksum])  # 20 bytes, checksum = 0xAA ^ 0x01 = 0xAB
+
+
 def build_packet(command: Command) -> bytes:
     """
     Build a complete Govee BLE packet from a Command.
@@ -182,22 +197,30 @@ def parse_state(data: bytes) -> LightState:
     """
     Parse device state notification into a LightState.
 
-    Format is TBD — placeholder that needs real captures via btmon.
+    Confirmed response format for 0xAA query:
+      aa 01 <power> <brightness?> ... (rest TBD — zeros on H6056)
+
+    Byte 0: 0xAA = query response header
+    Byte 1: 0x01 = state query type
+    Byte 2: power (0x01 = on, 0x00 = off)
+    Bytes 3+: brightness, color — format TBD (device reports zeros for now)
     """
     if len(data) < 1:
         raise ValueError(f"State data too short: {data!r}")
 
+    # 0xAA prefix = response to our state query
+    if data[0] == 0xAA and len(data) >= 3:
+        power = (data[2] & 0x01) == 1
+        brightness = data[3] if len(data) > 3 and data[3] > 0 else None
+        return LightState(power=power, brightness=brightness)
+
+    # Fallback for other notification formats (TBD)
     power_byte = data[0]
     brightness = data[1] if len(data) > 1 else 0
-
-    if len(data) >= 5:
-        r, g, b = data[2], data[3], data[4]
-    else:
-        r, g, b = 255, 255, 255
+    r, g, b = (data[2], data[3], data[4]) if len(data) >= 5 else (255, 255, 255)
 
     color_temp: int | None = None
     if len(data) >= 7:
-        # 2-byte LE Kelvin at bytes 5-6 (placeholder — needs verification)
         color_temp = struct.unpack("<H", data[5:7])[0]
 
     return LightState(

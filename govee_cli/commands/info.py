@@ -23,7 +23,8 @@ def command(ctx: click.Context, mac: str | None, adapter: str) -> None:
             state = await client.read_state()
             click.echo(f"Device: {mac}")
             click.echo(f"Power: {'On' if state.power else 'Off'}")
-            click.echo(f"Brightness: {state.brightness}%")
+            brightness_str = f"{state.brightness}%" if state.brightness is not None else "N/A (not reported by device)"
+            click.echo(f"Brightness: {brightness_str}")
             r, g, b = state.color
             click.echo(f"Color: #{r:02X}{g:02X}{b:02X}")
             if state.color_temp:
