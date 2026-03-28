@@ -7,7 +7,10 @@ from __future__ import annotations
 
 import json
 import pathlib
+import sys
 from dataclasses import dataclass, field
+
+_DEFAULT_ADAPTER = "hci0" if sys.platform == "linux" else None
 
 
 @dataclass
@@ -15,7 +18,7 @@ class GoveeConfig:
     """govee-cli configuration."""
 
     default_mac: str | None = None
-    default_adapter: str = "hci0"
+    default_adapter: str | None = _DEFAULT_ADAPTER
     default_timeout: float = 10.0
     default_brightness: int | None = None
     default_color: str | None = None  # RRGGGGBB hex
@@ -35,7 +38,7 @@ def load_config() -> GoveeConfig:
 
     return GoveeConfig(
         default_mac=raw.get("default_mac"),
-        default_adapter=raw.get("default_adapter", "hci0"),
+        default_adapter=raw.get("default_adapter", _DEFAULT_ADAPTER),
         default_timeout=raw.get("default_timeout", 10.0),
         default_brightness=raw.get("default_brightness"),
         default_color=raw.get("default_color"),

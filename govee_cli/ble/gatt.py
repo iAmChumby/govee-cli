@@ -1,6 +1,7 @@
 """GATT client wrapper for Govee BLE devices."""
 
 import asyncio
+import sys
 from typing import Any
 
 import bleak
@@ -36,7 +37,7 @@ class GoveeBLE:
     def __init__(
         self,
         mac: str,
-        adapter: str = "hci0",
+        adapter: str | None = None,
         timeout: float = DEFAULT_TIMEOUT,
     ):
         self.mac = mac
@@ -59,9 +60,10 @@ class GoveeBLE:
             # we want to fall through to scan quickly rather than waiting the
             # full timeout.
             probe_timeout = min(3.0, self.timeout)
+            use_adapter = sys.platform == "linux" and bool(self.adapter)
             self._client = bleak.BleakClient(
                 self.mac,
-                adapter=self.adapter,
+                adapter=self.adapter if use_adapter else None,  # type: ignore[arg-type]
                 timeout=probe_timeout,
             )
             await self._client.connect()
@@ -77,7 +79,7 @@ class GoveeBLE:
                 ) from e
             self._client = bleak.BleakClient(
                 resolved,
-                adapter=self.adapter,
+                adapter=self.adapter if use_adapter else None,  # type: ignore[arg-type]
                 timeout=self.timeout,
             )
             await self._client.connect()
