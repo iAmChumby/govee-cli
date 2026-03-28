@@ -3,7 +3,7 @@
 [![CI](https://github.com/iAmChumby/govee-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/iAmChumby/govee-cli/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.11+-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Platform](https://img.shields.io/badge/platform-linux-lightgrey)
+![Platform](https://img.shields.io/badge/platform-linux%20%7C%20mac%20%7C%20windows-lightgrey)
 ![BLE](https://img.shields.io/badge/protocol-BLE%20%2F%20GATT-blueviolet)
 
 Control Govee smart lights from the terminal over BLE. No cloud, no app, no account.
@@ -19,7 +19,9 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -e .
 ```
 
-Python 3.11+ and a Bluetooth adapter required.
+Python 3.11+ and Bluetooth required (built-in or USB dongle both work).
+
+On Windows, use `py` instead of `python3` and activate with `.venv\Scripts\activate`.
 
 ## Quick Start
 
@@ -128,6 +130,8 @@ UUIDs confirmed via GATT dump on H6056:
 - **Notify:** `00010203-0405-0607-0809-0a0b0c0d2b10`
 
 Govee devices advertise under a random BLE address, not the static MAC. The CLI handles this automatically — configure with the MAC from the sticker and it resolves the address on each connection.
+
+The `--adapter` option (Linux only) lets you pick a specific `hciX` interface. On Mac and Windows it's ignored — bleak uses the system default.
 
 Full encoding details in `govee_cli/ble/protocol.py`.
 
