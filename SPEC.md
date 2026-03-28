@@ -186,3 +186,15 @@ GATT UUIDs (confirmed on H6056):
 | Shell completion | ✅ Done | bash / zsh / fish / powershell |
 | Record / replay | ⏳ Stub | Requires btmon capture session |
 | Music sync | ⏳ Not started | Requires audio library + protocol research |
+
+## References
+
+| Source | Contribution |
+|--------|-------------|
+| [wez/govee-py](https://github.com/wez/govee-py) | CCT encoding (big-endian Kelvin, `FF 89 12` magic bytes); `0xAA` state query format |
+| [egold555/Govee-Reverse-Engineering](https://github.com/egold555/Govee-Reverse-Engineering) | Packet structure (`0x33` + XOR), command bytes, MODE_1501 (H6053/H6127), scene code format (16-bit LE), `0xAA` query |
+| [Beshelmek/govee_ble_lights](https://github.com/Beshelmek/govee_ble_lights) | BLE protocol cross-reference |
+| [timniklas/hass-govee_light_ble](https://github.com/timniklas/hass-govee_light_ble) | BLE protocol cross-reference |
+| [BeauJBurroughs/Govee-H6127-Reverse-Engineering](https://github.com/BeauJBurroughs/Govee-H6127-Reverse-Engineering) | H6127 protocol reference |
+| Govee public API | Real H6056 scene codes and metadata |
+| H6056 hardware GATT dump | GATT service/characteristic UUIDs confirmed on real device |

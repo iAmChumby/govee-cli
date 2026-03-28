@@ -130,6 +130,19 @@ Confirmed working on **H6056 Flow Plus** (6 segments, RGBICWW).
 
 Other Govee BLE devices will likely work for basic commands (power, brightness, color). Segmented effects are H6056-specific. If you test another model, open an issue with your findings.
 
+## Acknowledgements
+
+This project wouldn't exist without the people who did the hard work of reverse engineering the Govee BLE protocol and publishing their findings:
+
+- **[wez/govee-py](https://github.com/wez/govee-py)** — CCT/white temperature encoding: big-endian Kelvin with fixed `FF 89 12` CCT magic bytes; `0xAA` state query packet format
+- **[egold555/Govee-Reverse-Engineering](https://github.com/egold555/Govee-Reverse-Engineering)** — packet structure (`0x33` command header, XOR checksum, 20-byte total); command type bytes; MODE_1501 segment format from H6053/H6127 (extrapolated to H6056); scene code encoding (16-bit little-endian); `0xAA` state query
+- **[Beshelmek/govee_ble_lights](https://github.com/Beshelmek/govee_ble_lights)** — BLE protocol cross-reference
+- **[timniklas/hass-govee_light_ble](https://github.com/timniklas/hass-govee_light_ble)** — BLE protocol cross-reference
+- **[BeauJBurroughs/Govee-H6127-Reverse-Engineering](https://github.com/BeauJBurroughs/Govee-H6127-Reverse-Engineering)** — H6127 protocol reference
+- **Govee public API** (`govee-public.s3.amazonaws.com`) — real H6056 scene codes and scene metadata
+
+The GATT service/characteristic UUIDs and final packet formats were confirmed against a real H6056 device.
+
 ## Development
 
 ```bash
