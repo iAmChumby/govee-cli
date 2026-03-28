@@ -2,7 +2,7 @@
 
 ## What
 
-A CLI tool to control Govee smart lights over Bluetooth Low Energy (BLE). No cloud, no internet required.
+CLI tool to control Govee smart lights over BLE. No cloud, no internet.
 
 ## Device
 

@@ -1,22 +1,12 @@
 # Architecture
 
-## Design Principles
-
-1. **BLE only** — no WiFi, no cloud, no internet
-2. **Offline-first** — scheduling and effects run entirely locally
-3. **Single connection per command** — connect, send, disconnect; no persistent daemon for basic commands
-4. **Layered** — CLI → Commands → BLE abstraction → Protocol → Device
-
-## Stack
+BLE only. No cloud, no WiFi, no persistent daemon for basic commands. Each command connects, sends, and disconnects.
 
 ```
-CLI (click)
-  └── commands/        one file per command
-        └── ble/gatt.py      BleakClient wrapper
-              └── ble/protocol.py   packet encoding/decoding
+CLI → Commands → BLE abstraction → Protocol → Device
 ```
 
-## Module Reference
+## Modules
 
 ### `govee_cli/cli.py`
 
@@ -84,11 +74,9 @@ govee-cli color FF5500
 
 ## Connection Strategy
 
-The H6056 (and many Govee devices) advertise under a **random BLE address** rather than the static MAC printed on the device. BlueZ often doesn't cache the mapping.
+Govee devices advertise under a random BLE address, not the static MAC on the sticker. BlueZ doesn't cache the mapping.
 
-`GoveeBLE.connect()` handles this with a two-phase approach:
-1. Try connecting to the configured static MAC with a 3s probe timeout
-2. On "not found": scan for devices whose name contains "Govee", prefer one whose name suffix matches the last 4 hex digits of the configured MAC
+`GoveeBLE.connect()` tries the static MAC first with a 3s probe timeout. On "not found" it scans for any device with "Govee" in the name, preferring one whose name suffix matches the last 4 hex digits of the configured MAC.
 
 ## Effect Playback
 
