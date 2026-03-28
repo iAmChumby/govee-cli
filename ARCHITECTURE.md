@@ -1,183 +1,111 @@
 # Architecture
 
-## Core Design Principles
+## Design Principles
+
 1. **BLE only** — no WiFi, no cloud, no internet
-2. **Offline-first** — all scheduling and effects run locally
-3. **Progressive discovery** — GATT characteristics discovered via BLE sniffer, not guessed
+2. **Offline-first** — scheduling and effects run entirely locally
+3. **Single connection per command** — connect, send, disconnect; no persistent daemon for basic commands
 4. **Layered** — CLI → Commands → BLE abstraction → Protocol → Device
 
-## Module Map
+## Stack
 
-### `govee_cli/`
-Top-level package.
+```
+CLI (click)
+  └── commands/        one file per command
+        └── ble/gatt.py      BleakClient wrapper
+              └── ble/protocol.py   packet encoding/decoding
+```
 
-### `govee_cli/ble/gatt.py`
-Wraps `bleak.BleakClient`. Provides:
-- `connect(mac)` / `disconnect()`
-- `write_command(handle, data)` — raw GATT write
-- `read_state()` — poll current light state
-- `subscribe(handle, callback)` — listen for notifications
-- `execute(command: Command) -> bool` — encode and send a command
-
-### `govee_cli/ble/protocol.py`
-Govee proprietary protocol:
-- Command type enum (power, color, temp, scene, etc.)
-- Per-device GATT UUID map (filled in after reverse engineering)
-- Packet encoder: `Command → bytes`
-- Packet decoder: `bytes → State`
-
-### `govee_cli/ble/scanner.py`
-Wrapper around `bleak.BleakScanner`:
-- `scan(timeout=5) → list[dict]` — discover Govee devices
-- Filters for Govee manufacturer prefix
-
-### `govee_cli/devices/__init__.py`
-Device registry. Maps model name → device handler class.
-
-### `govee_cli/devices/h6056.py`
-H6056-specific:
-- `SEGMENT_COUNT = 6`
-- `SEGMENT_MAP` — physical segment layout
-- Scene ID → effect mapping
-- Custom characteristic overrides if any
-
-### `govee_cli/commands/`
-Click command groups. Each command in its own file:
-- `power.py`
-- `brightness.py`
-- `color.py`
-- `temp.py`
-- `segments.py`
-- `scene.py`
-- `record.py`
-- `replay.py`
-- `effect.py`
-- `music.py`
-- `schedule.py`
-- `group.py`
-- `scan.py`
-- `info.py`
-- `daemon.py`
-- `config_cmd.py`
-- `completion.py`
-
-### `govee_cli/scenes/capture.py`
-BLE packet capture utility:
-- Sniffs writes from Govee app
-- Stores raw packets to JSON
-- Outputs `scenes/` format
-
-### `govee_cli/scenes/effects.py`
-Built-in scene library + DIY parser.
-
-### `govee_cli/schedule/scheduler.py`
-Simple scheduler:
-- Rules stored in `~/.config/govee-cli/schedule.json`
-- APScheduler for timing
-- Runs as part of the CLI (daemon mode: `govee-cli daemon`)
-
-### `govee_cli/config.py`
-Global config file:
-- Stored at `~/.config/govee-cli/config.json`
-- Holds default MAC, adapter, timeout, brightness, color, and device groups
-- Loaded on every CLI invocation and injected into command context
+## Module Reference
 
 ### `govee_cli/cli.py`
-Click root group. Global options, command discovery.
+
+Click root group. Loads config on every invocation and injects `default_mac`, `default_adapter`, `default_timeout` into `ctx.obj`. All commands registered here via `main.add_command()`.
+
+### `govee_cli/config.py`
+
+`GoveeConfig` dataclass backed by `~/.config/govee-cli/config.json`. Holds default MAC, adapter, timeout, and device groups (`{name: [mac, ...]}`). Loaded once per invocation.
+
+### `govee_cli/ble/protocol.py`
+
+Core protocol layer. All GATT UUIDs and packet formats confirmed via hardware dump on H6056.
+
+- `encode_*(...)` — return `Command` objects
+- `build_packet(cmd)` — produces final 20-byte BLE packet: `[0x33][cmd_type][18-byte payload][XOR checksum]`
+- `build_query_packet()` — 0xAA state query
+- `parse_state(data)` — decodes 0xAA response (power only; H6056 returns zeros for brightness/color)
+
+### `govee_cli/ble/gatt.py`
+
+Wraps `bleak.BleakClient`.
+
+- `connect()` — tries static MAC first; falls back to scan-and-resolve if not found (handles random BLE address)
+- `execute(command)` — writes to WRITE char, subscribes to NOTIFY, awaits ACK
+- `send(command)` — fire-and-forget write (no ACK wait; used by effect playback)
+- `read_state()` — subscribes to NOTIFY, sends query packet, awaits notification
+- `disconnect()` / async context manager
+
+### `govee_cli/ble/scanner.py`
+
+Wraps `bleak.BleakScanner`. Returns devices filtered by Govee name prefix, with RSSI from `AdvertisementData` (bleak 3.0 API).
+
+### `govee_cli/devices/h6056.py`
+
+H6056 constants: `SEGMENT_COUNT = 6`, `SEGMENT_MAP`, scene name → ID map.
+
+### `govee_cli/commands/`
+
+One file per CLI command. Each exports a `command` object registered in `cli.py`. Commands read `default_mac` from `ctx.obj` and accept `--device` to override.
+
+### `govee_cli/scenes/effects.py`
+
+- `Effect` / `SegmentKeyframes` / `ColorKeyframe` — dataclasses for the DIY effect format
+- `BuiltInScene` — 27 H6056 scene codes sourced from Govee API
+
+### `govee_cli/scenes/capture.py`
+
+BLE packet sniffer (stub). Subscribes to NOTIFY and records packets for `replay`. Requires btmon capture session to be useful.
+
+### `govee_cli/schedule/scheduler.py`
+
+`ScheduleRule` dataclass persisted to `~/.config/govee-cli/schedule.json`. `SchedulerDaemon` runs an asyncio loop, wakes every 30s, fires rules matching the current `HH:MM` + day-of-week.
 
 ## Data Flow
 
 ```
-User: govee-cli color FF5500
-  → commands/color.py (parses and validates)
-  → ble/gatt.py: execute(COMMAND.COLOR)
-  → ble/protocol.py: encode(COLOR, "FF5500") → bytes
-  → bleak: write to device GATT handle
-  → wait for acknowledgment notification
-  → return success/failure
+govee-cli color FF5500
+  → commands/color.py        parse + validate hex
+  → ble/gatt.py execute()    build packet, write to WRITE char
+  → ble/protocol.py          encode_color_hex() → Command → build_packet() → bytes
+  → bleak                    write_gatt_char(WRITE, packet, response=True)
+  → device notify             notification_handler sets response_future
+  → return True
 ```
 
-## State Management
-No persistent daemon by default. Each command:
-1. Connects
-2. Sends command
-3. Reads response
-4. Disconnects
+## Connection Strategy
 
-For multi-command sequences (scenes, effects), connection persists.
+The H6056 (and many Govee devices) advertise under a **random BLE address** rather than the static MAC printed on the device. BlueZ often doesn't cache the mapping.
 
-## Error Handling
-- `DeviceNotFound` — BLE scan found nothing
-- `ConnectionFailed` — couldn't connect to MAC
-- `TimeoutError` — device didn't respond
-- `ProtocolError` — unexpected response bytes
-- `UnsupportedDevice` — unknown device model
+`GoveeBLE.connect()` handles this with a two-phase approach:
+1. Try connecting to the configured static MAC with a 3s probe timeout
+2. On "not found": scan for devices whose name contains "Govee", prefer one whose name suffix matches the last 4 hex digits of the configured MAC
 
-All wrapped in a custom exception hierarchy under `govee_cli.exceptions`.
+## Effect Playback
 
-## File Layout
-```
-govee-cli/
-├── SPEC.md
-├── ARCHITECTURE.md
-├── README.md
-├── pyproject.toml
-├── requirements.txt
-├── requirements-dev.txt
-├── govee_cli/
-│   ├── __init__.py
-│   ├── __main__.py
-│   ├── cli.py
-│   ├── config.py
-│   ├── exceptions.py
-│   ├── ble/
-│   │   ├── __init__.py
-│   │   ├── gatt.py
-│   │   ├── protocol.py
-│   │   └── scanner.py
-│   ├── devices/
-│   │   ├── __init__.py
-│   │   └── h6056.py
-│   ├── commands/
-│   │   └── (power, brightness, color, temp, segments, scene, record, replay, effect, music, schedule, group, scan, info, daemon, config_cmd, completion)
-│   ├── scenes/
-│   │   ├── __init__.py
-│   │   ├── effects.py
-│   │   └── capture.py
-│   └── schedule/
-│       ├── __init__.py
-│       └── scheduler.py
-├── tests/
-│   ├── __init__.py
-│   ├── test_protocol.py
-│   ├── test_commands.py
-│   ├── test_config.py
-│   └── (mocked BLE tests)
-├── scenes/
-│   ├── sunrise.json
-│   ├── ocean.json
-│   └── party.json
-└── .github/
-    └── workflows/
-        └── ci.yml
-```
+Effects use `GoveeBLE.send()` (fire-and-forget, `response=False`) rather than `execute()` to avoid waiting for a NOTIFY ACK on every frame. The player interpolates colors between keyframes and sends one segment command per segment per frame, sleeping for `1000/fps - elapsed_ms` between frames. Practical throughput is ~10–15 fps for multi-segment effects due to BLE connection interval limits.
 
-## BLE API Notes (bleak 3.0)
+## bleak 3.0 API Notes
 
-**bleak 3.0 changed the API significantly from 0.x:**
-
-- `BLEDevice.rssi` and `BLEDevice.metadata` — **removed**. RSSI and ManufacturerData now live in `device.details['props']`
-- `start_notify` callback signature — **changed** from `(handle: int, data: bytes)` to `(char: BleakGATTCharacteristic, data: bytearray) → None`
-- `BleakScanner.discover(timeout)` — still works, returns list of `BLEDevice`
-
-Always verify against installed version:
-```bash
-pip show bleak | grep Version
-```
+- `BLEDevice.rssi` / `.metadata` removed — RSSI and ManufacturerData now in `adv.rssi` / `adv.manufacturer_data` on `AdvertisementData`
+- `BleakScanner.discover(return_adv=True)` returns `dict[str, tuple[BLEDevice, AdvertisementData]]`
+- `start_notify` callback: `(char: BleakGATTCharacteristic, data: bytearray) → None`
+- `services.get_characteristic(uuid)` on the client (not `client.get_characteristic`)
 
 ## Dependencies
-- `bleak` — BLE GATT client
-- `click` — CLI framework
-- `APScheduler` — scheduling
-- `pydantic` — config/state validation
-- `structlog` — structured logging
+
+| Package | Purpose |
+|---------|---------|
+| `bleak` | BLE GATT client |
+| `click` | CLI framework |
+| `structlog` | Structured logging |
+| `APScheduler` | Schedule timing (used by daemon) |
