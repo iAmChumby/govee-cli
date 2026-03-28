@@ -84,13 +84,15 @@ class TestEncodeTemp:
     def test_warm_white(self) -> None:
         cmd = encode_temp(2700)
         assert cmd.type == CommandType.LIGHT_CONTROL
-        # Mode byte 0x05 + LE uint16: 2700 = 0x0A8C → bytes [0x8C, 0x0A]
-        assert cmd.payload == bytes([0x05, 0x8C, 0x0A])
+        # MODE_1501 CCT: 2700K = 0x0A8C big-endian → hi=0x0A, lo=0x8C
+        assert cmd.payload[:7] == bytes([0x15, 0x01, 0xFF, 0xFF, 0xFF, 0x0A, 0x8C])
+        assert cmd.payload[7:10] == bytes([0xFF, 0x89, 0x12])  # CCT magic bytes
 
     def test_cool_white(self) -> None:
         cmd = encode_temp(6500)
-        # Mode byte 0x05 + LE uint16: 6500 = 0x1964 → bytes [0x64, 0x19]
-        assert cmd.payload == bytes([0x05, 0x64, 0x19])
+        # 6500K = 0x1964 big-endian → hi=0x19, lo=0x64
+        assert cmd.payload[:7] == bytes([0x15, 0x01, 0xFF, 0xFF, 0xFF, 0x19, 0x64])
+        assert cmd.payload[7:10] == bytes([0xFF, 0x89, 0x12])
 
     def test_too_low(self) -> None:
         with pytest.raises(ValueError, match="2700-6500"):

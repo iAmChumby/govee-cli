@@ -109,23 +109,31 @@ def encode_temp(kelvin: int) -> Command:
     """
     Encode a white color temperature command (2700-6500 K).
 
-    NOTE: Mode byte (0x05) and Kelvin encoding are unverified for H6056.
-    Needs confirmation via btmon capture.
+    Confirmed format for MODE_1501 RGBICWW devices (wez/govee-py + egold555/H6053):
+    33 05 15 01 FF FF FF <kelvin_hi> <kelvin_lo> FF 89 12 FF FF [zeros] XOR
+
+    Kelvin is big-endian. FF 89 12 are fixed CCT magic bytes. FF FF = all segments.
     """
     if not 2700 <= kelvin <= 6500:
         raise ValueError(f"Color temp must be 2700-6500 K, got {kelvin}")
-    # Placeholder: mode 0x05, Kelvin as 2-byte LE — format TBD after capture
-    return Command(CommandType.LIGHT_CONTROL, bytes([0x05]) + struct.pack("<H", kelvin))
+    kelvin_hi = (kelvin >> 8) & 0xFF
+    kelvin_lo = kelvin & 0xFF
+    return Command(
+        CommandType.LIGHT_CONTROL,
+        bytes([0x15, 0x01, 0xFF, 0xFF, 0xFF, kelvin_hi, kelvin_lo, 0xFF, 0x89, 0x12, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00]),
+    )
 
 
-def encode_scene(scene_id: int) -> Command:
+def encode_scene(scene_code: int) -> Command:
     """
     Encode a built-in scene command.
 
-    Packet: 33 05 04 <scene_id> [zeros] XOR
-    Scene IDs are device-specific and unverified for H6056.
+    Scene codes are 16-bit little-endian (confirmed via Govee API + egold555):
+    Packet: 33 05 04 <code_lo> <code_hi> [zeros] XOR
+
+    Use real H6056 scene codes from BuiltInScene — not sequential IDs.
     """
-    return Command(CommandType.LIGHT_CONTROL, bytes([0x04, scene_id]))
+    return Command(CommandType.LIGHT_CONTROL, bytes([0x04]) + struct.pack("<H", scene_code))
 
 
 def encode_segment(segment_id: int, r: int, g: int, b: int) -> Command:

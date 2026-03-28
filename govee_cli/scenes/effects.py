@@ -78,18 +78,48 @@ class BuiltInScene:
 
     @staticmethod
     def get_available_scenes() -> list["BuiltInScene"]:
-        """Return the full built-in scene library."""
+        """
+        Return the H6056 built-in scene library.
+
+        Scene codes sourced from the Govee API (sku=H6056) and confirmed
+        via egold555/Govee-Reverse-Engineering. Codes are 16-bit values
+        encoded little-endian in the BLE packet.
+
+        Scenes marked with * require the multi-packet 0xA3 protocol
+        (hasSpecialEffect=YES) and are not yet supported.
+        """
         return [
-            BuiltInScene(1, "Sunrise", "Gradual warm white ramp"),
-            BuiltInScene(2, "Sunset", "Gradual warm-to-cool fade"),
-            BuiltInScene(3, "Ocean", "Blue waves with subtle brightness oscillation"),
-            BuiltInScene(4, "Forest", "Green hues with gentle pulsing"),
-            BuiltInScene(5, "Party", "Multi-color strobe effect"),
-            BuiltInScene(6, "Romance", "Soft red/pink oscillation"),
-            BuiltInScene(7, "Rainbow", "Full spectrum cycling"),
-            BuiltInScene(8, "Fireplace", "Warm orange flicker"),
-            BuiltInScene(9, "Night Light", "Dim warm white"),
-            BuiltInScene(10, "Reading", "Bright neutral white"),
+            # Natural
+            BuiltInScene(0x18, "Aurora",        "Natural aurora effect"),
+            BuiltInScene(0x0F, "Snowflake",      "Cool blue snowflake pattern"),
+            BuiltInScene(0x1D, "Seasonal",       "Seasonal color cycling"),
+            BuiltInScene(0x1E, "Stream",         "Flowing stream effect"),
+            BuiltInScene(0x16, "Rainbow",        "Full spectrum cycling"),
+            BuiltInScene(0x0989, "Bloom",        "Blooming color effect"),
+            # Life
+            BuiltInScene(0x0D, "Reading",        "Bright neutral white"),
+            BuiltInScene(0x04, "Movie",          "Dim warm cinema mode"),
+            BuiltInScene(0x09, "Candlelight",    "Warm orange flicker"),
+            BuiltInScene(0x07, "Romantic",       "Soft red/pink oscillation"),
+            BuiltInScene(0x0A, "Breathe",        "Slow breathing pulse"),
+            BuiltInScene(0x10, "Energetic",      "Vibrant multi-color"),
+            BuiltInScene(0x098A, "Party",        "Multi-color strobe"),
+            BuiltInScene(0x098B, "Siren",        "Emergency siren flash"),
+            BuiltInScene(0x098E, "Asleep",       "Gentle sleep fade"),
+            # Funny
+            BuiltInScene(0x15, "Crossing",       "Crossing color beams"),
+            BuiltInScene(0x098F, "Glitter",      "Sparkling glitter effect"),
+            BuiltInScene(0x0990, "Fright",       "Spooky flickering"),
+            BuiltInScene(0x0991, "Drumbeat",     "Beat-synced pulse"),
+            # Movie watching
+            BuiltInScene(0x0A61, "Literary",     "Warm tone for reading"),
+            BuiltInScene(0x0A62, "Sci-Fi",       "Cool blue sci-fi mode"),
+            BuiltInScene(0x0A63, "Romance",      "Soft pink romance mode"),
+            BuiltInScene(0x0A64, "War",          "Intense red/orange"),
+            BuiltInScene(0x0A65, "Comedy",       "Bright cheerful colors"),
+            BuiltInScene(0x0A66, "Documentary",  "Neutral daylight tone"),
+            BuiltInScene(0x0A67, "Action",       "High-contrast fast flash"),
+            BuiltInScene(0x0A68, "Suspense",     "Dark slow pulse"),
         ]
 
     @staticmethod
