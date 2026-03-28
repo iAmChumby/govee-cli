@@ -37,8 +37,7 @@ class CapturedPacket:
 class CaptureSession:
     """Records BLE writes and notifications to a file."""
 
-    # Placeholder — must be verified with BLE sniffer
-    STATE_CHAR = "0000fff7-0000-1000-8000-00805f9b34fb"
+    STATE_CHAR = "00010203-0405-0607-0809-0a0b0c0d2b10"  # GoveeCharacteristic.NOTIFY
 
     def __init__(self, output_path: Path):
         self.output_path = output_path

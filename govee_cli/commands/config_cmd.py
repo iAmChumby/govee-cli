@@ -9,10 +9,10 @@ from govee_cli.config import GoveeConfig, load_config, save_config
 
 @click.command()
 @click.option("--mac", "default_mac", help="Default device MAC address")
-@click.option("--adapter", help="Default Bluetooth adapter (e.g. hci0)")
-@click.option("--timeout", type=float, help="Default BLE timeout in seconds")
-@click.option("--brightness", type=int, help="Default brightness 0-100")
-@click.option("--color", help="Default color as RRGGBB hex")
+@click.option("--adapter", "default_adapter", help="Default Bluetooth adapter (e.g. hci0)")
+@click.option("--timeout", "default_timeout", type=float, help="Default BLE timeout in seconds")
+@click.option("--brightness", "default_brightness", type=int, help="Default brightness 0-100")
+@click.option("--color", "default_color", help="Default color as RRGGBB hex")
 @click.option("--show", "show_only", is_flag=True, help="Show current config and exit")
 def command(
     default_mac: str | None,

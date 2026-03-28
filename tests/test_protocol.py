@@ -45,15 +45,17 @@ class TestEncodeBrightness:
 class TestEncodeColor:
     def test_black(self) -> None:
         cmd = encode_color(0, 0, 0)
-        assert cmd.payload == b"\x00\x00\x00"
+        assert cmd.type == CommandType.LIGHT_CONTROL
+        # MODE_1501: [0x15, 0x01, R, G, B, 0×5, 0xFF, 0xFF] — confirmed on H6056
+        assert cmd.payload == bytes([0x15, 0x01, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0, 0xFF, 0xFF])
 
     def test_white(self) -> None:
         cmd = encode_color(255, 255, 255)
-        assert cmd.payload == b"\xff\xff\xff"
+        assert cmd.payload == bytes([0x15, 0x01, 0xFF, 0xFF, 0xFF, 0, 0, 0, 0, 0, 0xFF, 0xFF])
 
     def test_orange(self) -> None:
         cmd = encode_color(255, 85, 0)
-        assert cmd.payload == b"\xff\x55\x00"
+        assert cmd.payload == bytes([0x15, 0x01, 0xFF, 0x55, 0x00, 0, 0, 0, 0, 0, 0xFF, 0xFF])
 
     def test_invalid_component_low(self) -> None:
         with pytest.raises(ValueError, match="0-255"):
@@ -67,11 +69,11 @@ class TestEncodeColor:
 class TestEncodeColorHex:
     def test_ff5500(self) -> None:
         cmd = encode_color_hex("FF5500")
-        assert cmd.payload == b"\xff\x55\x00"
+        assert cmd.payload == bytes([0x15, 0x01, 0xFF, 0x55, 0x00, 0, 0, 0, 0, 0, 0xFF, 0xFF])
 
     def test_with_hash_prefix(self) -> None:
         cmd = encode_color_hex("#FF5500")
-        assert cmd.payload == b"\xff\x55\x00"
+        assert cmd.payload == bytes([0x15, 0x01, 0xFF, 0x55, 0x00, 0, 0, 0, 0, 0, 0xFF, 0xFF])
 
     def test_invalid_length(self) -> None:
         with pytest.raises(ValueError, match="Invalid hex color"):
@@ -81,14 +83,14 @@ class TestEncodeColorHex:
 class TestEncodeTemp:
     def test_warm_white(self) -> None:
         cmd = encode_temp(2700)
-        assert cmd.type == CommandType.TEMP
-        # LE uint16: 2700 = 0x0A8C
-        assert cmd.payload == b"\x8c\x0a"
+        assert cmd.type == CommandType.LIGHT_CONTROL
+        # Mode byte 0x05 + LE uint16: 2700 = 0x0A8C → bytes [0x8C, 0x0A]
+        assert cmd.payload == bytes([0x05, 0x8C, 0x0A])
 
     def test_cool_white(self) -> None:
         cmd = encode_temp(6500)
-        # LE uint16: 6500 = 0x1964 → bytes are 0x64, 0x19
-        assert cmd.payload == b"\x64\x19"
+        # Mode byte 0x05 + LE uint16: 6500 = 0x1964 → bytes [0x64, 0x19]
+        assert cmd.payload == bytes([0x05, 0x64, 0x19])
 
     def test_too_low(self) -> None:
         with pytest.raises(ValueError, match="2700-6500"):
@@ -102,12 +104,18 @@ class TestEncodeTemp:
 class TestEncodeSegment:
     def test_valid(self) -> None:
         cmd = encode_segment(0, 255, 0, 0)
-        assert cmd.type == CommandType.SEGMENT
-        assert cmd.payload == b"\x00\xff\x00\x00"
+        assert cmd.type == CommandType.LIGHT_CONTROL
+        assert cmd.payload[:5] == bytes([0x15, 0x01, 0xFF, 0x00, 0x00])
+        # segment 0 = bit 0 of byte 10: mask = 0x0001 → lo=0x01, hi=0x00
+        assert cmd.payload[10] == 0x01
+        assert cmd.payload[11] == 0x00
 
     def test_max_segment(self) -> None:
         cmd = encode_segment(15, 0, 255, 0)
-        assert cmd.payload == b"\x0f\x00\xff\x00"
+        assert cmd.payload[:5] == bytes([0x15, 0x01, 0x00, 0xFF, 0x00])
+        # segment 15 = bit 15: mask = 0x8000 → lo=0x00, hi=0x80
+        assert cmd.payload[10] == 0x00
+        assert cmd.payload[11] == 0x80
 
     def test_invalid_segment_negative(self) -> None:
         with pytest.raises(ValueError, match="0-15"):
@@ -119,20 +127,43 @@ class TestEncodeSegment:
 
 
 class TestBuildPacket:
+    def test_packet_is_20_bytes(self) -> None:
+        cmd = encode_power(on=True)
+        packet = build_packet(cmd)
+        assert len(packet) == 20
+
     def test_packet_structure(self) -> None:
         cmd = encode_power(on=True)
         packet = build_packet(cmd)
-        # Leading 0x33, cmd type, payload, checksum
-        assert packet[0] == 0x33
-        assert packet[1] == 0x01  # POWER type
-        assert packet[2] == 0x01  # payload (on)
-        # checksum = sum([0x01, 0x01]) & 0xFF = 0x02
-        assert packet[3] == 0x02
+        assert packet[0] == 0x33   # header
+        assert packet[1] == 0x01   # POWER command type
+        assert packet[2] == 0x01   # payload (on)
+        # bytes 3-18 are zero padding
+        assert all(b == 0 for b in packet[3:19])
+        # byte 19 is XOR checksum of bytes 0-18
+        expected_checksum = 0
+        for b in packet[:19]:
+            expected_checksum ^= b
+        assert packet[19] == expected_checksum
 
-    def test_checksum_wraps(self) -> None:
-        # Checksum includes the command type byte: [0x33, type(3), r(100), g(100), b(100), checksum]
-        # body = [3, 100, 100, 100] = 303 & 0xFF = 47
-        cmd = encode_color(100, 100, 100)
+    def test_xor_checksum(self) -> None:
+        # Power ON: 0x33 ^ 0x01 ^ 0x01 ^ 0x00 * 16 = 0x33
+        cmd = encode_power(on=True)
         packet = build_packet(cmd)
-        body_sum = cmd.type.value + 100 + 100 + 100
-        assert packet[-1] == (body_sum & 0xFF)
+        assert packet[19] == 0x33
+
+    def test_power_off_checksum(self) -> None:
+        # Power OFF: 0x33 ^ 0x01 ^ 0x00 = 0x32
+        cmd = encode_power(on=False)
+        packet = build_packet(cmd)
+        assert packet[19] == 0x32
+
+    def test_checksum_is_xor_not_sum(self) -> None:
+        # Verify checksum is XOR, not arithmetic sum & 0xFF.
+        # encode_brightness(100): type=0x04, payload=[0x64]
+        # XOR:  0x33 ^ 0x04 ^ 0x64 = 0x53
+        # Sum:  (0x33 + 0x04 + 0x64) & 0xFF = 0x9B  (different)
+        cmd = encode_brightness(100)
+        packet = build_packet(cmd)
+        xor_result = 0x33 ^ 0x04 ^ 0x64  # = 0x53
+        assert packet[19] == xor_result

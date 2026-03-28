@@ -1,10 +1,10 @@
 """GATT client wrapper for Govee BLE devices."""
 
 import asyncio
-import logging
 from typing import Any
 
 import bleak
+import structlog
 
 from govee_cli.ble.protocol import (
     Command,
@@ -19,7 +19,7 @@ from govee_cli.exceptions import (
     TimeoutError,
 )
 
-logger = logging.getLogger(__name__)
+logger = structlog.get_logger(__name__)
 
 DEFAULT_TIMEOUT = 10.0
 
@@ -44,18 +44,71 @@ class GoveeBLE:
         self._client: bleak.BleakClient | None = None
 
     async def connect(self) -> None:
-        """Connect to the device."""
-        logger.info("connecting", mac=self.mac, adapter=self.adapter)  # type: ignore[call-arg]
+        """
+        Connect to the device.
+
+        Tries the configured MAC directly first. If not found (common on Linux
+        when the device advertises under a random/resolvable address), falls back
+        to scanning and connecting to the first matching Govee device.
+        """
+        logger.info("connecting", mac=self.mac, adapter=self.adapter)
         try:
+            # Use a short probe timeout — if the static MAC isn't in BlueZ's
+            # cache (common when the device uses a random advertising address),
+            # we want to fall through to scan quickly rather than waiting the
+            # full timeout.
+            probe_timeout = min(3.0, self.timeout)
             self._client = bleak.BleakClient(
                 self.mac,
-                device=self.adapter,
+                adapter=self.adapter,
+                timeout=probe_timeout,
+            )
+            await self._client.connect()
+            logger.info("connected", mac=self.mac)
+        except bleak.exc.BleakError as e:
+            if "not found" not in str(e).lower():
+                raise ConnectionFailed(f"Failed to connect to {self.mac}: {e}") from e
+            logger.info("not_found_trying_scan", mac=self.mac)
+            resolved = await self._resolve_via_scan()
+            if resolved is None:
+                raise ConnectionFailed(
+                    f"Device {self.mac} not found directly or via scan."
+                ) from e
+            self._client = bleak.BleakClient(
+                resolved,
+                adapter=self.adapter,
                 timeout=self.timeout,
             )
             await self._client.connect()
-            logger.info("connected", mac=self.mac)  # type: ignore[call-arg]
-        except bleak.exc.BleakError as e:
-            raise ConnectionFailed(f"Failed to connect to {self.mac}: {e}") from e
+            logger.info("connected_via_scan", static_mac=self.mac, resolved=resolved)
+
+    async def _resolve_via_scan(self) -> str | None:
+        """
+        Scan for a Govee device when the static MAC isn't directly reachable.
+
+        Matches by name prefix 'Govee' — works for single-device setups.
+        If multiple Govee devices are found, prefers the one whose name suffix
+        matches the last 4 hex digits of the configured MAC.
+        """
+        discovered = await bleak.BleakScanner.discover(
+            timeout=5.0, return_adv=True
+        )
+        govee_devices = [
+            (device, adv)
+            for device, adv in discovered.values()
+            if device.name and "Govee" in device.name
+        ]
+        if not govee_devices:
+            return None
+        if len(govee_devices) == 1:
+            return govee_devices[0][0].address
+        # Multiple Govee devices — prefer one whose name ends with last 4 of MAC
+        suffix = self.mac.replace(":", "")[-4:].upper()
+        for device, _ in govee_devices:
+            if device.name and device.name.upper().endswith(suffix):
+                return device.address
+        # Fall back to first found
+        return govee_devices[0][0].address
 
     async def disconnect(self) -> None:
         """Disconnect from the device."""
@@ -68,36 +121,37 @@ class GoveeBLE:
         """
         Send a command to the device and wait for acknowledgment.
 
+        All commands are written to GoveeCharacteristic.WRITE. Responses
+        arrive as notifications on GoveeCharacteristic.NOTIFY.
+
         Returns True on success, raises an exception on failure.
         """
         if not self._client or not self._client.is_connected:
             raise ConnectionFailed("Not connected. Call connect() first.")
 
         packet = build_packet(command)
-        char_uuid = self._characteristic_for(command.type)
-
-        logger.debug("executing", command=command.type.name, char=char_uuid)
+        logger.debug("executing", command=command.type.name, packet=packet.hex())
 
         try:
-            # Set up a future to capture the notification response
             response_future: asyncio.Future[bytes] = asyncio.Future()
 
-            # bleak 3.0: callback signature is (BleakGATTCharacteristic, bytearray)
+            # bleak 3.0: callback is (BleakGATTCharacteristic, bytearray)
             async def notification_handler(
                 char: bleak.BleakGATTCharacteristic, data: bytearray
             ) -> None:
                 if not response_future.done():
                     response_future.set_result(bytes(data))
 
-            # Subscribe to the state characteristic for the response
-            state_char = GoveeCharacteristic.STATE
-            if state_char in self._client.services.characteristics:
-                await self._client.start_notify(state_char, notification_handler)
+            notify_char = GoveeCharacteristic.NOTIFY
+            subscribed = False
+            if self._client.services.get_characteristic(notify_char) is not None:
+                await self._client.start_notify(notify_char, notification_handler)
+                subscribed = True
 
-            # Write the command
-            await self._client.write_gatt_char(char_uuid, packet, response=True)
+            await self._client.write_gatt_char(
+                GoveeCharacteristic.WRITE, packet, response=True
+            )
 
-            # Wait for response with timeout
             try:
                 response = await asyncio.wait_for(
                     response_future, timeout=self.timeout
@@ -108,12 +162,12 @@ class GoveeBLE:
                     f"within {self.timeout}s"
                 ) from None
             finally:
-                try:
-                    await self._client.stop_notify(state_char)
-                except Exception:
-                    pass  # best effort
+                if subscribed:
+                    try:
+                        await self._client.stop_notify(notify_char)
+                    except Exception:
+                        pass  # best effort
 
-            # Verify response (basic check for now)
             if not self._verify_response(response, command):
                 raise ProtocolError(f"Invalid response to {command.type.name}")
 
@@ -123,31 +177,41 @@ class GoveeBLE:
             raise ConnectionFailed(f"BLE error during execute: {e}") from e
 
     async def read_state(self) -> LightState:
-        """Read current state from the device."""
+        """
+        Read current state from the device.
+
+        Subscribes to GoveeCharacteristic.NOTIFY and waits for the device
+        to send its current state. A query command may be needed for devices
+        that don't push state on connect — format TBD after btmon capture.
+        """
         if not self._client or not self._client.is_connected:
             raise ConnectionFailed("Not connected. Call connect() first.")
 
-        state_char = GoveeCharacteristic.STATE
+        notify_char = GoveeCharacteristic.NOTIFY
+        if self._client.get_characteristic(notify_char) is None:
+            raise ProtocolError("Notify characteristic not found on this device.")
+
+        state_future: asyncio.Future[bytes] = asyncio.Future()
+
+        async def handler(
+            char: bleak.BleakGATTCharacteristic, data: bytearray
+        ) -> None:
+            if not state_future.done():
+                state_future.set_result(bytes(data))
+
         try:
-            data = await self._client.read_gatt_char(state_char)
+            await self._client.start_notify(notify_char, handler)
+            data = await asyncio.wait_for(state_future, timeout=self.timeout)
             return parse_state(data)
+        except asyncio.TimeoutError:
+            raise TimeoutError("Device did not send state notification.") from None
         except bleak.exc.BleakError as e:
             raise ProtocolError(f"Failed to read state: {e}") from e
-
-    def _characteristic_for(self, cmd_type: Any) -> str:
-        """Map a command type to its GATT characteristic UUID."""
-        mapping = {
-            0x01: GoveeCharacteristic.POWER,
-            0x02: GoveeCharacteristic.BRIGHTNESS,
-            0x03: GoveeCharacteristic.COLOR,
-            0x04: GoveeCharacteristic.TEMP,
-            0x05: GoveeCharacteristic.SCENE,
-            0x06: GoveeCharacteristic.SEGMENT,
-            0x07: GoveeCharacteristic.MUSIC,
-            0x08: GoveeCharacteristic.EFFECT,
-            0x09: GoveeCharacteristic.STATE,
-        }
-        return mapping.get(cmd_type.value, GoveeCharacteristic.POWER)
+        finally:
+            try:
+                await self._client.stop_notify(notify_char)
+            except Exception:
+                pass
 
     def _verify_response(self, response: bytes, command: Command) -> bool:
         """Basic response verification — placeholder for now."""

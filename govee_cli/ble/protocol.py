@@ -3,10 +3,12 @@
 This module encodes commands into the byte format Govee devices expect,
 and decodes responses back into structured data.
 
-GATT characteristics are device-specific and must be discovered via
-BLE sniffer (see ARCHITECTURE.md). The values below are placeholders
-derived from community research and must be verified against actual
-device captures before use.
+GATT characteristics confirmed via hardware dump (H6056 MAC D0:C9:07:FE:B6:F0)
+and cross-referenced against community reverse engineering:
+  - wez/govee-py
+  - egold555/Govee-Reverse-Engineering (H6053, H6127)
+  - Beshelmek/govee_ble_lights
+  - timniklas/hass-govee_light_ble
 """
 
 import struct
@@ -14,41 +16,35 @@ from dataclasses import dataclass
 from enum import Enum
 
 
-# Govee GATT service and characteristic UUIDs (placeholder — TBD after sniffer)
-# These are derived from govee-ble community research and need verification.
 class GoveeService:
-    """Govee device GATT service UUIDs."""
+    """Govee device GATT service UUID."""
 
-    LIGHT_SERVICE = "0000fff0-0000-1000-8000-00805f9b34fb"  # Primary light service
+    LIGHT_SERVICE = "00010203-0405-0607-0809-0a0b0c0d1910"
 
 
 class GoveeCharacteristic:
-    """Govee device GATT characteristic UUIDs (TBR after reverse engineering)."""
+    """Govee H6056 GATT characteristic UUIDs (confirmed via hardware dump)."""
 
-    # Placeholder UUIDs — these MUST be verified with a BLE sniffer
-    POWER = "0000fff1-0000-1000-8000-00805f9b34fb"
-    COLOR = "0000fff2-0000-1000-8000-00805f9b34fb"
-    TEMP = "0000fff3-0000-1000-8000-00805f9b34fb"
-    BRIGHTNESS = "0000fff4-0000-1000-8000-00805f9b34fb"
-    SCENE = "0000fff5-0000-1000-8000-00805f9b34fb"
-    SEGMENT = "0000fff6-0000-1000-8000-00805f9b34fb"
-    MUSIC = "0000fff8-0000-1000-8000-00805f9b34fb"
-    EFFECT = "0000fff9-0000-1000-8000-00805f9b34fb"
-    STATE = "0000fff7-0000-1000-8000-00805f9b34fb"  # Notification subscription
+    # All commands are written to this single characteristic.
+    # Command type and mode are encoded in the packet payload.
+    WRITE = "00010203-0405-0607-0809-0a0b0c0d2b11"
+    # Device sends state notifications on this characteristic.
+    NOTIFY = "00010203-0405-0607-0809-0a0b0c0d2b10"
 
 
 class CommandType(Enum):
-    """Govee command types encoded into the protocol."""
+    """
+    Govee command type bytes (confirmed by community reverse engineering).
+
+    Color, temperature, scene, and segment control all share command byte
+    0x05 (LIGHT_CONTROL). A mode sub-byte in the payload differentiates them.
+    """
 
     POWER = 0x01
-    BRIGHTNESS = 0x02
-    COLOR = 0x03
-    TEMP = 0x04
-    SCENE = 0x05
-    SEGMENT = 0x06
-    MUSIC = 0x07
-    EFFECT = 0x08
-    QUERY = 0x09
+    BRIGHTNESS = 0x04
+    LIGHT_CONTROL = 0x05  # color, temp, scene, segment — mode byte in payload
+    MUSIC = 0x07          # placeholder — format TBD after btmon capture
+    EFFECT = 0x08         # placeholder — format TBD after btmon capture
 
 
 @dataclass
@@ -83,11 +79,19 @@ def encode_brightness(level: int) -> Command:
 
 
 def encode_color(r: int, g: int, b: int) -> Command:
-    """Encode an RGB color command."""
+    """
+    Encode an RGB color command (MODE_1501 — sets all segments to one color).
+
+    Confirmed on H6056: packet 33 05 15 01 RR GG BB 00×5 FF FF [zeros] XOR
+    The 0xFF 0xFF segment mask enables all 16 segments simultaneously.
+    """
     for v in (r, g, b):
         if not 0 <= v <= 255:
             raise ValueError(f"Color component must be 0-255, got {v}")
-    return Command(CommandType.COLOR, bytes([r, g, b]))
+    return Command(
+        CommandType.LIGHT_CONTROL,
+        bytes([0x15, 0x01, r, g, b, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0xFF]),
+    )
 
 
 def encode_color_hex(hex_color: str) -> Command:
@@ -102,24 +106,47 @@ def encode_color_hex(hex_color: str) -> Command:
 
 
 def encode_temp(kelvin: int) -> Command:
-    """Encode a white color temperature command (2700-6500 K)."""
+    """
+    Encode a white color temperature command (2700-6500 K).
+
+    NOTE: Mode byte (0x05) and Kelvin encoding are unverified for H6056.
+    Needs confirmation via btmon capture.
+    """
     if not 2700 <= kelvin <= 6500:
         raise ValueError(f"Color temp must be 2700-6500 K, got {kelvin}")
-    # Govee encodes temp as a 2-byte LE value
-    return Command(CommandType.TEMP, struct.pack("<H", kelvin))
+    # Placeholder: mode 0x05, Kelvin as 2-byte LE — format TBD after capture
+    return Command(CommandType.LIGHT_CONTROL, bytes([0x05]) + struct.pack("<H", kelvin))
 
 
 def encode_scene(scene_id: int) -> Command:
-    """Encode a built-in scene command (scene ID from Govee app)."""
-    return Command(CommandType.SCENE, struct.pack("<H", scene_id))
+    """
+    Encode a built-in scene command.
+
+    Packet: 33 05 04 <scene_id> [zeros] XOR
+    Scene IDs are device-specific and unverified for H6056.
+    """
+    return Command(CommandType.LIGHT_CONTROL, bytes([0x04, scene_id]))
 
 
 def encode_segment(segment_id: int, r: int, g: int, b: int) -> Command:
-    """Encode a per-segment color command."""
+    """
+    Encode a per-segment color command (MODE_1501).
+
+    The H6056 uses a 16-bit segment bitmask (2 bytes). Segment 0 = bit 0 of
+    byte 10; segment 8 = bit 0 of byte 11. Confirmed format from all-segments
+    test (mask 0xFF 0xFF lit all segments).
+
+    NOTE: Individual segment addressing unverified — needs btmon capture.
+    """
     if segment_id < 0 or segment_id > 15:
         raise ValueError(f"Segment ID must be 0-15, got {segment_id}")
+    # Set just the bit for this segment in the 16-bit mask
+    mask = 1 << segment_id
+    seg_lo = mask & 0xFF
+    seg_hi = (mask >> 8) & 0xFF
     return Command(
-        CommandType.SEGMENT, bytes([segment_id, r, g, b])
+        CommandType.LIGHT_CONTROL,
+        bytes([0x15, 0x01, r, g, b, 0x00, 0x00, 0x00, 0x00, 0x00, seg_lo, seg_hi]),
     )
 
 
@@ -127,21 +154,27 @@ def build_packet(command: Command) -> bytes:
     """
     Build a complete Govee BLE packet from a Command.
 
-    Packet structure (TBR after verification):
-    [0x33, cmd_type, ...payload, checksum]
+    Packet structure (confirmed via community reverse engineering):
+    - Byte 0:     0x33 (header)
+    - Bytes 1-18: cmd_type + payload, zero-padded to 18 bytes
+    - Byte 19:    XOR checksum of bytes 0-18
 
-    The leading 0x33 appears in captures from the Govee app.
+    Total: always 20 bytes.
     """
-    body = bytes([command.type.value]) + command.payload
-    checksum = sum(body) & 0xFF
-    return bytes([0x33]) + body + bytes([checksum])
+    inner = bytes([command.type.value]) + command.payload
+    inner = inner[:18].ljust(18, b"\x00")  # pad or trim to exactly 18 bytes
+    frame = bytes([0x33]) + inner           # 19 bytes
+    checksum = 0
+    for b in frame:
+        checksum ^= b
+    return frame + bytes([checksum])        # 20 bytes total
 
 
 def parse_state(data: bytes) -> LightState:
     """
     Parse device state notification into a LightState.
 
-    Format is TBD — placeholder that needs real captures.
+    Format is TBD — placeholder that needs real captures via btmon.
     """
     if len(data) < 1:
         raise ValueError(f"State data too short: {data!r}")
@@ -149,16 +182,15 @@ def parse_state(data: bytes) -> LightState:
     power_byte = data[0]
     brightness = data[1] if len(data) > 1 else 0
 
-    if len(data) >= 4:
-        r, g, b = data[2], data[3], data[4] if len(data) > 4 else 0
+    if len(data) >= 5:
+        r, g, b = data[2], data[3], data[4]
     else:
         r, g, b = 255, 255, 255
 
     color_temp: int | None = None
-    if len(data) >= 6:
-        # 2-byte LE Kelvin value (TBD — placeholder)
-        import struct as struct_module
-        color_temp = struct_module.unpack("<H", data[4:6])[0]
+    if len(data) >= 7:
+        # 2-byte LE Kelvin at bytes 5-6 (placeholder — needs verification)
+        color_temp = struct.unpack("<H", data[5:7])[0]
 
     return LightState(
         power=(power_byte & 0x01) == 1,

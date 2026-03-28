@@ -62,10 +62,45 @@ The stack is: **CLI → Commands → BLE abstraction → Protocol → Device**
 - `BLEDevice.rssi` and `.metadata` are removed — RSSI/ManufacturerData now live in `device.details['props']`
 - `start_notify` callback signature changed to `(char: BleakGATTCharacteristic, data: bytearray) → None`
 
+## Device Notes (H6056)
+
+- **Static MAC**: `D0:C9:07:FE:B6:F0` (use for config)
+- **Advertised name/address**: `Govee_H6056_440C` / `DD:6E:86:46:44:0C` (random, may change)
+- **GATT write characteristic**: `00010203-0405-0607-0809-0a0b0c0d2b11` (all commands go here)
+- **GATT notify characteristic**: `00010203-0405-0607-0809-0a0b0c0d2b10` (responses arrive here)
+- Device must be found by `govee-cli scan` first; connect by name or random address
+
 ## Protocol Status
 
-**Verified:** BLE scanning, protocol encoder unit tests (all passing), CLI registration.
+**Confirmed working (community sources + GATT dump):**
+- BLE scanning
+- GATT service/characteristic UUIDs
+- Packet format: `[0x33][cmd][payload padded to 18 bytes][XOR checksum]` = 20 bytes
+- `power on/off` — command byte `0x01`
+- `brightness` — command byte `0x04`
+- `color` — command byte `0x05`, mode byte `0x02` (MODE_2, all segments)
 
-**Placeholders (need BLE sniffer verification):** All GATT UUIDs in `protocol.py`, all light control command byte formats, built-in scene IDs.
+**Unverified (best-guess, needs btmon capture):**
+- `temp` — mode byte `0x05` assumed, Kelvin encoding unconfirmed
+- `segments` — MODE_1501 format assumed from H6053 sibling; bitmask TBD
+- `scene` — mode byte `0x04`, but scene IDs for H6056 unknown
+- `parse_state` — notification response format unknown
+- `music`, `effect` — command bytes unconfirmed
 
-To reverse-engineer: capture BLE traffic from the Govee app using `btmon` + Wireshark or `govee-cli record`, then update `govee_cli/ble/protocol.py` with real UUIDs and packet formats.
+**To capture remaining protocol:** run `btmon` while using the official Govee app, then `govee-cli record` to save packets. Update `govee_cli/ble/protocol.py` with real values.
+
+## Testing Sequence
+
+Start simple, verify each step before proceeding:
+
+```bash
+source .venv/bin/activate
+govee-cli config --mac D0:C9:07:FE:B6:F0   # set default device
+govee-cli scan                               # confirm device visible
+govee-cli power on                           # simplest test
+govee-cli power off
+govee-cli brightness 50
+govee-cli color FF0000                       # red
+govee-cli color 0000FF                       # blue
+govee-cli temp 4000                          # unverified — try after color works
+```
