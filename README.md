@@ -1,8 +1,10 @@
 # govee-cli
 
-A CLI tool to control Govee smart lights over **Bluetooth Low Energy (BLE)** — no cloud, no internet required.
+Control Govee smart lights from the terminal — over **Bluetooth Low Energy**, no cloud, no internet, no Govee account.
 
-Built as a weekend project to experiment with [Claude Code](https://claude.ai/code). The protocol was reverse engineered from hardware GATT dumps and community research, then verified against a real **Govee H6056 Flow Plus Light Bar**.
+Built by [Luke Edwards](https://lukeedwards.me) as a weekend project to experiment with [Claude Code](https://claude.ai/code). The BLE protocol was reverse engineered from hardware GATT dumps and community research, then verified against a real **Govee H6056 Flow Plus Light Bar**.
+
+If you're already running your own infrastructure and tired of smart home devices phoning home, this is for you.
 
 ## Installation
 
@@ -13,20 +15,19 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -e .
 ```
 
+Requires Python 3.11+ and a Bluetooth adapter.
+
 ## Quick Start
 
 ```bash
-# Set your default device once
+# Set your device once
 govee-cli config --mac D0:C9:07:FE:B6:F0
 
-# Control it
+# Then just use it
 govee-cli power on
 govee-cli brightness 75
 govee-cli color FF5500
 govee-cli temp 4000
-
-# Or pass --device on any command
-govee-cli --device D0:C9:07:FE:B6:F0 power on
 ```
 
 ## Commands
@@ -38,33 +39,19 @@ govee-cli --device D0:C9:07:FE:B6:F0 power on
 | `color <RRGGBB>` | Set RGB color |
 | `temp <2700-6500>` | Set white color temperature (Kelvin) |
 | `segments <id> <RRGGBB>` | Set color on a single segment (H6056: 0–5) |
-| `scene <name>` | Play a built-in scene (`scene list` to see options) |
+| `scene <name>` | Play a built-in scene (`scene list` to see all) |
 | `effect <file.json>` | Play a DIY keyframe animation |
 | `scan` | Discover nearby Govee BLE devices |
-| `info` | Print device power state |
-| `group add <name> --macs <MAC,...>` | Create a device group |
-| `group <name> <command>` | Run a command on all devices in a group |
+| `info` | Print device state |
 | `schedule list\|add\|remove` | Manage time-based rules |
 | `daemon [--once]` | Run the scheduler as a background process |
-| `config [--mac ...] [--adapter ...]` | View or update config |
+| `group add\|list\|<name>` | Manage and command device groups |
+| `config` | View or update config |
 | `completion bash\|zsh\|fish` | Print shell completion script |
-
-## Shell Completions
-
-```bash
-# bash
-eval "$(govee-cli completion bash)"
-
-# zsh
-eval "$(govee-cli completion zsh)"
-
-# fish
-govee-cli completion fish | source
-```
 
 ## DIY Effects
 
-Effects are JSON files that define per-segment color keyframes. Colors are linearly interpolated between keyframes.
+Define keyframe animations in JSON. Colors are linearly interpolated between keyframes and sent as per-segment BLE commands.
 
 ```json
 {
@@ -83,81 +70,73 @@ Effects are JSON files that define per-segment color keyframes. Colors are linea
 
 ```bash
 govee-cli effect scenes/demo.json
-govee-cli effect scenes/party.json --fps 5
-govee-cli effect scenes/sunrise.json --no-loop
+govee-cli effect scenes/party.json --fps 5 --no-loop
 ```
+
+A few example effects are included in `scenes/`.
 
 ## Scheduling
 
 ```bash
-# Add a schedule
 govee-cli schedule add --name "Morning" --time 07:00 --days Mon,Tue,Wed,Thu,Fri --command "power on"
-
-# List schedules
+govee-cli schedule add --name "Bedtime" --time 23:00 --days Mon,Tue,Wed,Thu,Fri,Sat,Sun --command "power off"
 govee-cli schedule list
-
-# Run the daemon (executes schedules at their configured times)
-govee-cli daemon
+govee-cli daemon  # runs in foreground; use systemd/nohup for background
 ```
 
-## Configuration
+## Shell Completions
 
-Config lives at `~/.config/govee-cli/config.json`:
-
-```json
-{
-  "default_mac": "D0:C9:07:FE:B6:F0",
-  "default_adapter": "hci0",
-  "default_timeout": 10.0
-}
+```bash
+eval "$(govee-cli completion bash)"   # bash
+eval "$(govee-cli completion zsh)"    # zsh
+govee-cli completion fish | source    # fish
 ```
 
 ## Status
 
 | Feature | Status |
 |---------|--------|
-| BLE scanning | ✅ Working |
-| Power on/off | ✅ Verified on H6056 |
-| Brightness | ✅ Verified on H6056 |
-| RGB color | ✅ Verified on H6056 |
-| White temperature | ✅ Verified on H6056 |
-| Per-segment color | ✅ Implemented (individual segment addressing unverified) |
-| Built-in scenes | ✅ Most working — Siren and a few others need multi-packet protocol |
-| DIY effects | ✅ Verified on H6056 |
-| Device state (info) | ⚠️ Power only — H6056 does not report brightness/color over BLE |
-| Shell completions | ✅ bash / zsh / fish / powershell |
+| Power on/off | ✅ Verified (H6056) |
+| Brightness | ✅ Verified (H6056) |
+| RGB color | ✅ Verified (H6056) |
+| White temperature | ✅ Verified (H6056) |
+| Per-segment color | ✅ Implemented (individual addressing unverified) |
+| Built-in scenes | ✅ Most working — a few need multi-packet protocol |
+| DIY effects | ✅ Verified (H6056) |
 | Scheduling + daemon | ✅ Working |
-| Groups | ✅ Implemented — untested (requires multiple devices) |
-| Record / replay | ⏳ Stub — requires btmon capture |
+| Shell completions | ✅ bash / zsh / fish / powershell |
+| Device state (info) | ⚠️ Power only — H6056 doesn't report brightness/color over BLE |
+| Groups | ✅ Implemented — untested (need multiple devices) |
+| Record / replay | ⏳ Stub — needs btmon capture |
 | Music sync | ⏳ Not implemented |
 
-## Device Notes (H6056)
+## How It Works
 
-The H6056 advertises under a random BLE address (`Govee_H6056_440C`) rather than its static MAC. govee-cli handles this automatically — configure with the static MAC and it will scan to resolve the random address on each connection.
+Govee uses a proprietary BLE protocol on top of standard GATT. Every command is a 20-byte packet written to a single characteristic:
 
-```bash
-govee-cli config --mac D0:C9:07:FE:B6:F0   # static MAC from the sticker
-govee-cli scan                               # will show the random address it's advertising
+```
+[0x33] [cmd_type] [payload, padded to 18 bytes] [XOR checksum]
 ```
 
-## Protocol
+The UUIDs and packet formats were confirmed via a hardware GATT dump on the H6056. Most Govee BLE devices share the same service UUID, so other models should work with minimal changes.
 
-The Govee BLE protocol uses a single GATT write characteristic for all commands. Packets are always 20 bytes: `[0x33][cmd_type][payload padded to 18 bytes][XOR checksum]`.
+One quirk: Govee devices advertise under a **random BLE address** rather than their static MAC. govee-cli handles this automatically — configure with the MAC from the sticker and it scans to resolve the address on each connection.
 
-UUIDs confirmed via hardware GATT dump on H6056:
-- **Service:** `00010203-0405-0607-0809-0a0b0c0d1910`
-- **Write:** `00010203-0405-0607-0809-0a0b0c0d2b11`
-- **Notify:** `00010203-0405-0607-0809-0a0b0c0d2b10`
+See `govee_cli/ble/protocol.py` for the full encoding details.
 
-See `govee_cli/ble/protocol.py` for full encoding details.
+## Device Notes
+
+Confirmed working on **H6056 Flow Plus** (6 segments, RGBICWW).
+
+Other Govee BLE devices will likely work for basic commands (power, brightness, color). Segmented effects are H6056-specific. If you test another model, open an issue with your findings.
 
 ## Development
 
 ```bash
-pytest                        # run tests
-mypy govee_cli                # type check
-ruff check govee_cli          # lint
-ruff check --fix govee_cli    # auto-fix lint
+pytest                      # run tests
+mypy govee_cli              # type check
+ruff check govee_cli        # lint
+ruff check --fix govee_cli  # auto-fix
 ```
 
 ## License
