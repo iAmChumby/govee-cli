@@ -5,8 +5,12 @@ from __future__ import annotations
 import asyncio
 import pathlib
 import time
+from typing import TYPE_CHECKING
 
 import click
+
+if TYPE_CHECKING:
+    from govee_cli.scenes.effects import ColorKeyframe, Effect
 
 
 @click.command()
@@ -65,7 +69,7 @@ def command(
         click.echo("\nStopped.")
 
 
-async def _play(effect, mac: str, adapter: str, timeout: float) -> None:
+async def _play(effect: "Effect", mac: str, adapter: str, timeout: float) -> None:
     from govee_cli.ble import GoveeBLE
     from govee_cli.ble.protocol import encode_segment
 
@@ -101,7 +105,7 @@ def _hex_to_rgb(hex_color: str) -> tuple[int, int, int]:
     return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
 
 
-def _color_at(keyframes, t: float) -> tuple[int, int, int]:
+def _color_at(keyframes: "list[ColorKeyframe]", t: float) -> tuple[int, int, int]:
     """Return the interpolated RGB color at time t (ms)."""
     if not keyframes:
         return (255, 255, 255)
