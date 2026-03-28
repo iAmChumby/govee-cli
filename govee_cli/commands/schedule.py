@@ -23,7 +23,7 @@ def list() -> None:
 
     for r in rules:
         status = "✓" if r.enabled else "✗"
-        click.echo(f"[{status}] {r.time} {', '.join(r.days)} — {r.name}: {r.command}")
+        click.echo(f"[{status}] {r.id}  {r.time} {', '.join(r.days)} — {r.name}: {r.command}")
 
 
 @schedule.command()

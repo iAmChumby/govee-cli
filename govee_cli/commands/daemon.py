@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import datetime
 import signal
 
 import click
@@ -43,11 +44,6 @@ def command(ctx: click.Context, once: bool) -> None:
         click.echo(f"  [{status}] {r.time} {','.join(r.days)} — {r.name}: {r.command}")
 
     daemon = SchedulerDaemon(once=once)
-
-    loop = asyncio.get_event_loop()
-    for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, daemon.stop)
-
     asyncio.run(daemon.run())
 
 
@@ -77,6 +73,10 @@ class SchedulerDaemon:
 
     async def run(self) -> None:
         """Run the daemon loop."""
+        loop = asyncio.get_event_loop()
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(sig, self.stop)
+
         self._running = True
         last_minute = ""
 
@@ -86,9 +86,6 @@ class SchedulerDaemon:
             if not self._running:
                 break
 
-            # Check if any rules should fire now
-            # Simple approach: check every 30s, fire if minute matches
-            import datetime
             now_dt = datetime.datetime.now()
             current_minute = now_dt.strftime("%H:%M")
             current_day = now_dt.strftime("%a").lower()[:3]
