@@ -1,6 +1,6 @@
 {
   "name": "Purple Glow",
-  "description": "Pulsing purple with deep violet accents",
+  "description": "Pulsing purple with deep violet accents across all 6 segments",
   "fps": 10,
   "loop": true,
   "segments": [
@@ -27,6 +27,39 @@
       {"t": 12000, "color": "8800FF"}
     ]},
     {"id": 2, "keyframes": [
+      {"t": 0,    "color": "DD00FF"},
+      {"t": 1500, "color": "6600CC"},
+      {"t": 3000, "color": "AA00FF"},
+      {"t": 4500, "color": "6600CC"},
+      {"t": 6000, "color": "DD00FF"},
+      {"t": 7500, "color": "6600CC"},
+      {"t": 9000, "color": "AA00FF"},
+      {"t": 10500, "color": "6600CC"},
+      {"t": 12000, "color": "DD00FF"}
+    ]},
+    {"id": 3, "keyframes": [
+      {"t": 0,    "color": "6600CC"},
+      {"t": 1500, "color": "AA00FF"},
+      {"t": 3000, "color": "DD00FF"},
+      {"t": 4500, "color": "AA00FF"},
+      {"t": 6000, "color": "6600CC"},
+      {"t": 7500, "color": "AA00FF"},
+      {"t": 9000, "color": "DD00FF"},
+      {"t": 10500, "color": "AA00FF"},
+      {"t": 12000, "color": "6600CC"}
+    ]},
+    {"id": 4, "keyframes": [
+      {"t": 0,    "color": "8800FF"},
+      {"t": 1500, "color": "CC00FF"},
+      {"t": 3000, "color": "6600CC"},
+      {"t": 4500, "color": "CC00FF"},
+      {"t": 6000, "color": "8800FF"},
+      {"t": 7500, "color": "CC00FF"},
+      {"t": 9000, "color": "6600CC"},
+      {"t": 10500, "color": "CC00FF"},
+      {"t": 12000, "color": "8800FF"}
+    ]},
+    {"id": 5, "keyframes": [
       {"t": 0,    "color": "DD00FF"},
       {"t": 1500, "color": "6600CC"},
       {"t": 3000, "color": "AA00FF"},
