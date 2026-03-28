@@ -1,5 +1,11 @@
 # govee-cli
 
+[![CI](https://github.com/iAmChumby/govee-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/iAmChumby/govee-cli/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.11+-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Platform](https://img.shields.io/badge/platform-linux-lightgrey)
+![BLE](https://img.shields.io/badge/protocol-BLE%20%2F%20GATT-blueviolet)
+
 Control Govee smart lights from the terminal over BLE. No cloud, no app, no account.
 
 I reverse engineered the BLE protocol from hardware GATT dumps and community research, then verified it against a real H6056. Weekend project, built with [Claude Code](https://claude.ai/code).
