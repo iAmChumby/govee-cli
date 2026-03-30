@@ -1,0 +1,296 @@
+[18:42:19.227] Normal: Scanner On.
+[18:42:19.454] Normal: Device Scanned.
+[18:42:19.454] Debug: [Callback] centralManager(central, didDiscover: peripheral, advertisementData: ["kCBAdvDataRxSecondaryPHY": 0, "kCBAdvDataIsConnectable": 1, "kCBAdvDataManufacturerData": <4388ec00 01010100>, "kCBAdvDataRxPrimaryPHY": 129, "kCBAdvDataTimestamp": 796603339.4533401, "kCBAdvDataLocalName": GVH600887FB], rssi: -71)
+[18:42:19.454] Normal: -71 dBm
+[18:42:19.454] Normal: 227.40 ms
+[18:42:19.655] Normal: -66 dBm
+[18:42:19.655] Normal: 200.92 ms
+[18:42:20.257] Normal: -58 dBm
+[18:42:20.257] Normal: 601.83 ms
+[18:42:20.454] Normal: -72 dBm
+[18:42:20.454] Normal: 196.58 ms
+[18:42:20.859] Normal: -59 dBm
+[18:42:20.859] Normal: 404.89 ms
+[18:42:21.059] Normal: -58 dBm
+[18:42:21.059] Normal: 199.31 ms
+[18:42:21.060] Normal: -59 dBm
+[18:42:21.060] Normal: 199.72 ms
+[18:42:21.454] Normal: -71 dBm
+[18:42:21.454] Normal: 395.53 ms
+[18:42:22.058] Normal: -59 dBm
+[18:42:22.058] Normal: 603.88 ms
+[18:42:22.254] Normal: -68 dBm
+[18:42:22.254] Normal: 195.16 ms
+[18:42:22.456] Normal: -67 dBm
+[18:42:22.456] Normal: 202.21 ms
+[18:42:22.659] Normal: -61 dBm
+[18:42:22.659] Normal: 203.93 ms
+[18:42:22.855] Normal: -66 dBm
+[18:42:22.855] Normal: 195.52 ms
+[18:42:23.260] Normal: -61 dBm
+[18:42:23.260] Normal: 404.96 ms
+[18:42:23.457] Normal: -61 dBm
+[18:42:23.457] Normal: 196.78 ms
+[18:42:24.060] Normal: -60 dBm
+[18:42:24.060] Normal: 602.99 ms
+[18:42:24.460] Normal: -61 dBm
+[18:42:24.460] Normal: 400.66 ms
+[18:42:24.657] Normal: -58 dBm
+[18:42:24.657] Normal: 197.14 ms
+[18:42:24.859] Normal: -57 dBm
+[18:42:24.859] Normal: 201.49 ms
+[18:42:25.056] Normal: -68 dBm
+[18:42:25.056] Normal: 196.69 ms
+[18:42:25.259] Normal: -57 dBm
+[18:42:25.259] Normal: 203.32 ms
+[18:42:25.659] Normal: -59 dBm
+[18:42:25.659] Normal: 399.76 ms
+[18:42:25.854] Normal: -70 dBm
+[18:42:25.854] Normal: 195.07 ms
+[18:42:26.060] Normal: -57 dBm
+[18:42:26.060] Normal: 205.75 ms
+[18:42:26.260] Normal: -59 dBm
+[18:42:26.260] Normal: 200.43 ms
+[18:42:26.860] Normal: -59 dBm
+[18:42:26.860] Normal: 599.55 ms
+[18:42:27.057] Normal: -56 dBm
+[18:42:27.057] Normal: 197.66 ms
+[18:42:27.259] Normal: -56 dBm
+[18:42:27.259] Normal: 201.93 ms
+[18:42:27.458] Normal: -58 dBm
+[18:42:27.458] Normal: 198.86 ms
+[18:42:27.658] Normal: -57 dBm
+[18:42:27.658] Normal: 199.80 ms
+[18:42:27.854] Normal: -66 dBm
+[18:42:27.854] Normal: 196.44 ms
+[18:42:28.059] Normal: -59 dBm
+[18:42:28.059] Normal: 204.25 ms
+[18:42:28.456] Normal: -66 dBm
+[18:42:28.457] Normal: 398.02 ms
+[18:42:28.658] Normal: -59 dBm
+[18:42:28.658] Normal: 201.03 ms
+[18:42:28.857] Normal: -61 dBm
+[18:42:28.857] Normal: 199.73 ms
+[18:42:29.058] Normal: -66 dBm
+[18:42:29.058] Normal: 198.64 ms
+[18:42:29.058] Normal: -66 dBm
+[18:42:29.058] Normal: 198.84 ms
+[18:42:29.257] Normal: -59 dBm
+[18:42:29.257] Normal: 201.10 ms
+[18:42:29.857] Normal: -60 dBm
+[18:42:29.857] Normal: 600.42 ms
+[18:42:30.056] Normal: -64 dBm
+[18:42:30.056] Normal: 198.50 ms
+[18:42:30.460] Normal: -60 dBm
+[18:42:30.460] Normal: 403.59 ms
+[18:42:30.657] Normal: -61 dBm
+[18:42:30.657] Normal: 195.52 ms
+[18:42:31.056] Normal: -61 dBm
+[18:42:31.056] Normal: 401.18 ms
+[18:42:31.255] Normal: -61 dBm
+[18:42:31.255] Normal: 198.86 ms
+[18:42:31.659] Normal: -60 dBm
+[18:42:31.659] Normal: 403.76 ms
+[18:42:31.856] Normal: -61 dBm
+[18:42:31.856] Normal: 197.23 ms
+[18:42:32.058] Normal: -59 dBm
+[18:42:32.058] Normal: 201.50 ms
+[18:42:32.254] Normal: -64 dBm
+[18:42:32.254] Normal: 196.54 ms
+[18:42:33.056] Normal: -64 dBm
+[18:42:33.056] Normal: 801.95 ms
+[18:42:33.260] Normal: -59 dBm
+[18:42:33.260] Normal: 202.82 ms
+[18:42:33.260] Normal: -59 dBm
+[18:42:33.260] Normal: 202.93 ms
+[18:42:33.657] Normal: -59 dBm
+[18:42:33.658] Normal: 398.54 ms
+[18:42:34.258] Normal: -58 dBm
+[18:42:34.258] Normal: 600.91 ms
+[18:42:34.854] Normal: -64 dBm
+[18:42:34.854] Normal: 595.44 ms
+[18:42:35.059] Normal: -59 dBm
+[18:42:35.059] Normal: 204.80 ms
+[18:42:35.654] Normal: -64 dBm
+[18:42:35.654] Normal: 595.37 ms
+[18:42:36.058] Normal: -61 dBm
+[18:42:36.058] Normal: 402.52 ms
+[18:42:36.256] Normal: -64 dBm
+[18:42:36.256] Normal: 199.54 ms
+[18:42:36.454] Normal: -65 dBm
+[18:42:36.454] Normal: 197.94 ms
+[18:42:36.855] Normal: -64 dBm
+[18:42:36.855] Normal: 401.22 ms
+[18:42:36.855] Normal: -64 dBm
+[18:42:36.855] Normal: 401.35 ms
+[18:42:37.056] Normal: -62 dBm
+[18:42:37.056] Normal: 200.21 ms
+[18:42:37.256] Normal: -62 dBm
+[18:42:37.257] Normal: 200.56 ms
+[18:42:37.656] Normal: -64 dBm
+[18:42:37.656] Normal: 399.25 ms
+[18:42:37.856] Normal: -61 dBm
+[18:42:37.856] Normal: 201.04 ms
+[18:42:38.055] Normal: -65 dBm
+[18:42:38.056] Normal: 199.16 ms
+[18:42:38.657] Normal: -61 dBm
+[18:42:38.657] Normal: 601.63 ms
+[18:42:38.855] Normal: -64 dBm
+[18:42:38.855] Normal: 197.79 ms
+[18:42:38.855] Normal: -64 dBm
+[18:42:38.855] Normal: 198.02 ms
+[18:42:40.055] Normal: -64 dBm
+[18:42:40.055] Normal: 1200.01 ms
+[18:42:40.255] Normal: -64 dBm
+[18:42:40.255] Normal: 199.53 ms
+[18:42:40.455] Normal: -64 dBm
+[18:42:40.455] Normal: 200.24 ms
+[18:42:40.853] Normal: -64 dBm
+[18:42:40.853] Normal: 398.05 ms
+[18:42:41.458] Normal: -59 dBm
+[18:42:41.459] Normal: 605.07 ms
+[18:42:42.455] Normal: -64 dBm
+[18:42:42.455] Normal: 996.02 ms
+[18:42:43.254] Normal: -64 dBm
+[18:42:43.255] Normal: 800.49 ms
+[18:42:43.656] Normal: -62 dBm
+[18:42:43.656] Normal: 401.14 ms
+[18:42:45.058] Normal: -57 dBm
+[18:42:45.058] Normal: 1401.89 ms
+[18:42:45.456] Normal: -65 dBm
+[18:42:45.456] Normal: 397.16 ms
+[18:42:46.055] Normal: -77 dBm
+[18:42:46.055] Normal: 600.33 ms
+[18:42:46.255] Normal: -75 dBm
+[18:42:46.255] Normal: 199.58 ms
+[18:42:47.258] Normal: -65 dBm
+[18:42:47.258] Normal: 1002.09 ms
+[18:42:47.259] Normal: -64 dBm
+[18:42:47.259] Normal: 1002.47 ms
+[18:42:47.458] Normal: -63 dBm
+[18:42:47.458] Normal: 198.93 ms
+[18:42:47.458] Normal: -63 dBm
+[18:42:47.458] Normal: 199.73 ms
+[18:42:48.060] Normal: -59 dBm
+[18:42:48.060] Normal: 602.20 ms
+[18:42:48.858] Normal: -60 dBm
+[18:42:48.858] Normal: 798.66 ms
+[18:42:49.252] Normal: -71 dBm
+[18:42:49.253] Normal: 394.77 ms
+[18:42:49.859] Normal: -61 dBm
+[18:42:49.859] Normal: 606.21 ms
+[18:42:50.456] Normal: -71 dBm
+[18:42:50.456] Normal: 596.84 ms
+[18:42:50.855] Normal: -74 dBm
+[18:42:50.855] Normal: 399.61 ms
+[18:42:51.054] Normal: -74 dBm
+[18:42:51.054] Normal: 198.19 ms
+[18:42:51.455] Normal: -66 dBm
+[18:42:51.455] Normal: 400.92 ms
+[18:42:51.657] Normal: -64 dBm
+[18:42:51.657] Normal: 202.67 ms
+[18:42:52.255] Normal: -63 dBm
+[18:42:52.255] Normal: 597.65 ms
+[18:42:52.934] Normal: -59 dBm
+[18:42:52.934] Normal: 603.82 ms
+[18:42:52.934] Normal: -59 dBm
+[18:42:52.934] Normal: 603.96 ms
+[18:42:53.879] Normal: -70 dBm
+[18:42:53.879] Normal: 996.77 ms
+[18:42:54.055] Normal: -69 dBm
+[18:42:54.055] Normal: 199.44 ms
+[18:42:54.457] Normal: -60 dBm
+[18:42:54.457] Normal: 401.74 ms
+[18:42:54.457] Normal: -60 dBm
+[18:42:54.457] Normal: 401.87 ms
+[18:42:54.656] Normal: -64 dBm
+[18:42:54.656] Normal: 198.94 ms
+[18:42:55.256] Normal: -61 dBm
+[18:42:55.256] Normal: 600.12 ms
+[18:42:56.660] Normal: -60 dBm
+[18:42:56.660] Normal: 1403.36 ms
+[18:42:56.660] Normal: -60 dBm
+[18:42:56.660] Normal: 1403.60 ms
+[18:42:57.456] Normal: -62 dBm
+[18:42:57.456] Normal: 796.44 ms
+[18:42:59.256] Normal: -72 dBm
+[18:42:59.256] Normal: 1799.52 ms
+[18:42:59.456] Normal: -68 dBm
+[18:42:59.456] Normal: 200.00 ms
+[18:43:00.455] Normal: -65 dBm
+[18:43:00.455] Normal: 998.98 ms
+[18:43:01.091] Verbose: Connecting...
+[18:43:01.091] Debug: cbCentralManager.connect()
+[18:43:01.253] Normal: -74 dBm
+[18:43:01.253] Normal: 799.33 ms
+[18:43:01.356] Debug: [Callback] centralManager(central, didConnect: peripheral)
+[18:43:01.356] Normal: Connected.
+[18:43:01.356] Verbose: Discovering Services...
+[18:43:01.356] Debug: peripheral.discoverServices(nil)
+[18:43:01.737] Debug: [Callback] peripheral(peripheral, didDiscoverServices: nil)
+[18:43:01.738] Verbose: Discovering Included Services for FFF6...
+[18:43:01.738] Debug: peripheral.discoverIncludedServices(nil, for: FFF6)
+[18:43:01.738] Verbose: Discovering Characteristics for FFF6...
+[18:43:01.738] Normal: Discovered FFF6 and 00010203-0405-0607-0809-0A0B0C0D1910 Services.
+[18:43:01.738] Debug: peripheral.discoverCharacteristics(nil, for: FFF6)
+[18:43:01.738] Verbose: Discovering Included Services for 00010203-0405-0607-0809-0A0B0C0D1910...
+[18:43:01.738] Debug: peripheral.discoverIncludedServices(nil, for: 00010203-0405-0607-0809-0A0B0C0D1910)
+[18:43:01.738] Verbose: Discovering Characteristics for 00010203-0405-0607-0809-0A0B0C0D1910...
+[18:43:01.738] Debug: peripheral.discoverCharacteristics(nil, for: 00010203-0405-0607-0809-0A0B0C0D1910)
+[18:43:01.794] Debug: [Callback] peripheral(peripheral, didDiscoverIncludedServicesFor: FFF6, error: nil)
+[18:43:01.794] Normal: Service Discovery returned nil Services.
+[18:43:01.855] Debug: [Callback] peripheral(peripheral, didDiscoverCharacteristicsFor: FFF6, error: nil)
+[18:43:01.855] Verbose: Discovering Descriptors for Characteristic 18EE2EF5-263D-4559-959F-4F9C429F9D11...
+[18:43:01.855] Debug: peripheral.discoverDescriptors(for: 18EE2EF5-263D-4559-959F-4F9C429F9D11)
+[18:43:01.855] Verbose: Discovering Descriptors for Characteristic 18EE2EF5-263D-4559-959F-4F9C429F9D12...
+[18:43:01.855] Debug: peripheral.discoverDescriptors(for: 18EE2EF5-263D-4559-959F-4F9C429F9D12)
+[18:43:01.855] Verbose: Discovering Descriptors for Characteristic 64630238-8772-45F2-B87D-748A83218F04...
+[18:43:01.855] Debug: peripheral.discoverDescriptors(for: 64630238-8772-45F2-B87D-748A83218F04)
+[18:43:01.859] Normal: Discovered 18EE2EF5-263D-4559-959F-4F9C429F9D11, 18EE2EF5-263D-4559-959F-4F9C429F9D12, and 64630238-8772-45F2-B87D-748A83218F04 Characteristics for Service FFF6.
+[18:43:01.869] Debug: [Callback] peripheral(peripheral, didDiscoverDescriptorsFor: 18EE2EF5-263D-4559-959F-4F9C429F9D11, error: The specified UUID is not allowed for this operation.)
+[18:43:01.869] Error: Descriptor Discovery: The specified UUID is not allowed for this operation.
+[18:43:01.872] Debug: [Callback] peripheral(peripheral, didDiscoverDescriptorsFor: 18EE2EF5-263D-4559-959F-4F9C429F9D12, error: The specified UUID is not allowed for this operation.)
+[18:43:01.872] Error: Descriptor Discovery: The specified UUID is not allowed for this operation.
+[18:43:01.914] Debug: [Callback] peripheral(peripheral, didDiscoverIncludedServicesFor: 00010203-0405-0607-0809-0A0B0C0D1910, error: nil)
+[18:43:01.914] Normal: Service Discovery returned nil Services.
+[18:43:02.064] Debug: [Callback] peripheral(peripheral, didDiscoverCharacteristicsFor: 00010203-0405-0607-0809-0A0B0C0D1910, error: nil)
+[18:43:02.065] Verbose: Discovering Descriptors for Characteristic 00010203-0405-0607-0809-0A0B0C0D2B10...
+[18:43:02.065] Debug: peripheral.discoverDescriptors(for: 00010203-0405-0607-0809-0A0B0C0D2B10)
+[18:43:02.065] Verbose: Discovering Descriptors for Characteristic 00010203-0405-0607-0809-0A0B0C0D2B11...
+[18:43:02.065] Debug: peripheral.discoverDescriptors(for: 00010203-0405-0607-0809-0A0B0C0D2B11)
+[18:43:02.065] Debug: [Callback] peripheral(peripheral, didDiscoverDescriptorsFor: 64630238-8772-45F2-B87D-748A83218F04, error: nil)
+[18:43:02.069] Normal: Discovered 00010203-0405-0607-0809-0A0B0C0D2B10 and 00010203-0405-0607-0809-0A0B0C0D2B11 Characteristics for Service 00010203-0405-0607-0809-0A0B0C0D1910.
+[18:43:02.069] Normal: 64630238-8772-45F2-B87D-748A83218F04 has no Descriptors.
+[18:43:02.123] Debug: [Callback] peripheral(peripheral, didDiscoverDescriptorsFor: 00010203-0405-0607-0809-0A0B0C0D2B10, error: nil)
+[18:43:02.125] Normal: Discovered Client Characteristic Configuration Descriptors for Characteristic 00010203-0405-0607-0809-0A0B0C0D2B10
+[18:43:02.212] Debug: [Callback] peripheral(peripheral, didDiscoverDescriptorsFor: 00010203-0405-0607-0809-0A0B0C0D2B11, error: nil)
+[18:43:02.213] Normal: 00010203-0405-0607-0809-0A0B0C0D2B11 has no Descriptors.
+[18:43:35.135] Verbose: Writing '01' to Characteristic 00010203-0405-0607-0809-0A0B0C0D2B10
+[18:43:35.135] Debug: peripheral.setNotifyValue(01, forCharacteristic: 00010203-0405-0607-0809-0A0B0C0D2B10)
+[18:43:35.135] Application: Setting Boolean true for Notifying Characteristic 00010203-0405-0607-0809-0A0B0C0D2B10
+[18:43:35.182] Debug: [Callback] peripheral(peripheral, didUpdateNotificationStateFor: 00010203-0405-0607-0809-0A0B0C0D2B10, error: nil)
+[18:43:36.023] Verbose: Writing '00' to Characteristic 00010203-0405-0607-0809-0A0B0C0D2B10
+[18:43:36.023] Debug: peripheral.setNotifyValue(00, forCharacteristic: 00010203-0405-0607-0809-0A0B0C0D2B10)
+[18:43:36.023] Application: Setting Boolean false for Notifying Characteristic 00010203-0405-0607-0809-0A0B0C0D2B10
+[18:43:36.083] Debug: [Callback] peripheral(peripheral, didUpdateNotificationStateFor: 00010203-0405-0607-0809-0A0B0C0D2B10, error: nil)
+[18:43:36.607] Verbose: Reading Characteristic 00010203-0405-0607-0809-0A0B0C0D2B10...
+[18:43:36.607] Debug: peripheral.readValue(forCharacteristic: 00010203-0405-0607-0809-0A0B0C0D2B10)
+[18:43:36.656] Debug: [Callback] peripheral(peripheral, didUpdateValueForCharacteristic: 00010203-0405-0607-0809-0A0B0C0D2B10, error: Reading is not permitted.)
+[18:43:36.657] Error: Error Reading Characteristic 00010203-0405-0607-0809-0A0B0C0D2B10 00010203-0405-0607-0809-0A0B0C0D2B10: Reading is not permitted.
+[18:43:39.056] Verbose: Writing '01' to Characteristic 00010203-0405-0607-0809-0A0B0C0D2B10
+[18:43:39.056] Debug: peripheral.setNotifyValue(01, forCharacteristic: 00010203-0405-0607-0809-0A0B0C0D2B10)
+[18:43:39.056] Application: Setting Boolean true for Notifying Characteristic 00010203-0405-0607-0809-0A0B0C0D2B10
+[18:43:39.114] Debug: [Callback] peripheral(peripheral, didUpdateNotificationStateFor: 00010203-0405-0607-0809-0A0B0C0D2B10, error: nil)
+[18:44:00.520] Verbose: Writing 3301 0000 0000 0000 0000 0000 0000 0000 0000 0032 to Descriptor 2902
+[18:44:00.520] Debug: peripheral.setNotifyValue(3301 0000 0000 0000 0000 0000 0000 0000 0000 0032, forCharacteristic: 00010203-0405-0607-0809-0A0B0C0D2B10)
+[18:44:00.520] Application: Writing Boolean 'false' to Client Characteristic Configuration Descriptor
+[18:44:00.564] Debug: [Callback] peripheral(peripheral, didUpdateNotificationStateFor: 00010203-0405-0607-0809-0A0B0C0D2B10, error: nil)
+[18:44:00.564] Normal: Notifying State of 00010203-0405-0607-0809-0A0B0C0D2B10 Changed to: false
+[18:44:08.857] Verbose: Writing '01' to Characteristic 00010203-0405-0607-0809-0A0B0C0D2B10
+[18:44:08.857] Debug: peripheral.setNotifyValue(01, forCharacteristic: 00010203-0405-0607-0809-0A0B0C0D2B10)
+[18:44:08.857] Application: Setting Boolean true for Notifying Characteristic 00010203-0405-0607-0809-0A0B0C0D2B10
+[18:44:08.903] Debug: [Callback] peripheral(peripheral, didUpdateNotificationStateFor: 00010203-0405-0607-0809-0A0B0C0D2B10, error: nil)
+[18:44:11.506] Verbose: Writing '3301 0000 0000 0000 0000 0000 0000 0000 0000 0032' to Characteristic 00010203-0405-0607-0809-0A0B0C0D2B11
+[18:44:11.506] Debug: peripheral.writeValue(3301 0000 0000 0000 0000 0000 0000 0000 0000 0032, forCharacteristic: 00010203-0405-0607-0809-0A0B0C0D2B11)
+[18:44:11.507] Application: Writing value '3301 0000 0000 0000 0000 0000 0000 0000 0000 0032' to 00010203-0405-0607-0809-0A0B0C0D2B11 Characteristic
+[18:44:19.238] Normal: Scanner Off.

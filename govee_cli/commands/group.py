@@ -107,14 +107,20 @@ def run(name: str, command: tuple[str, ...], adapter: str) -> None:
                 ) from None
 
     cmd_str = " ".join(command)
-    parsed = _parse_inline_command(cmd_str)
-    if parsed is None:
+
+    # Validate the command string up-front (model-agnostic check)
+    if _parse_inline_command(cmd_str, device_model=None) is None:
         raise click.ClickException(
             f"Could not parse command: {cmd_str}. Try: 'power on', 'color FF5500', 'brightness 75'"
         )
 
     async def run_one(mac: str) -> tuple[str, bool, str]:
         try:
+            device_cfg = cfg.devices.get(mac.upper())
+            model = device_cfg.model if device_cfg else None
+            parsed = _parse_inline_command(cmd_str, device_model=model)
+            if parsed is None:
+                return (mac, False, f"Could not parse command: {cmd_str}")
             async with GoveeBLE(mac, adapter=adapter) as client:
                 await client.execute(parsed)
                 return (mac, True, "ok")
@@ -122,7 +128,13 @@ def run(name: str, command: tuple[str, ...], adapter: str) -> None:
             return (mac, False, str(e))
 
     async def run_all() -> None:
-        results = await asyncio.gather(*[run_one(m) for m in macs])
+        # Connect sequentially to avoid BlueZ "Operation already in progress" errors
+        results = []
+        for m in macs:
+            result = await run_one(m)
+            results.append(result)
+            # Small delay between devices to let BlueZ complete the operation
+            await asyncio.sleep(0.5)
         all_ok = True
         for mac, ok, msg in results:
             status = "✅" if ok else "❌"
@@ -136,8 +148,12 @@ def run(name: str, command: tuple[str, ...], adapter: str) -> None:
     asyncio.run(run_all())
 
 
-def _parse_inline_command(cmd_str: str) -> Command | None:
-    """Parse a string like 'power on' or 'color FF5500' into a Command."""
+def _parse_inline_command(cmd_str: str, device_model: str | None = None) -> Command | None:
+    """Parse a string like 'power on' or 'color FF5500' into a Command.
+
+    Uses device_model to select the correct encoder for color and temp commands
+    (H6008 uses MODE_2; H6056 uses MODE_1501).
+    """
     parts = cmd_str.strip().split()
     if not parts:
         return None
@@ -147,9 +163,9 @@ def _parse_inline_command(cmd_str: str) -> Command | None:
 
     from govee_cli.ble.protocol import (
         encode_brightness,
-        encode_color_hex,
+        encode_color_hex_for_device,
         encode_power,
-        encode_temp,
+        encode_temp_for_device,
     )
 
     if verb == "power" and len(args) == 1:
@@ -160,10 +176,10 @@ def _parse_inline_command(cmd_str: str) -> Command | None:
         except ValueError:
             return None
     if verb == "color" and len(args) == 1:
-        return encode_color_hex(args[0])
+        return encode_color_hex_for_device(args[0], device_model)
     if verb == "temp" and len(args) == 1:
         try:
-            return encode_temp(int(args[0]))
+            return encode_temp_for_device(int(args[0]), device_model)
         except ValueError:
             return None
     return None

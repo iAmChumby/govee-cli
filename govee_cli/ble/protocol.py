@@ -204,11 +204,11 @@ def encode_temp_h6008(kelvin: int) -> Command:
     """
     Encode a white color temperature command for H6008 (2700-6500 K).
 
-    H6008 uses MODE_2 format for color temperature:
-    33 05 05 <kelvin_hi> <kelvin_lo> [zeros] XOR
-    Mode byte 0x05 indicates temperature control (vs 0x02 for RGB).
+    H6008 uses MODE_2 with all-white RGB and a CCT flag byte:
+    33 05 02 FF FF FF 01 <kelvin_hi> <kelvin_lo> [zeros] XOR
 
-    Kelvin is big-endian (same as MODE_1501).
+    Confirmed from sisiphamus/govee-controller:
+      cmd_color_temp: build_packet(0x05, [0x02, 0xFF, 0xFF, 0xFF, 0x01, hi, lo])
     """
     if not 2700 <= kelvin <= 6500:
         raise ValueError(f"Color temp must be 2700-6500 K, got {kelvin}")
@@ -216,7 +216,7 @@ def encode_temp_h6008(kelvin: int) -> Command:
     kelvin_lo = kelvin & 0xFF
     return Command(
         CommandType.LIGHT_CONTROL,
-        bytes([0x05, kelvin_hi, kelvin_lo]),
+        bytes([0x02, 0xFF, 0xFF, 0xFF, 0x01, kelvin_hi, kelvin_lo]),
     )
 
 

@@ -1,0 +1,188 @@
+[18:31:37.512] Normal: Scanner On.
+[18:31:37.703] Normal: Device Scanned.
+[18:31:37.703] Debug: [Callback] centralManager(central, didDiscover: peripheral, advertisementData: ["kCBAdvDataManufacturerData": <4388ec00 01010100>, "kCBAdvDataIsConnectable": 1, "kCBAdvDataTimestamp": 796602697.701409, "kCBAdvDataLocalName": GVH600887FB, "kCBAdvDataRxPrimaryPHY": 129, "kCBAdvDataRxSecondaryPHY": 0], rssi: -66)
+[18:31:37.703] Normal: -66 dBm
+[18:31:37.703] Normal: 190.80 ms
+[18:31:38.102] Normal: -66 dBm
+[18:31:38.102] Normal: 399.29 ms
+[18:31:38.304] Normal: -65 dBm
+[18:31:38.304] Normal: 202.16 ms
+[18:31:38.904] Normal: -66 dBm
+[18:31:38.904] Normal: 599.37 ms
+[18:31:39.102] Normal: -66 dBm
+[18:31:39.102] Normal: 198.22 ms
+[18:31:39.504] Normal: -66 dBm
+[18:31:39.504] Normal: 401.65 ms
+[18:31:39.705] Normal: -65 dBm
+[18:31:39.705] Normal: 200.69 ms
+[18:31:39.705] Normal: -66 dBm
+[18:31:39.705] Normal: 201.00 ms
+[18:31:40.102] Normal: -66 dBm
+[18:31:40.102] Normal: 397.41 ms
+[18:31:41.299] Normal: -66 dBm
+[18:31:41.299] Normal: 1197.44 ms
+[18:31:41.504] Normal: -64 dBm
+[18:31:41.504] Normal: 202.59 ms
+[18:31:41.904] Normal: -66 dBm
+[18:31:41.904] Normal: 401.73 ms
+[18:31:42.101] Normal: -66 dBm
+[18:31:42.101] Normal: 197.27 ms
+[18:31:42.305] Normal: -66 dBm
+[18:31:42.305] Normal: 203.84 ms
+[18:31:42.502] Normal: -66 dBm
+[18:31:42.502] Normal: 197.08 ms
+[18:31:42.904] Normal: -64 dBm
+[18:31:42.904] Normal: 401.84 ms
+[18:31:43.302] Normal: -64 dBm
+[18:31:43.302] Normal: 398.88 ms
+[18:31:43.501] Normal: -63 dBm
+[18:31:43.501] Normal: 198.77 ms
+[18:31:43.706] Normal: -67 dBm
+[18:31:43.706] Normal: 204.48 ms
+[18:31:43.904] Normal: -63 dBm
+[18:31:43.904] Normal: 197.94 ms
+[18:31:44.104] Normal: -68 dBm
+[18:31:44.104] Normal: 199.77 ms
+[18:31:44.509] Normal: -64 dBm
+[18:31:44.509] Normal: 398.22 ms
+[18:31:44.509] Normal: -64 dBm
+[18:31:44.509] Normal: 399.06 ms
+[18:31:44.707] Normal: -66 dBm
+[18:31:44.707] Normal: 203.34 ms
+[18:31:44.707] Normal: -66 dBm
+[18:31:44.707] Normal: 203.89 ms
+[18:31:44.904] Normal: -65 dBm
+[18:31:44.904] Normal: 197.21 ms
+[18:31:45.302] Normal: -66 dBm
+[18:31:45.302] Normal: 398.19 ms
+[18:31:45.500] Normal: -64 dBm
+[18:31:45.500] Normal: 198.62 ms
+[18:31:45.500] Normal: -65 dBm
+[18:31:45.500] Normal: 198.70 ms
+[18:31:45.700] Normal: -66 dBm
+[18:31:45.700] Normal: 199.89 ms
+[18:31:45.905] Normal: -64 dBm
+[18:31:45.905] Normal: 204.32 ms
+[18:31:46.101] Normal: -64 dBm
+[18:31:46.101] Normal: 195.87 ms
+[18:31:46.701] Normal: -66 dBm
+[18:31:46.701] Normal: 600.35 ms
+[18:31:46.901] Normal: -64 dBm
+[18:31:46.901] Normal: 199.89 ms
+[18:31:47.102] Normal: -61 dBm
+[18:31:47.102] Normal: 201.22 ms
+[18:31:47.301] Normal: -63 dBm
+[18:31:47.301] Normal: 198.76 ms
+[18:31:47.506] Normal: -63 dBm
+[18:31:47.506] Normal: 204.70 ms
+[18:31:47.703] Normal: -63 dBm
+[18:31:47.703] Normal: 197.01 ms
+[18:31:48.103] Normal: -61 dBm
+[18:31:48.103] Normal: 400.09 ms
+[18:31:48.448] Verbose: Connecting...
+[18:31:48.448] Debug: cbCentralManager.connect()
+[18:31:48.656] Normal: -64 dBm
+[18:31:48.656] Normal: 398.70 ms
+[18:31:48.656] Normal: -65 dBm
+[18:31:48.656] Normal: 399.11 ms
+[18:31:48.722] Normal: -64 dBm
+[18:31:48.722] Normal: 200.81 ms
+[18:31:48.902] Normal: -64 dBm
+[18:31:48.902] Normal: 199.35 ms
+[18:31:49.019] Debug: [Callback] centralManager(central, didConnect: peripheral)
+[18:31:49.019] Normal: Connected.
+[18:31:49.019] Verbose: Discovering Services...
+[18:31:49.019] Debug: peripheral.discoverServices(nil)
+[18:31:49.435] Debug: [Callback] peripheral(peripheral, didDiscoverServices: nil)
+[18:31:49.437] Verbose: Discovering Included Services for FFF6...
+[18:31:49.437] Debug: peripheral.discoverIncludedServices(nil, for: FFF6)
+[18:31:49.438] Normal: Discovered FFF6 and 00010203-0405-0607-0809-0A0B0C0D1910 Services.
+[18:31:49.438] Verbose: Discovering Characteristics for FFF6...
+[18:31:49.438] Debug: peripheral.discoverCharacteristics(nil, for: FFF6)
+[18:31:49.438] Verbose: Discovering Included Services for 00010203-0405-0607-0809-0A0B0C0D1910...
+[18:31:49.438] Debug: peripheral.discoverIncludedServices(nil, for: 00010203-0405-0607-0809-0A0B0C0D1910)
+[18:31:49.438] Verbose: Discovering Characteristics for 00010203-0405-0607-0809-0A0B0C0D1910...
+[18:31:49.438] Debug: peripheral.discoverCharacteristics(nil, for: 00010203-0405-0607-0809-0A0B0C0D1910)
+[18:31:49.494] Debug: [Callback] peripheral(peripheral, didDiscoverIncludedServicesFor: FFF6, error: nil)
+[18:31:49.494] Normal: Service Discovery returned nil Services.
+[18:31:49.554] Debug: [Callback] peripheral(peripheral, didDiscoverCharacteristicsFor: FFF6, error: nil)
+[18:31:49.555] Verbose: Discovering Descriptors for Characteristic 18EE2EF5-263D-4559-959F-4F9C429F9D11...
+[18:31:49.555] Debug: peripheral.discoverDescriptors(for: 18EE2EF5-263D-4559-959F-4F9C429F9D11)
+[18:31:49.555] Verbose: Discovering Descriptors for Characteristic 18EE2EF5-263D-4559-959F-4F9C429F9D12...
+[18:31:49.555] Debug: peripheral.discoverDescriptors(for: 18EE2EF5-263D-4559-959F-4F9C429F9D12)
+[18:31:49.555] Verbose: Discovering Descriptors for Characteristic 64630238-8772-45F2-B87D-748A83218F04...
+[18:31:49.555] Debug: peripheral.discoverDescriptors(for: 64630238-8772-45F2-B87D-748A83218F04)
+[18:31:49.558] Normal: Discovered 18EE2EF5-263D-4559-959F-4F9C429F9D11, 18EE2EF5-263D-4559-959F-4F9C429F9D12, and 64630238-8772-45F2-B87D-748A83218F04 Characteristics for Service FFF6.
+[18:31:49.569] Debug: [Callback] peripheral(peripheral, didDiscoverDescriptorsFor: 18EE2EF5-263D-4559-959F-4F9C429F9D11, error: The specified UUID is not allowed for this operation.)
+[18:31:49.569] Error: Descriptor Discovery: The specified UUID is not allowed for this operation.
+[18:31:49.569] Debug: [Callback] peripheral(peripheral, didDiscoverDescriptorsFor: 18EE2EF5-263D-4559-959F-4F9C429F9D12, error: The specified UUID is not allowed for this operation.)
+[18:31:49.569] Error: Descriptor Discovery: The specified UUID is not allowed for this operation.
+[18:31:49.614] Debug: [Callback] peripheral(peripheral, didDiscoverIncludedServicesFor: 00010203-0405-0607-0809-0A0B0C0D1910, error: nil)
+[18:31:49.614] Normal: Service Discovery returned nil Services.
+[18:31:49.736] Debug: [Callback] peripheral(peripheral, didDiscoverCharacteristicsFor: 00010203-0405-0607-0809-0A0B0C0D1910, error: nil)
+[18:31:49.736] Verbose: Discovering Descriptors for Characteristic 00010203-0405-0607-0809-0A0B0C0D2B10...
+[18:31:49.736] Debug: peripheral.discoverDescriptors(for: 00010203-0405-0607-0809-0A0B0C0D2B10)
+[18:31:49.736] Verbose: Discovering Descriptors for Characteristic 00010203-0405-0607-0809-0A0B0C0D2B11...
+[18:31:49.736] Debug: peripheral.discoverDescriptors(for: 00010203-0405-0607-0809-0A0B0C0D2B11)
+[18:31:49.736] Debug: [Callback] peripheral(peripheral, didDiscoverDescriptorsFor: 64630238-8772-45F2-B87D-748A83218F04, error: nil)
+[18:31:49.737] Normal: Discovered 00010203-0405-0607-0809-0A0B0C0D2B10 and 00010203-0405-0607-0809-0A0B0C0D2B11 Characteristics for Service 00010203-0405-0607-0809-0A0B0C0D1910.
+[18:31:49.737] Normal: 64630238-8772-45F2-B87D-748A83218F04 has no Descriptors.
+[18:31:49.795] Debug: [Callback] peripheral(peripheral, didDiscoverDescriptorsFor: 00010203-0405-0607-0809-0A0B0C0D2B10, error: nil)
+[18:31:49.795] Normal: Discovered Client Characteristic Configuration Descriptors for Characteristic 00010203-0405-0607-0809-0A0B0C0D2B10
+[18:31:49.856] Debug: [Callback] peripheral(peripheral, didDiscoverDescriptorsFor: 00010203-0405-0607-0809-0A0B0C0D2B11, error: nil)
+[18:31:49.856] Normal: 00010203-0405-0607-0809-0A0B0C0D2B11 has no Descriptors.
+[18:33:37.490] Normal: Scanner Off.
+[18:33:43.160] Verbose: Disconnecting...
+[18:33:43.160] Debug: cbCentralManager.cancelPeripheralConnection()
+[18:33:43.161] Debug: [Callback] centralManager(central, didDisconnectPeripheral: peripheral, error: nil)
+[18:33:43.161] Normal: Disconnected.
+[18:33:43.838] Verbose: Connecting...
+[18:33:43.838] Debug: cbCentralManager.connect()
+[18:33:44.128] Debug: [Callback] centralManager(central, didConnect: peripheral)
+[18:33:44.128] Normal: Connected.
+[18:33:44.128] Verbose: Discovering Services...
+[18:33:44.128] Debug: peripheral.discoverServices(nil)
+[18:33:44.514] Debug: [Callback] peripheral(peripheral, didDiscoverServices: nil)
+[18:33:44.514] Verbose: Discovering Included Services for FFF6...
+[18:33:44.514] Debug: peripheral.discoverIncludedServices(nil, for: FFF6)
+[18:33:44.514] Verbose: Discovering Characteristics for FFF6...
+[18:33:44.514] Debug: peripheral.discoverCharacteristics(nil, for: FFF6)
+[18:33:44.514] Normal: Discovered FFF6 and 00010203-0405-0607-0809-0A0B0C0D1910 Services.
+[18:33:44.514] Verbose: Discovering Included Services for 00010203-0405-0607-0809-0A0B0C0D1910...
+[18:33:44.514] Debug: peripheral.discoverIncludedServices(nil, for: 00010203-0405-0607-0809-0A0B0C0D1910)
+[18:33:44.514] Verbose: Discovering Characteristics for 00010203-0405-0607-0809-0A0B0C0D1910...
+[18:33:44.514] Debug: peripheral.discoverCharacteristics(nil, for: 00010203-0405-0607-0809-0A0B0C0D1910)
+[18:33:44.574] Debug: [Callback] peripheral(peripheral, didDiscoverIncludedServicesFor: FFF6, error: nil)
+[18:33:44.574] Normal: Service Discovery returned nil Services.
+[18:33:44.666] Debug: [Callback] peripheral(peripheral, didDiscoverCharacteristicsFor: FFF6, error: nil)
+[18:33:44.666] Verbose: Discovering Descriptors for Characteristic 18EE2EF5-263D-4559-959F-4F9C429F9D11...
+[18:33:44.666] Debug: peripheral.discoverDescriptors(for: 18EE2EF5-263D-4559-959F-4F9C429F9D11)
+[18:33:44.666] Verbose: Discovering Descriptors for Characteristic 18EE2EF5-263D-4559-959F-4F9C429F9D12...
+[18:33:44.666] Debug: peripheral.discoverDescriptors(for: 18EE2EF5-263D-4559-959F-4F9C429F9D12)
+[18:33:44.666] Verbose: Discovering Descriptors for Characteristic 64630238-8772-45F2-B87D-748A83218F04...
+[18:33:44.666] Debug: peripheral.discoverDescriptors(for: 64630238-8772-45F2-B87D-748A83218F04)
+[18:33:44.666] Debug: [Callback] peripheral(peripheral, didDiscoverDescriptorsFor: 18EE2EF5-263D-4559-959F-4F9C429F9D11, error: The specified UUID is not allowed for this operation.)
+[18:33:44.666] Error: Descriptor Discovery: The specified UUID is not allowed for this operation.
+[18:33:44.666] Debug: [Callback] peripheral(peripheral, didDiscoverDescriptorsFor: 18EE2EF5-263D-4559-959F-4F9C429F9D12, error: The specified UUID is not allowed for this operation.)
+[18:33:44.666] Error: Descriptor Discovery: The specified UUID is not allowed for this operation.
+[18:33:44.667] Normal: Discovered 18EE2EF5-263D-4559-959F-4F9C429F9D11, 18EE2EF5-263D-4559-959F-4F9C429F9D12, and 64630238-8772-45F2-B87D-748A83218F04 Characteristics for Service FFF6.
+[18:33:44.724] Debug: [Callback] peripheral(peripheral, didDiscoverIncludedServicesFor: 00010203-0405-0607-0809-0A0B0C0D1910, error: nil)
+[18:33:44.724] Normal: Service Discovery returned nil Services.
+[18:33:44.844] Debug: [Callback] peripheral(peripheral, didDiscoverCharacteristicsFor: 00010203-0405-0607-0809-0A0B0C0D1910, error: nil)
+[18:33:44.844] Verbose: Discovering Descriptors for Characteristic 00010203-0405-0607-0809-0A0B0C0D2B10...
+[18:33:44.844] Debug: peripheral.discoverDescriptors(for: 00010203-0405-0607-0809-0A0B0C0D2B10)
+[18:33:44.845] Verbose: Discovering Descriptors for Characteristic 00010203-0405-0607-0809-0A0B0C0D2B11...
+[18:33:44.845] Debug: peripheral.discoverDescriptors(for: 00010203-0405-0607-0809-0A0B0C0D2B11)
+[18:33:44.845] Debug: [Callback] peripheral(peripheral, didDiscoverDescriptorsFor: 64630238-8772-45F2-B87D-748A83218F04, error: nil)
+[18:33:44.846] Normal: Discovered 00010203-0405-0607-0809-0A0B0C0D2B10 and 00010203-0405-0607-0809-0A0B0C0D2B11 Characteristics for Service 00010203-0405-0607-0809-0A0B0C0D1910.
+[18:33:44.847] Normal: 64630238-8772-45F2-B87D-748A83218F04 has no Descriptors.
+[18:33:44.904] Debug: [Callback] peripheral(peripheral, didDiscoverDescriptorsFor: 00010203-0405-0607-0809-0A0B0C0D2B10, error: nil)
+[18:33:44.905] Normal: Discovered Client Characteristic Configuration Descriptors for Characteristic 00010203-0405-0607-0809-0A0B0C0D2B10
+[18:33:44.966] Debug: [Callback] peripheral(peripheral, didDiscoverDescriptorsFor: 00010203-0405-0607-0809-0A0B0C0D2B11, error: nil)
+[18:33:44.967] Normal: 00010203-0405-0607-0809-0A0B0C0D2B11 has no Descriptors.
+[18:35:35.646] Verbose: Writing '3301 0000 0000 0000 0000 0000 0000 0000 0000 0032' to Characteristic 00010203-0405-0607-0809-0A0B0C0D2B11
+[18:35:35.646] Debug: peripheral.writeValue(3301 0000 0000 0000 0000 0000 0000 0000 0000 0032, forCharacteristic: 00010203-0405-0607-0809-0A0B0C0D2B11)
+[18:35:35.647] Application: Writing value '3301 0000 0000 0000 0000 0000 0000 0000 0000 0032' to 00010203-0405-0607-0809-0A0B0C0D2B11 Characteristic
+[18:35:53.976] Verbose: Writing '3301 0000 0000 0000 0000 0000 0000 0000 0000 0032' to Characteristic 00010203-0405-0607-0809-0A0B0C0D2B11
+[18:35:53.976] Debug: peripheral.writeValue(3301 0000 0000 0000 0000 0000 0000 0000 0000 0032, forCharacteristic: 00010203-0405-0607-0809-0A0B0C0D2B11)
+[18:35:53.978] Application: Writing value '3301 0000 0000 0000 0000 0000 0000 0000 0000 0032' to 00010203-0405-0607-0809-0A0B0C0D2B11 Characteristic

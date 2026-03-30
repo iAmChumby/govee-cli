@@ -207,14 +207,14 @@ class TestEncodeTempH6008:
     def test_warm_white(self) -> None:
         cmd = encode_temp_h6008(2700)
         assert cmd.type == CommandType.LIGHT_CONTROL
-        # H6008: mode 0x05, kelvin big-endian
+        # H6008: [0x02, 0xFF, 0xFF, 0xFF, 0x01, kelvin_hi, kelvin_lo]
         # 2700K = 0x0A8C → hi=0x0A, lo=0x8C
-        assert cmd.payload == bytes([0x05, 0x0A, 0x8C])
+        assert cmd.payload == bytes([0x02, 0xFF, 0xFF, 0xFF, 0x01, 0x0A, 0x8C])
 
     def test_cool_white(self) -> None:
         cmd = encode_temp_h6008(6500)
         # 6500K = 0x1964 → hi=0x19, lo=0x64
-        assert cmd.payload == bytes([0x05, 0x19, 0x64])
+        assert cmd.payload == bytes([0x02, 0xFF, 0xFF, 0xFF, 0x01, 0x19, 0x64])
 
     def test_too_low(self) -> None:
         with pytest.raises(ValueError, match="2700-6500"):
@@ -269,12 +269,12 @@ class TestEncodeTempForDevice:
 
     def test_h6008_uses_simple_format(self) -> None:
         cmd = encode_temp_for_device(2700, "H6008")
-        # Should use H6008 format: mode 0x05 + kelvin
-        assert cmd.payload == bytes([0x05, 0x0A, 0x8C])
+        # H6008 format: [0x02, 0xFF, 0xFF, 0xFF, 0x01, kelvin_hi, kelvin_lo]
+        assert cmd.payload == bytes([0x02, 0xFF, 0xFF, 0xFF, 0x01, 0x0A, 0x8C])
 
     def test_h6008_lowercase(self) -> None:
         cmd = encode_temp_for_device(6500, "h6008")
-        assert cmd.payload == bytes([0x05, 0x19, 0x64])
+        assert cmd.payload == bytes([0x02, 0xFF, 0xFF, 0xFF, 0x01, 0x19, 0x64])
 
     def test_none_model_defaults_to_mode_1501(self) -> None:
         cmd = encode_temp_for_device(2700, None)

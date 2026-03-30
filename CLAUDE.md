@@ -70,6 +70,18 @@ The stack is: **CLI → Commands → BLE abstraction → Protocol → Device**
 - **GATT notify characteristic**: `00010203-0405-0607-0809-0a0b0c0d2b10` (responses arrive here)
 - Device must be found by `govee-cli scan` first; connect by name or random address
 
+## Device Notes (H6008 — GVH-series, BLOCKED)
+
+- **MACs**: `5C:E7:53:69:87:FB` (Lamp Front), `5C:E7:53:63:8F:01` (Lamp Top)
+- **Advertised names**: `GVH600887FB`, `GVH60088F01`
+- **OUI**: `5C:E7:53` (HOMY IOT SOLUTIONS) — different chip from ihoment_ H6008
+- **Status**: BLE protocol unknown. Connects fine, GATT writes accepted, bulb ignores all commands.
+- **0x33 protocol does not work** on this hardware revision.
+- **No WiFi available** (eduroam only, WPA2-Enterprise incompatible with IoT devices).
+- **Cloud/LAN API not viable** without a WPA2-Personal network for the bulbs.
+- **Unblocking requires**: nRF52840 passive BLE sniffer dongle (~$10) OR successful iOS sysdiag capture to see what the Govee app sends.
+- See `docs/H6008_PROTOCOL.md` for full investigation.
+
 ## Protocol Status
 
 **Confirmed working (community sources + GATT dump):**
@@ -159,8 +171,9 @@ This project uses **subagent-driven-development** for all non-trivial changes:
 
 ### When Tools Fail
 
-**btmon/hcidump buffer overflow on Pop!_OS:**
-- Version 5.72 has known buffer overflow with high BLE traffic
-- Building from source (5.75) doesn't fix it on this system
-- Alternative: Use Python + bleak for direct capture instead
-- Or: Accept that capture isn't possible and use documented protocols from other repos
+**btmon/hcidump on Pop!_OS:**
+- `btmon` 5.72 crashes immediately on startup with SIGABRT (glibc stack protector, buffer overflow in btmon itself — not a traffic volume issue). Building from source (5.75) did not fix it.
+- `hcidump` works but only captures the Linux machine's own HCI traffic (`hci0`). Cannot see iPhone BLE traffic.
+- **Single-connection BLE limit**: cannot passively monitor a bulb while another device (phone) is connected to it. Passive sniffing requires dedicated hardware (nRF52840 dongle).
+
+**The GVH H6008 lesson:** The `ihoment_H6008` (OUI `98:17:3C`) protocol is documented in sisiphamus/govee-controller and works. The **GVH H6008** (OUI `5C:E7:53`, company ID `0x8843`) is a completely different hardware revision with an undocumented BLE protocol. The `0x33` protocol does not work on GVH-series devices. No community reverse engineering exists for this variant. See `docs/H6008_PROTOCOL.md` for full investigation notes.
