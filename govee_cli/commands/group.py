@@ -8,8 +8,8 @@ import click
 
 from govee_cli.ble import GoveeBLE
 from govee_cli.ble.protocol import Command
-from govee_cli.config import load_config, save_config
-from govee_cli.exceptions import GoveeError
+from govee_cli.config import load_config, resolve_device_ref, save_config
+from govee_cli.exceptions import DeviceNotConfigured, GoveeError
 
 
 @click.group()
@@ -23,21 +23,37 @@ def group() -> None:
 
 @group.command()
 @click.argument("name")
-@click.option("--macs", required=True, help="Comma-separated MAC addresses")
+@click.option(
+    "--devices", "--macs", required=True, help="Comma-separated device names or MAC addresses"
+)
 @click.option("--save/--no-save", default=True, help="Save to config (default: save)")
-def add(name: str, macs: str, save: bool) -> None:
-    """Create a group or add devices to an existing group."""
-    mac_list = [m.strip() for m in macs.split(",") if m.strip()]
-    if not mac_list:
-        raise click.ClickException("No valid MAC addresses provided.")
+def add(name: str, devices: str, save: bool) -> None:
+    """Create a group or add devices to an existing group.
 
-    for mac in mac_list:
-        if len(mac) != 17 or mac.count(":") != 5:
-            raise click.ClickException(f"Invalid MAC address format: {mac}")
-
+    Devices can be specified by name (if configured) or MAC address.
+    Example: govee-cli group add living-room --devices "Lamp Front,Lamp Top"
+    Example: govee-cli group add living-room --devices "AA:BB:CC:DD:EE:FF,11:22:33:44:55:66"
+    """
     cfg = load_config()
+
+    # Parse device references (names or MACs)
+    refs = [r.strip() for r in devices.split(",") if r.strip()]
+    if not refs:
+        raise click.ClickException("No valid device references provided.")
+
+    # Resolve each reference to a MAC address
+    mac_list = []
+    for ref in refs:
+        try:
+            mac, _ = resolve_device_ref(cfg, ref)
+            mac_list.append(mac)
+        except DeviceNotConfigured as e:
+            raise click.ClickException(
+                f"{e}. Add it with: govee-cli config --device-mac {ref} --model <model>"
+            ) from e
+
     existing = cfg.groups.get(name, [])
-    # Merge, avoid duplicates
+    # Merge, avoid duplicates (preserve order)
     combined = list(dict.fromkeys(existing + mac_list))
     cfg.groups[name] = combined
 
@@ -47,8 +63,8 @@ def add(name: str, macs: str, save: bool) -> None:
     click.echo(f"Group '{name}': {', '.join(combined)}")
 
 
-@group.command()
-def list() -> None:
+@group.command(name="list")
+def list_groups() -> None:
     """List all groups."""
     cfg = load_config()
     if not cfg.groups:
@@ -69,16 +85,32 @@ def run(name: str, command: tuple[str, ...], adapter: str) -> None:
     Example: govee-cli group living-room power on
     """
     cfg = load_config()
-    macs = cfg.groups.get(name)
-    if not macs:
+    group_refs = cfg.groups.get(name)
+    if not group_refs:
         raise click.ClickException(f"Group '{name}' not found.")
+
+    # Resolve any device names in the group to MAC addresses
+    # (for backward compatibility with legacy groups that stored MACs)
+    macs = []
+    for ref in group_refs:
+        try:
+            mac, _ = resolve_device_ref(cfg, ref)
+            macs.append(mac)
+        except DeviceNotConfigured:
+            # Keep as-is if it looks like a MAC (legacy behavior)
+            if len(ref) == 17 and ref.count(":") == 5:
+                macs.append(ref)
+            else:
+                raise click.ClickException(
+                    f"Device '{ref}' not found in configuration. "
+                    f"Add it with: govee-cli config --device-mac {ref} --model <model>"
+                ) from None
 
     cmd_str = " ".join(command)
     parsed = _parse_inline_command(cmd_str)
     if parsed is None:
         raise click.ClickException(
-            f"Could not parse command: {cmd_str}. "
-            "Try: 'power on', 'color FF5500', 'brightness 75'"
+            f"Could not parse command: {cmd_str}. Try: 'power on', 'color FF5500', 'brightness 75'"
         )
 
     async def run_one(mac: str) -> tuple[str, bool, str]:

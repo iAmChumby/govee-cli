@@ -41,15 +41,34 @@ async def discover_devices(timeout: float = 5.0) -> list[DiscoveredDevice]:
         for device, adv in discovered.values()
     ]
 
+    # Log all discovered devices for debugging
+    for device in results:
+        logger.debug("device_discovered", mac=device.mac, name=device.name, rssi=device.rssi)
+
     logger.info("scan_complete", count=len(results))
     return results
 
 
 def is_govee_device(device: DiscoveredDevice) -> bool:
     """Return True if this looks like a Govee device."""
-    if device.name and "Govee" in device.name:
+    if device.name:
+        # Govee-branded devices (H6056, etc.)
+        if "Govee" in device.name:
+            return True
+        # ihoment is Govee's OEM brand name (H6008, etc.)
+        if "ihoment" in device.name.lower():
+            return True
+        # Some newer devices use GBK_ prefix
+        if device.name.startswith("GBK_"):
+            return True
+        # H6008 and similar bulbs advertise as GVHxxxx (e.g., GVH60088F01)
+        if device.name.upper().startswith("GVH"):
+            return True
+
+    # Govee manufacturer IDs
+    # 0x8801 = 34817, 0x8802 = 34818, 0x8803 = 34819
+    govee_manufacturer_ids = {34817, 34818, 34819}
+    if any(manuf_id in govee_manufacturer_ids for manuf_id in device.manufacturer_data):
         return True
-    # Govee manufacturer ID is 34819 (0x8803)
-    if 34819 in device.manufacturer_data:
-        return True
+
     return False

@@ -41,3 +41,27 @@ class AuthenticationError(GoveeError):
     """Raised when device authentication fails."""
 
     pass
+
+
+class DeviceNotConfigured(GoveeError):
+    """Raised when a referenced device is not in the config."""
+
+    pass
+
+
+class DuplicateDeviceName(GoveeError):
+    """Raised when trying to add a device with a name that's already used."""
+
+    pass
+
+
+class InvalidMACAddress(GoveeError):
+    """Raised when MAC address format is invalid."""
+
+    pass
+
+
+class ModelDetectionFailed(GoveeError):
+    """Raised when auto-detection of device model fails."""
+
+    pass
