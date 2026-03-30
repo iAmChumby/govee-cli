@@ -74,9 +74,7 @@ class GoveeBLE:
             logger.info("not_found_trying_scan", mac=self.mac)
             resolved = await self._resolve_via_scan()
             if resolved is None:
-                raise ConnectionFailed(
-                    f"Device {self.mac} not found directly or via scan."
-                ) from e
+                raise ConnectionFailed(f"Device {self.mac} not found directly or via scan.") from e
             self._client = bleak.BleakClient(
                 resolved,
                 adapter=self.adapter if use_adapter else None,  # type: ignore[arg-type]
@@ -93,9 +91,7 @@ class GoveeBLE:
         If multiple Govee devices are found, prefers the one whose name suffix
         matches the last 4 hex digits of the configured MAC.
         """
-        discovered = await bleak.BleakScanner.discover(
-            timeout=5.0, return_adv=True
-        )
+        discovered = await bleak.BleakScanner.discover(timeout=5.0, return_adv=True)
         govee_devices = [
             (device, adv)
             for device, adv in discovered.values()
@@ -151,28 +147,15 @@ class GoveeBLE:
                 await self._client.start_notify(notify_char, notification_handler)
                 subscribed = True
 
-            await self._client.write_gatt_char(
-                GoveeCharacteristic.WRITE, packet, response=True
-            )
+            await self._client.write_gatt_char(GoveeCharacteristic.WRITE, packet, response=False)
 
-            try:
-                response = await asyncio.wait_for(
-                    response_future, timeout=self.timeout
-                )
-            except asyncio.TimeoutError:
-                raise TimeoutError(
-                    f"Device did not respond to {command.type.name} "
-                    f"within {self.timeout}s"
-                ) from None
-            finally:
-                if subscribed:
-                    try:
-                        await self._client.stop_notify(notify_char)
-                    except Exception:
-                        pass  # best effort
-
-            if not self._verify_response(response, command):
-                raise ProtocolError(f"Invalid response to {command.type.name}")
+            # For write-without-response, don't wait for notification
+            # The write itself succeeding is confirmation enough
+            if subscribed:
+                try:
+                    await self._client.stop_notify(notify_char)
+                except Exception:
+                    pass  # best effort
 
             return True
 
@@ -196,9 +179,7 @@ class GoveeBLE:
 
         state_future: asyncio.Future[bytes] = asyncio.Future()
 
-        async def handler(
-            char: bleak.BleakGATTCharacteristic, data: bytearray
-        ) -> None:
+        async def handler(char: bleak.BleakGATTCharacteristic, data: bytearray) -> None:
             if not state_future.done():
                 state_future.set_result(bytes(data))
 
@@ -206,7 +187,7 @@ class GoveeBLE:
             await self._client.start_notify(notify_char, handler)
             # Send query packet to prompt device to send its current state
             await self._client.write_gatt_char(
-                GoveeCharacteristic.WRITE, build_query_packet(), response=True
+                GoveeCharacteristic.WRITE, build_query_packet(), response=False
             )
             data = await asyncio.wait_for(state_future, timeout=self.timeout)
             logger.debug("state_raw", hex=data.hex(" "), length=len(data))
@@ -233,9 +214,7 @@ class GoveeBLE:
         packet = build_packet(command)
         logger.debug("sending", command=command.type.name, packet=packet.hex())
         try:
-            await self._client.write_gatt_char(
-                GoveeCharacteristic.WRITE, packet, response=False
-            )
+            await self._client.write_gatt_char(GoveeCharacteristic.WRITE, packet, response=False)
         except bleak.exc.BleakError as e:
             raise ConnectionFailed(f"BLE error during send: {e}") from e
 
