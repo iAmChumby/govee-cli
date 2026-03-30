@@ -43,8 +43,8 @@ class CommandType(Enum):
     POWER = 0x01
     BRIGHTNESS = 0x04
     LIGHT_CONTROL = 0x05  # color, temp, scene, segment — mode byte in payload
-    MUSIC = 0x07          # placeholder — format TBD after btmon capture
-    EFFECT = 0x08         # placeholder — format TBD after btmon capture
+    MUSIC = 0x07  # placeholder — format TBD after btmon capture
+    EFFECT = 0x08  # placeholder — format TBD after btmon capture
 
 
 @dataclass
@@ -94,6 +94,23 @@ def encode_color(r: int, g: int, b: int) -> Command:
     )
 
 
+def encode_color_simple(r: int, g: int, b: int) -> Command:
+    """
+    Encode an RGB color command (MODE_2 — simple format for H6008 and similar bulbs).
+
+    H6008 uses simpler format: packet 33 05 02 RR GG BB [zeros] XOR
+    From sisiphamus/govee-controller research. MODE_2 is used by basic bulbs
+    without segment support (H6008, H6001, H6127, etc.).
+    """
+    for v in (r, g, b):
+        if not 0 <= v <= 255:
+            raise ValueError(f"Color component must be 0-255, got {v}")
+    return Command(
+        CommandType.LIGHT_CONTROL,
+        bytes([0x02, r, g, b]),
+    )
+
+
 def encode_color_hex(hex_color: str) -> Command:
     """Encode a color from a hex string like 'FF5500'."""
     hex_color = hex_color.lstrip("#")
@@ -103,6 +120,45 @@ def encode_color_hex(hex_color: str) -> Command:
     g = int(hex_color[2:4], 16)
     b = int(hex_color[4:6], 16)
     return encode_color(r, g, b)
+
+
+def encode_color_hex_for_device(hex_color: str, device_model: str | None = None) -> Command:
+    """Encode a color from a hex string, selecting appropriate encoder for device model.
+
+    Args:
+        hex_color: Hex color string like 'FF5500' or '#FF5500'
+        device_model: Device model (e.g., 'H6008', 'H6056'). If None, defaults to MODE_1501.
+
+    Returns:
+        Command: Encoded command for the device
+    """
+    hex_color = hex_color.lstrip("#")
+    if len(hex_color) != 6:
+        raise ValueError(f"Invalid hex color: #{hex_color}")
+    r = int(hex_color[0:2], 16)
+    g = int(hex_color[2:4], 16)
+    b = int(hex_color[4:6], 16)
+
+    # Use MODE_2 for H6008 and similar simple bulbs
+    if device_model and device_model.upper() == "H6008":
+        return encode_color_simple(r, g, b)
+    return encode_color(r, g, b)
+
+
+def encode_temp_for_device(kelvin: int, device_model: str | None = None) -> Command:
+    """Encode a color temperature command, selecting appropriate encoder for device model.
+
+    Args:
+        kelvin: Color temperature in Kelvin (2700-6500)
+        device_model: Device model (e.g., 'H6008', 'H6056'). If None, defaults to MODE_1501.
+
+    Returns:
+        Command: Encoded command for the device
+    """
+    # Use H6008 variant for H6008 bulb
+    if device_model and device_model.upper() == "H6008":
+        return encode_temp_h6008(kelvin)
+    return encode_temp(kelvin)
 
 
 def encode_temp(kelvin: int) -> Command:
@@ -120,12 +176,47 @@ def encode_temp(kelvin: int) -> Command:
     kelvin_lo = kelvin & 0xFF
     return Command(
         CommandType.LIGHT_CONTROL,
-        bytes([
-            0x15, 0x01, 0xFF, 0xFF, 0xFF,
-            kelvin_hi, kelvin_lo,
-            0xFF, 0x89, 0x12, 0xFF, 0xFF,
-            0x00, 0x00, 0x00, 0x00, 0x00,
-        ]),
+        bytes(
+            [
+                0x15,
+                0x01,
+                0xFF,
+                0xFF,
+                0xFF,
+                kelvin_hi,
+                kelvin_lo,
+                0xFF,
+                0x89,
+                0x12,
+                0xFF,
+                0xFF,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+                0x00,
+            ]
+        ),
+    )
+
+
+def encode_temp_h6008(kelvin: int) -> Command:
+    """
+    Encode a white color temperature command for H6008 (2700-6500 K).
+
+    H6008 uses MODE_2 format for color temperature:
+    33 05 05 <kelvin_hi> <kelvin_lo> [zeros] XOR
+    Mode byte 0x05 indicates temperature control (vs 0x02 for RGB).
+
+    Kelvin is big-endian (same as MODE_1501).
+    """
+    if not 2700 <= kelvin <= 6500:
+        raise ValueError(f"Color temp must be 2700-6500 K, got {kelvin}")
+    kelvin_hi = (kelvin >> 8) & 0xFF
+    kelvin_lo = kelvin & 0xFF
+    return Command(
+        CommandType.LIGHT_CONTROL,
+        bytes([0x05, kelvin_hi, kelvin_lo]),
     )
 
 
@@ -191,11 +282,11 @@ def build_packet(command: Command) -> bytes:
     """
     inner = bytes([command.type.value]) + command.payload
     inner = inner[:18].ljust(18, b"\x00")  # pad or trim to exactly 18 bytes
-    frame = bytes([0x33]) + inner           # 19 bytes
+    frame = bytes([0x33]) + inner  # 19 bytes
     checksum = 0
     for b in frame:
         checksum ^= b
-    return frame + bytes([checksum])        # 20 bytes total
+    return frame + bytes([checksum])  # 20 bytes total
 
 
 def parse_state(data: bytes) -> LightState:

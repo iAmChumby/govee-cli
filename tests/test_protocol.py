@@ -7,10 +7,14 @@ from govee_cli.ble.protocol import (
     encode_brightness,
     encode_color,
     encode_color_hex,
+    encode_color_simple,
+    encode_color_hex_for_device,
     encode_power,
     encode_scene,
     encode_segment,
     encode_temp,
+    encode_temp_h6008,
+    encode_temp_for_device,
     build_packet,
 )
 
@@ -137,9 +141,9 @@ class TestBuildPacket:
     def test_packet_structure(self) -> None:
         cmd = encode_power(on=True)
         packet = build_packet(cmd)
-        assert packet[0] == 0x33   # header
-        assert packet[1] == 0x01   # POWER command type
-        assert packet[2] == 0x01   # payload (on)
+        assert packet[0] == 0x33  # header
+        assert packet[1] == 0x01  # POWER command type
+        assert packet[2] == 0x01  # payload (on)
         # bytes 3-18 are zero padding
         assert all(b == 0 for b in packet[3:19])
         # byte 19 is XOR checksum of bytes 0-18
@@ -169,3 +173,113 @@ class TestBuildPacket:
         packet = build_packet(cmd)
         xor_result = 0x33 ^ 0x04 ^ 0x64  # = 0x53
         assert packet[19] == xor_result
+
+
+class TestEncodeColorSimple:
+    """Tests for H6008 MODE_2 color encoding."""
+
+    def test_black(self) -> None:
+        cmd = encode_color_simple(0, 0, 0)
+        assert cmd.type == CommandType.LIGHT_CONTROL
+        # MODE_2: [0x02, R, G, B] — for H6008 and simple bulbs
+        assert cmd.payload == bytes([0x02, 0x00, 0x00, 0x00])
+
+    def test_white(self) -> None:
+        cmd = encode_color_simple(255, 255, 255)
+        assert cmd.payload == bytes([0x02, 0xFF, 0xFF, 0xFF])
+
+    def test_orange(self) -> None:
+        cmd = encode_color_simple(255, 85, 0)
+        assert cmd.payload == bytes([0x02, 0xFF, 0x55, 0x00])
+
+    def test_invalid_component_low(self) -> None:
+        with pytest.raises(ValueError, match="0-255"):
+            encode_color_simple(-1, 0, 0)
+
+    def test_invalid_component_high(self) -> None:
+        with pytest.raises(ValueError, match="0-255"):
+            encode_color_simple(256, 0, 0)
+
+
+class TestEncodeTempH6008:
+    """Tests for H6008 temperature encoding."""
+
+    def test_warm_white(self) -> None:
+        cmd = encode_temp_h6008(2700)
+        assert cmd.type == CommandType.LIGHT_CONTROL
+        # H6008: mode 0x05, kelvin big-endian
+        # 2700K = 0x0A8C → hi=0x0A, lo=0x8C
+        assert cmd.payload == bytes([0x05, 0x0A, 0x8C])
+
+    def test_cool_white(self) -> None:
+        cmd = encode_temp_h6008(6500)
+        # 6500K = 0x1964 → hi=0x19, lo=0x64
+        assert cmd.payload == bytes([0x05, 0x19, 0x64])
+
+    def test_too_low(self) -> None:
+        with pytest.raises(ValueError, match="2700-6500"):
+            encode_temp_h6008(2600)
+
+    def test_too_high(self) -> None:
+        with pytest.raises(ValueError, match="2700-6500"):
+            encode_temp_h6008(6600)
+
+
+class TestEncodeColorHexForDevice:
+    """Tests for device-aware color encoding."""
+
+    def test_h6056_uses_mode_1501(self) -> None:
+        cmd = encode_color_hex_for_device("FF5500", "H6056")
+        # Should use MODE_1501 format
+        assert cmd.payload == bytes([0x15, 0x01, 0xFF, 0x55, 0x00, 0, 0, 0, 0, 0, 0xFF, 0xFF])
+
+    def test_h6008_uses_mode_2(self) -> None:
+        cmd = encode_color_hex_for_device("FF5500", "H6008")
+        # Should use MODE_2 format
+        assert cmd.payload == bytes([0x02, 0xFF, 0x55, 0x00])
+
+    def test_h6008_lowercase(self) -> None:
+        cmd = encode_color_hex_for_device("FF5500", "h6008")
+        assert cmd.payload == bytes([0x02, 0xFF, 0x55, 0x00])
+
+    def test_none_model_defaults_to_mode_1501(self) -> None:
+        cmd = encode_color_hex_for_device("FF5500", None)
+        assert cmd.payload == bytes([0x15, 0x01, 0xFF, 0x55, 0x00, 0, 0, 0, 0, 0, 0xFF, 0xFF])
+
+    def test_unknown_model_defaults_to_mode_1501(self) -> None:
+        cmd = encode_color_hex_for_device("FF5500", "UNKNOWN")
+        assert cmd.payload == bytes([0x15, 0x01, 0xFF, 0x55, 0x00, 0, 0, 0, 0, 0, 0xFF, 0xFF])
+
+    def test_with_hash_prefix(self) -> None:
+        cmd = encode_color_hex_for_device("#FF5500", "H6008")
+        assert cmd.payload == bytes([0x02, 0xFF, 0x55, 0x00])
+
+    def test_invalid_length(self) -> None:
+        with pytest.raises(ValueError, match="Invalid hex color"):
+            encode_color_hex_for_device("FFF", "H6008")
+
+
+class TestEncodeTempForDevice:
+    """Tests for device-aware temperature encoding."""
+
+    def test_h6056_uses_mode_1501(self) -> None:
+        cmd = encode_temp_for_device(2700, "H6056")
+        # Should use MODE_1501 format with magic bytes
+        assert cmd.payload[:7] == bytes([0x15, 0x01, 0xFF, 0xFF, 0xFF, 0x0A, 0x8C])
+
+    def test_h6008_uses_simple_format(self) -> None:
+        cmd = encode_temp_for_device(2700, "H6008")
+        # Should use H6008 format: mode 0x05 + kelvin
+        assert cmd.payload == bytes([0x05, 0x0A, 0x8C])
+
+    def test_h6008_lowercase(self) -> None:
+        cmd = encode_temp_for_device(6500, "h6008")
+        assert cmd.payload == bytes([0x05, 0x19, 0x64])
+
+    def test_none_model_defaults_to_mode_1501(self) -> None:
+        cmd = encode_temp_for_device(2700, None)
+        assert cmd.payload[:7] == bytes([0x15, 0x01, 0xFF, 0xFF, 0xFF, 0x0A, 0x8C])
+
+    def test_unknown_model_defaults_to_mode_1501(self) -> None:
+        cmd = encode_temp_for_device(2700, "UNKNOWN")
+        assert cmd.payload[:7] == bytes([0x15, 0x01, 0xFF, 0xFF, 0xFF, 0x0A, 0x8C])

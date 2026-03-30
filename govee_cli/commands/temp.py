@@ -5,7 +5,7 @@ import asyncio
 import click
 
 from govee_cli.ble import GoveeBLE
-from govee_cli.ble.protocol import encode_temp
+from govee_cli.ble.protocol import encode_temp_for_device
 from govee_cli.config import load_config, resolve_device_ref
 from govee_cli.exceptions import GoveeError
 
@@ -21,17 +21,21 @@ def command(ctx: click.Context, kelvin: int, mac: str | None, adapter: str) -> N
     if not mac:
         raise click.ClickException("No device MAC specified. Use --device or set default.")
 
+    cfg = load_config()
+    device_model = None
+
     if mac:
-        cfg = load_config()
         try:
-            resolved_mac, _ = resolve_device_ref(cfg, mac)
+            resolved_mac, device_config = resolve_device_ref(cfg, mac)
             mac = resolved_mac
+            device_model = device_config.model
         except Exception:
-            pass  # Keep original if resolution fails
+            # Keep original MAC if resolution fails, model stays None
+            pass
 
     async def run() -> None:
         async with GoveeBLE(mac, adapter=adapter) as client:
-            await client.execute(encode_temp(kelvin))
+            await client.execute(encode_temp_for_device(kelvin, device_model))
             click.echo(f"Color temperature set to {kelvin}K")
 
     try:
