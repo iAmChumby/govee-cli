@@ -164,3 +164,5 @@ Check if the H6008 shows "LAN Control" in Govee Home app. If yes, use `govee_lan
 | 02:23 | sniffer | nRF52840 hardware confirmed (~$10-13) |
 | 02:27 | lanapi | H6008 on LAN API list — but requires WiFi |
 | 02:38 | custom-uuids test | H7126: custom UUIDs work, standard absent, device silent |
+
+| 11:06 | agent:test-commands-h7126 | ✅ LEAD | ALL 10 commands succeeded on H7126 — power, color (RGB), brightness (0x04), temp (warm/cool), scene (0x0018). RGB channel swap CONFIRMED. Device accepts 0x01/0x02/0x04/0x0D/0x15/0xA1 variants. sisiphamus found notify char for responses. |
