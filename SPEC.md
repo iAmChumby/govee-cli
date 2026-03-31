@@ -185,7 +185,9 @@ GATT UUIDs (confirmed on H6056):
 | Daemon | ✅ Done | asyncio loop, SIGINT/SIGTERM handling |
 | Shell completion | ✅ Done | bash / zsh / fish / powershell |
 | Record / replay | ⏳ Stub | Requires btmon capture session |
-| Music sync | ⏳ Not started | Requires audio library + protocol research |
+| Music sync | ⚠️ Stub | `encode_music` is a placeholder — protocol (0x07) needs btmon capture |
+| Effect/scenario | ⚠️ Placeholder | `encode_effect` (0x08) not yet implemented — needs research |
+| Individual segment addressing | ⚠️ Unverified | Per-segment color confirmed working for all-segments; individual segment bytes need btmon capture |
 
 ## References
 
@@ -196,5 +198,7 @@ GATT UUIDs (confirmed on H6056):
 | [Beshelmek/govee_ble_lights](https://github.com/Beshelmek/govee_ble_lights) | BLE protocol cross-reference |
 | [timniklas/hass-govee_light_ble](https://github.com/timniklas/hass-govee_light_ble) | BLE protocol cross-reference |
 | [BeauJBurroughs/Govee-H6127-Reverse-Engineering](https://github.com/BeauJBurroughs/Govee-H6127-Reverse-Engineering) | H6127 protocol reference |
+| [Bluetooth-Devices/govee-ble](https://github.com/Bluetooth-Devices/govee-ble) | Home Assistant BLE integration — validates UUIDs and protocol coverage |
+| [sisiphamus/govee-controller](https://github.com/sisiphamus/govee-controller) | H6008 MODE_2 protocol reference |
 | Govee public API | Real H6056 scene codes and metadata |
 | H6056 hardware GATT dump | GATT service/characteristic UUIDs confirmed on real device |
