@@ -1,6 +1,6 @@
 # H6008 Research Tracker
 
-**Last updated:** 2026-03-31 02:41
+**Last updated:** 2026-03-31 21:11
 **Goal:** Crack the H6008 GVH-series BLE protocol
 **Context:** BLE necessary — machine is on eduroam WiFi
 **Cron:** Runs every 45 min (3–10 AM) — see `cron-jobs.json` id `h6008-research-01`
@@ -167,3 +167,18 @@ Check if the H6008 shows "LAN Control" in Govee Home app. If yes, use `govee_lan
 
 | 11:06 | agent:test-commands-h7126 | ✅ LEAD | ALL 10 commands succeeded on H7126 — power, color (RGB), brightness (0x04), temp (warm/cool), scene (0x0018). RGB channel swap CONFIRMED. Device accepts 0x01/0x02/0x04/0x0D/0x15/0xA1 variants. sisiphamus found notify char for responses. |
 | 13:54 | live-test | ✅ LEAD | H6008 LIVE TESTED — Both GVH600887FB and GVH60088F01 respond to ALL commands. Protocol confirmed. CLI fix committed. |
+| 18:20 | cron:4515af80 | ✅ LEAD | Both H6008 devices (GVH600887FB RSSI -50, GVH60088F01 RSSI -43) in range and responding to power + RGB commands. Channel swap confirmed. |
+| 19:07 | cron:4515af80 | ✅ LEAD | **30/30 commands succeeded** on BOTH H6008 bulbs. All tested: power, RGB (swapped), brightness (0%/50%/100%), temp (warm/cool), scene (0x0018), proprietary (0x15, 0xA1). No notifications received. Test script bug (lambda not called) fixed — ALT UUIDs confirmed working too. |
+| 21:11 | cron:4515af80 | ✅ LEAD | **30/30 commands succeeded** on BOTH H6008 bulbs. All power, color (RGB swapped), brightness, temp, scene, proprietary commands confirmed working. ALT UUIDs working on both devices. |
+| 21:20 | cron:4515af80 | ✅ LEAD | **30/30 commands succeeded** on BOTH H6008 bulbs (RSSI -42/-45). All power, color (RGB swapped), brightness, temp, scene, proprietary confirmed. ALT UUIDs confirmed on both. |
+
+---
+
+## H6008 Live Confirmation (2026-03-31)
+
+**Devices found:**
+- `GVH600887FB` / `5C:E7:53:69:87:FB` — RSSI -45
+- `GVH60088F01` / `5C:E7:53:63:8F:01` — RSSI -42
+- `ihoment_H7126_5AE9` / `60:74:F4:94:5A:E9` — RSSI -56
+
+**Commands tested on both H6008:** Power ON, RED (channel-swapped), GREEN (channel-swapped), BLUE — all succeeded with no errors.
