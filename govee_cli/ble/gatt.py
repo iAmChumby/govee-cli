@@ -95,7 +95,12 @@ class GoveeBLE:
         govee_devices = [
             (device, adv)
             for device, adv in discovered.values()
-            if device.name and "Govee" in device.name
+            if device.name
+            and (
+                "Govee" in device.name
+                or device.name.startswith("GVH")
+                or "ihoment" in device.name.lower()
+            )
         ]
         if not govee_devices:
             return None
