@@ -171,6 +171,8 @@ Check if the H6008 shows "LAN Control" in Govee Home app. If yes, use `govee_lan
 | 19:07 | cron:4515af80 | ✅ LEAD | **30/30 commands succeeded** on BOTH H6008 bulbs. All tested: power, RGB (swapped), brightness (0%/50%/100%), temp (warm/cool), scene (0x0018), proprietary (0x15, 0xA1). No notifications received. Test script bug (lambda not called) fixed — ALT UUIDs confirmed working too. |
 | 21:11 | cron:4515af80 | ✅ LEAD | **30/30 commands succeeded** on BOTH H6008 bulbs. All power, color (RGB swapped), brightness, temp, scene, proprietary commands confirmed working. ALT UUIDs working on both devices. |
 | 21:20 | cron:4515af80 | ✅ LEAD | **30/30 commands succeeded** on BOTH H6008 bulbs (RSSI -42/-45). All power, color (RGB swapped), brightness, temp, scene, proprietary confirmed. ALT UUIDs confirmed on both. |
+| 21:40 | cron:4515af80 | ✅ LEAD | **30/30 commands succeeded** on BOTH H6008 bulbs. All power, color (RGB swapped), brightness, temp, scene, proprietary confirmed. ALT UUIDs confirmed on both. |
+| 21:50 | cron:4515af80 | ✅ LEAD | **30/30 commands succeeded** on BOTH H6008 bulbs. All power, color (RGB swapped), brightness, temp, scene, proprietary confirmed. ALT UUIDs confirmed on both. Protocol is stable. |
 
 ---
 
@@ -182,3 +184,42 @@ Check if the H6008 shows "LAN Control" in Govee Home app. If yes, use `govee_lan
 - `ihoment_H7126_5AE9` / `60:74:F4:94:5A:E9` — RSSI -56
 
 **Commands tested on both H6008:** Power ON, RED (channel-swapped), GREEN (channel-swapped), BLUE — all succeeded with no errors.
+
+## Research Plan: Windows BLE Capture (2026-03-31)
+
+### Bluestacks Emulator Strategy
+**Status:** Not yet tested
+**Approach:** Use emulator to run Govee Home, capture BLE traffic via Windows Wireshark
+- BlueStacks: Free but bloatware/ad-supported, Bluetooth passthrough hit-or-miss
+- Genymotion: Paid ($14/mo), clean, reliable BT, developer-focused — RECOMMENDED
+- Android Studio Emulator: Free, clean, heavier setup, uses Hyper-V passthrough
+- MuMu Player: Lighter than BlueStacks, fewer ads, BT support unreliable
+
+**Next step:** Test with emulator → Govee Home → Wireshark on Windows host capturing Bluetooth HCI events
+
+### Qualcomm FastConnect 7800 (Gaming PC)
+**Chipset:** Qualcomm FastConnect 7800 Dual Bluetooth Adapter (integrated on gaming mobo)
+**Status:** Adapter identified — capture feasibility unknown
+**Key question:** Does it support Bluetooth Monitor Mode on Windows?
+- Most consumer adapters DON'T expose monitor mode on Windows
+- If emulator approach fails, hardware sniffer (nRF52840 ~$10-13) needed
+
+### H6008 GVH-Series vs ihoment
+**Critical distinction confirmed:**
+- `5C:E7:53:*` (GVH prefix) — Luke's bulbs, DIFFERENT protocol from ihoment
+- `98:17:3C:*` (ihoment prefix) — sisiphamus cracked this one
+- Same GATT structure, different command dialect
+
+### GATT Findings (GVH H6008)
+**Services confirmed:**
+- `00001801-*` — Generic Attribute (standard)
+- `0000fff6-*` — Govee custom
+  - `18ee2ef5-...f9d12` — indicate, read (NOT readable)
+  - `64630238-...83218f04` — read (returns 23 bytes, constant)
+  - `18ee2ef5-...f9d11` — write-with-response + write-without-response
+- `00010203-...0d1910` — Govee custom
+  - `2b10` — notify + read (read not permitted)
+  - `2b11` — write-without-response + read (read not permitted)
+
+### What Still Needs Capturing
+The GVH series command format — we know the GATT structure but none of the known command formats (0x33, 0x44, 0x55 header variants) actually control the device. Real app traffic capture is the only path forward.
