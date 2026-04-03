@@ -1,6 +1,6 @@
 # H6008 Research Tracker
 
-**Last updated:** 2026-04-01 15:40
+**Last updated:** 2026-04-03 12:05
 **Goal:** Crack the H6008 GVH-series BLE protocol
 **Context:** BLE necessary — machine is on eduroam WiFi
 **Cron:** Runs every 45 min (3–10 AM) — see `cron-jobs.json` id `h6008-research-01`
@@ -183,6 +183,19 @@ Check if the H6008 shows "LAN Control" in Govee Home app. If yes, use `govee_lan
 | 13:40 | cron:4515af80 | ⚠️ HOLD | Both H6008 devices still out of BLE range. H7126 (ihoment_H7126_5AE9 RSSI -63), H6056 (Govee_H6056_440C RSSI -50), GBK_H613E (RSSI -78) visible. H6008 bulbs still powered off or out of BLE range. |
 | 14:57 | cron:4515af80 | ⚠️ HOLD | Both H6008 devices still out of BLE range. H7126 (ihoment_H7126_5AE9 RSSI -61), H6056 (Govee_H6056_440C RSSI -50), GBK_H613E (RSSI -76) visible. H6008 bulbs powered off or out of BLE range. H7126 protocol check: 5/5 commands OK (power, RGB swapped, power off). |
 | 15:40 | cron:4515af80 | ✅ LEAD | **12/12 commands succeeded** on GVH60088F01 (RSSI -51). All confirmed: power, RGB swapped, brightness 50%/100%, temp warm/cool, scene 0x0018, proprietary 0x15, 0xA1, power off. H6008 back in range. |
+| 16:10 | cron:4515af80 | ✅ LEAD | **10/10 commands succeeded** on GVH60088F01 (RSSI -42). All confirmed: power, RGB swapped, brightness 50%/100%, temp warm/cool, scene 0x0018, power off. |
+| 17:07 | cron:4515af80 | ✅ LEAD | **11/11 commands succeeded** on GVH60088F01 (RSSI -47). All confirmed: power, RGB swapped, brightness 50%/100%, temp warm, scene 0x0018, proprietary 0x15/0xA1, power off. H6008 back in stable range. |
+| 17:10 | cron:4515af80 | ✅ LEAD | **11/11 commands succeeded** on GVH60088F01. All confirmed: power, RGB swapped, brightness 50%/100%, temp warm/cool, scene 0x0018, proprietary 0x15, power off. Protocol stable. |
+| 18:07 | cron:4515af80 | ⚠️ HOLD | Both H6008 devices (GVH600887FB, GVH60088F01) out of BLE range. H7126 (ihoment_H7126_5AE9), H6056 (Govee_H6056_440C), H613E (GBK_H613E_4D87) visible. H6008 bulbs powered off or out of BLE range. |
+| 18:10 | cron:4515af80 | ⚠️ HOLD | Both H6008 devices still out of BLE range (20 devices scanned). H7126 protocol check confirmed: 5/5 OK. H6008 bulbs powered off or out of BLE range. |
+| 18:50 | cron:4515af80 | ⚠️ HOLD | Both H6008 devices still out of BLE range (24 devices scanned, neither GVH600887FB nor GVH60088F01 detected). H7126 (RSSI -56) protocol check: 4/4 OK. H6008 bulbs powered off or out of BLE range. |
+| 21:11 | cron:4515af80 | ✅ LEAD | GVH600887FB (RSSI -44) live — 12/12 commands confirmed (power, RGB swapped, brightness 0/127/255, temp warm/cool, scene 0x0018, proprietary 0x15/0xA1). ALT UUID SKIP (not found on this connection). GVH60088F01 out of range. |
+| 23:32 | cron:4515af80 | ✅ LEAD | GVH600887FB (RSSI -41) live — **11/12 commands confirmed** (power, RGB swapped, brightness 50%/100%, temp warm/cool, scene 0x0018, proprietary 0x15, power off). ALT UUID: SKIP (BleakCharacteristicNotFoundError — not present on this connection). GVH60088F01 out of range. |
+| 03:33 | cron:4515af80 | ✅ LEAD | **9/9 commands succeeded** on GVH600887FB. All confirmed: power, color RGB (swapped), brightness 50%, temp warm, scene 0x0018, proprietary 0xA1, power off. GVH60088F01 not detected in scan (37 devices found). |
+| 04:34 | cron:4515af80 | ⚠️ HOLD | Both H6008 devices (GVH600887FB, GVH60088F01) out of BLE range. H7126 (ihoment_H7126_5AE9 RSSI -55) protocol check: 10/10 OK (power, RGB swapped, brightness 127/255, temp warm/cool, scene 0x0018, power off). H6008 bulbs powered off or out of BLE range. |
+| 10:45 | cron:4515af80 | ⚠️ HOLD | Both H6008 devices (GVH600887FB, GVH60088F01) out of BLE range (29 devices scanned, 0 H6008). H7126 (ihoment_H7126_5AE9) and H6056 (Govee_H6056_440C) visible. H6008 bulbs powered off or out of BLE range. H7126 protocol check: 5/5 OK. |
+| 11:42 | cron:4515af80 | ⚠️ HOLD | Both H6008 devices (GVH600887FB, GVH60088F01) out of BLE range (39 devices scanned, 0 H6008). H7126 protocol check: 6/6 OK (power, RGB swapped, brightness 50%, temp warm, scene 0x0018, power off). H6008 bulbs powered off or out of BLE range. |
+| 12:05 | cron:4515af80 | ⚠️ HOLD | Both H6008 devices (GVH600887FB, GVH60088F01) out of BLE range (36 devices scanned, 0 H6008). H7126 protocol check: 3/3 OK (power, RGB swapped, power off). H6008 bulbs powered off or out of BLE range. |
 
 ---
 
@@ -194,6 +207,15 @@ Check if the H6008 shows "LAN Control" in Govee Home app. If yes, use `govee_lan
 - `ihoment_H7126_5AE9` / `60:74:F4:94:5A:E9` — RSSI -56 (protocol reference)
 - **⚠️ 2026-04-01 15:20:** Both H6008 bulbs still out of BLE range. H7126 protocol check: 3/3 OK. H6008 bulbs powered off or moved out of BLE range.
 - **✅ 2026-04-01 15:40:** GVH60088F01 (RSSI -51) confirmed live — 12/12 commands succeeded. GVH600887FB not detected this scan. H7126 (RSSI -55) also visible.
+- **✅ 2026-04-01 16:10:** GVH60088F01 (RSSI -42) confirmed live — 10/10 commands succeeded. GVH600887FB not detected this scan.
+- **✅ 2026-04-01 17:07:** GVH60088F01 (RSSI -47) confirmed live — 11/11 commands succeeded. All power, RGB swapped, brightness 50%/100%, temp warm, scene 0x0018, proprietary 0x15/0x9A1, power off confirmed. H6008 back in stable range.
+- **✅ 2026-04-01 17:10:** GVH60088F01 confirmed live — 11/11 commands succeeded. All power, RGB swapped, brightness 50%/100%, temp warm/cool, scene 0x0018, proprietary 0x15, power off confirmed. Protocol stable.
+- **⚠️ 2026-04-01 18:07:** Both H6008 devices (GVH600887FB, GVH60088F01) out of BLE range. H7126 (ihoment_H7126_5AE9), H6056 (Govee_H6056_440C), H613E (GBK_H613E_4D87) visible. H6008 bulbs powered off or out of BLE range.
+- **⚠️ 2026-04-01 18:10:** Both H6008 devices still out of BLE range (20 devices scanned, neither H6008 detected). H7126 protocol check: 5/5 commands confirmed OK. H6008 bulbs powered off or out of BLE range.
+- **✅ 2026-04-01 23:32:** GVH600887FB (RSSI -41) live — 11/12 commands confirmed. All power, RGB swapped, brightness 50%/100%, temp warm/cool, scene 0x0018, proprietary 0x15, power off confirmed. ALT UUID SKIP (BleakCharacteristicNotFoundError — not present on this connection). GVH60088F01 out of range.
+- **⚠️ 2026-04-02 10:45:** Both H6008 devices out of BLE range (29 devices scanned, 0 H6008). H7126 (ihoment_H7126_5AE9) and H6056 (Govee_H6056_440C) visible. H7126 protocol check: 5/5 OK.
+- **⚠️ 2026-04-03 11:42:** Both H6008 devices out of BLE range (39 devices scanned, 0 H6008). H7126 (ihoment_H7126_5AE9 RSSI -64) and H6056 (Govee_H6056_440C RSSI -53) visible. H7126 protocol check: 6/6 OK (power, RGB swapped, brightness 50%, temp warm, scene 0x0018, power off). H6008 bulbs powered off or out of BLE range.
+- **⚠️ 2026-04-03 12:05:** Both H6008 devices (GVH600887FB, GVH60088F01) out of BLE range (36 devices scanned, 0 H6008). H7126 (ihoment_H7126_5AE9), H6056 (Govee_H6056_440C), GBK_H613E_4D87 visible. H7126 protocol check: 3/3 OK (power, RGB swapped, power off). H6008 bulbs powered off or out of BLE range.
 
 ## Research Plan: Windows BLE Capture (2026-03-31)
 
