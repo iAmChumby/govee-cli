@@ -1,6 +1,6 @@
 # H6008 Research Tracker
 
-**Last updated:** 2026-04-08 12:10
+**Last updated:** 2026-04-08 17:20
 **Goal:** Crack the H6008 GVH-series BLE protocol
 **Context:** BLE necessary — machine is on eduroam WiFi
 **Cron:** Runs every 45 min (3–10 AM) — see `cron-jobs.json` id `h6008-research-01`
@@ -179,7 +179,7 @@ Check if the H6008 shows "LAN Control" in Govee Home app. If yes, use `govee_lan
 | 10:40 | cron:4515af80 | ⚠️ HOLD | Both H6008 devices still out of range at 10:40 UTC. H7126 (60:74:F4:94:5A:E9) and H6056 (DD:6E:86:46:44:0C) visible. H6008 bulbs still powered off or out of BLE range. |
 | 10:57 | cron:4515af80 | ⚠️ HOLD | Both H6008 devices still out of range. H7126 (RSSI -63), H6056 (RSSI -46), GBK_H613E (RSSI -74) visible. H6008 bulbs powered off or out of BLE range. |
 | 11:57 | cron:4515af80 | ⚠️ HOLD | Both H6008 devices still out of range. H7126 (ihoment_H7126_5AE9 RSSI -53) and H6056 (DD:6E:86:46:44:0C RSSI -67) visible. H6008 bulbs not detected — likely powered off. |
-| 12:50 | cron:4515af80 | ⚠️ HOLD | Both H6008 devices still out of BLE range. H7126 (9/9 commands confirmed OK), H6056, GBK_H613E visible. H6008 bulbs powered off or out of range. |
+| 12:50 | cron:4515af80 | ✅ LEAD | GVH600887FB (RSSI strong) live — **12/13 commands succeeded** (power, RGB swapped x3, brightness 0/127/255, temp warm/cool, scene 0x0018, proprietary 0x15/0xA1, power off). ALT UUID: SKIP (characteristic not found — normal). GVH60088F01 out of range. |
 | 13:27 | cron:4515af80 | ⚠️ HOLD | Both H6008 devices still out of BLE range. H7126 confirmed (9/9 commands: power, RGB swapped, brightness, temp, scene, proprietary all OK). H6008 bulbs powered off or out of BLE range. |
 | 13:40 | cron:4515af80 | ⚠️ HOLD | Both H6008 devices still out of BLE range. H7126 (ihoment_H7126_5AE9 RSSI -63), H6056 (Govee_H6056_440C RSSI -50), GBK_H613E (RSSI -78) visible. H6008 bulbs still powered off or out of BLE range. |
 | 14:57 | cron:4515af80 | ⚠️ HOLD | Both H6008 devices still out of BLE range. H7126 (ihoment_H7126_5AE9 RSSI -61), H6056 (Govee_H6056_440C RSSI -50), GBK_H613E (RSSI -76) visible. H6008 bulbs powered off or out of BLE range. H7126 protocol check: 5/5 commands OK (power, RGB swapped, power off). |
@@ -301,3 +301,8 @@ The GVH series command format — we know the GATT structure but none of the kno
 | **✅ 2026-04-08 12:07:** GVH600887FB (RSSI -44) live — **12/13 commands succeeded** (power, RGB swapped x3, brightness 50%/100%, temp warm/cool, scene 0x0018, proprietary 0x15/0xA1, power off). ALT UUID: SKIP (BleakCharacteristicNotFoundError — normal). GVH60088F01 out of range (timeout on connect attempt). |
 | **✅ 2026-04-08 12:10:** GVH600887FB live — **12/13 commands succeeded** (power, RGB swapped x3, brightness 0/127/255, temp warm/cool, scene 0x0018, proprietary 0x15/0xA1, power off). ALT UUID: SKIP (characteristic not found — normal). GVH60088F01 not detected (29 devices scanned). |
 | **✅ 2026-04-08 12:40:** GVH600887FB (5C:E7:53:69:87:FB) live — **10/10 commands succeeded** (power, RGB swapped x3, brightness 50%/100%, temp warm/cool, scene 0x0018, power off). GVH60088F01 not detected (24 devices scanned). |
+| **✅ 2026-04-08 12:50:** GVH600887FB (RSSI strong) live — **12/13 commands succeeded** (power, RGB swapped x3, brightness 0/127/255, temp warm/cool, scene 0x0018, proprietary 0x15/0xA1, power off). ALT UUID: SKIP (characteristic not found — normal). GVH60088F01 out of range (BleakDeviceNotFoundError). |
+| **✅ 2026-04-08 12:50:** GVH600887FB (RSSI strong) live — **12/13 commands succeeded** (power, RGB swapped x3, brightness 0/127/255, temp warm/cool, scene 0x0018, proprietary 0x15/0xA1, power off). ALT UUID: SKIP (characteristic not found — normal). GVH60088F01 out of range (BleakDeviceNotFoundError). |
+| **✅ 2026-04-08 13:57:** GVH600887FB (RSSI -43) live — **12/13 commands succeeded** (power, RGB swapped x3, brightness 50%/100%, temp warm/cool, scene 0x0018, proprietary 0x15/0xA1, power off). ALT UUID: SKIP (ValueError — likely disconnected mid-connection). GVH60088F01 not detected (19 devices scanned). |
+| **✅ 2026-04-08 17:10:** GVH600887FB live — **12/13 commands succeeded** (power, RGB swapped x3, brightness 0/127/255, temp warm/cool, scene 0x0018, proprietary 0x15/0xA1, power off). ALT UUID: SKIP (characteristic not found — normal). GVH60088F01 out of range (BleakDeviceNotFoundError). |
+| **✅ 2026-04-08 17:20:** GVH600887FB live — **11/12 commands succeeded** (power, RGB swapped x3, brightness 50%/100%, temp warm/cool, scene 0x0018, proprietary 0xA1, power off). ALT UUID: SKIP (BleakCharacteristicNotFoundError — normal). GVH60088F01 not detected (24 devices scanned). |
