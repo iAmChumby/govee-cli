@@ -1,6 +1,6 @@
 # H6008 Research Tracker
 
-**Last updated:** 2026-04-08 17:20
+**Last updated:** 2026-04-08 17:50
 **Goal:** Crack the H6008 GVH-series BLE protocol
 **Context:** BLE necessary — machine is on eduroam WiFi
 **Cron:** Runs every 45 min (3–10 AM) — see `cron-jobs.json` id `h6008-research-01`
@@ -306,3 +306,4 @@ The GVH series command format — we know the GATT structure but none of the kno
 | **✅ 2026-04-08 13:57:** GVH600887FB (RSSI -43) live — **12/13 commands succeeded** (power, RGB swapped x3, brightness 50%/100%, temp warm/cool, scene 0x0018, proprietary 0x15/0xA1, power off). ALT UUID: SKIP (ValueError — likely disconnected mid-connection). GVH60088F01 not detected (19 devices scanned). |
 | **✅ 2026-04-08 17:10:** GVH600887FB live — **12/13 commands succeeded** (power, RGB swapped x3, brightness 0/127/255, temp warm/cool, scene 0x0018, proprietary 0x15/0xA1, power off). ALT UUID: SKIP (characteristic not found — normal). GVH60088F01 out of range (BleakDeviceNotFoundError). |
 | **✅ 2026-04-08 17:20:** GVH600887FB live — **11/12 commands succeeded** (power, RGB swapped x3, brightness 50%/100%, temp warm/cool, scene 0x0018, proprietary 0xA1, power off). ALT UUID: SKIP (BleakCharacteristicNotFoundError — normal). GVH60088F01 not detected (24 devices scanned). |
+| **✅ 2026-04-08 17:50:** GVH600887FB (RSSI -42) live — **12/13 commands succeeded** (power, RGB swapped x3, brightness 0/127/255, temp warm/cool, scene 0x0018, proprietary 0x15/0xA1, power off). ALT UUID: SKIP (BleakCharacteristicNotFoundError — normal). GVH60088F01 out of range (BleakDeviceNotFoundError). |
