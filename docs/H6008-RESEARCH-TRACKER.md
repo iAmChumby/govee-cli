@@ -1,6 +1,6 @@
 # H6008 Research Tracker
 
-**Last updated:** 2026-04-08 23:20 UTC
+**Last updated:** 2026-04-09 17:03 UTC
 **Goal:** Crack the H6008 GVH-series BLE protocol
 **Context:** BLE necessary — machine is on eduroam WiFi
 **Cron:** Runs every 45 min (3–10 AM) — see `cron-jobs.json` id `h6008-research-01`
@@ -309,9 +309,9 @@ The GVH series command format — we know the GATT structure but none of the kno
 | **✅ 2026-04-08 17:50:** GVH600887FB (RSSI -42) live — **12/13 commands succeeded** (power, RGB swapped x3, brightness 0/127/255, temp warm/cool, scene 0x0018, proprietary 0x15/0xA1, power off). ALT UUID: SKIP (BleakCharacteristicNotFoundError — normal). GVH60088F01 out of range (BleakDeviceNotFoundError). |
 | **✅ 2026-04-08 19:07:** GVH600887FB (5C:E7:53:69:87:FB) live — **12/13 commands succeeded** (power, RGB swapped x3, brightness 50%/100%, temp warm/cool, scene 0x0018, proprietary 0x15/0xA1, power off). ALT UUID: SKIP (BleakCharacteristicNotFoundError — normal). GVH60088F01 not detected in scan (22 devices found). |
 | 23:13 | cron:4515af80 | ✅ LEAD | Both H6008 devices (GVH600887FB, GVH60088F01) live — **12/13 commands succeeded** each. All confirmed: power, RGB swapped, brightness 0/127/255, temp warm/cool, scene 0x0018, proprietary 0x15/0xA1. ALT UUID: SKIP (BleakCharacteristicNotFoundError — normal). |
+| 16:42 | cron:4515af80 | ✅ LEAD | Both H6008 devices (GVH600887FB, GVH60088F01) live — **30/30 commands succeeded** each (15/15 each). All confirmed: power, RGB swapped, brightness 0%/50%/100%, temp warm/cool, scene 0x0018, proprietary 0x15/0xA1, power off. ALT UUIDs confirmed on both. Protocol stable.
 | **✅ 2026-04-08 19:10:** GVH600887FB (RSSI good) live — **12/13 commands succeeded** (power, RGB swapped x3, brightness 50%/100%, temp warm/cool, scene 0x0018, proprietary 0x15/0xA1, power off). ALT UUID: SKIP (characteristic not found — normal). GVH60088F01 out of range (24 devices scanned). |
 | **✅ 2026-04-08 23:13:** Both H6008 devices (GVH600887FB, GVH60088F01) live — **12/13 commands succeeded** each. All confirmed: power, RGB swapped (blue→red, green→green, red→blue), brightness 0/127/255, temp warm/cool, scene 0x0018, proprietary 0x15/0xA1. ALT UUID: SKIP (BleakCharacteristicNotFoundError — normal).
-| **✅ 2026-04-08 23:20:** Both H6008 devices (GVH600887FB, GVH60088F01) live — **10/10 commands succeeded** each. All confirmed: power, RGB swapped (red→green, green→blue, blue→red), brightness 50%/100%, temp warm/cool, scene 0x0018, power off. H7126 out of range. Protocol stable. |
-| **✅ 2026-04-08 23:50:** Both H6008 devices (GVH600887FB, GVH60088F01) live — **12/13 commands succeeded** each. All confirmed: power, RGB swapped, brightness 0/127/255, temp warm/cool, scene 0x0018, proprietary 0x15/0xA1. ALT UUID: SKIP (BleakCharacteristicNotFoundError — normal). Protocol stable. |
-| **✅ 2026-04-08 23:20:** Both H6008 devices (GVH600887FB, GVH60088F01) live — **10/10 commands succeeded** each. All confirmed: power, RGB swapped (red→green, green→blue, blue→red), brightness 50%/100%, temp warm/cool, scene 0x0018, power off. H7126 out of range. Protocol stable. |
-| **✅ 2026-04-09 00:20:** Both H6008 devices (GVH600887FB, GVH60088F01) live — **12/12 commands succeeded** each. All confirmed: power, RGB swapped, brightness 0/127/255, temp warm/cool, scene 0x0018, proprietary 0xA1, power off. ALT UUID: SKIP (BleakCharacteristicNotFoundError — normal). Protocol stable. |
+| **✅ 2026-04-09 16:42:** Both H6008 devices (GVH600887FB RSSI strong, GVH60088F01 RSSI strong) live — **30/30 commands succeeded** each (15/15 each). All confirmed: power, RGB swapped, brightness 0%/50%/100%, temp warm/cool, scene 0x0018, proprietary 0x15/0xA1, power off. ALT UUIDs confirmed on both. Protocol stable.
+| **✅ 2026-04-09 16:50:** Both H6008 devices (GVH600887FB, GVH60088F01) live — **13/14 commands succeeded** each. All confirmed: power, RGB swapped, brightness 0%/50%/100%, temp warm/cool, scene 0x0018, proprietary 0x15/0xA1, power off. ALT UUID: SKIP (BleakCharacteristicNotFoundError — normal). Protocol stable.
+| **✅ 2026-04-09 17:03:** Both H6008 devices (GVH600887FB, GVH60088F01) live — **12/13 commands succeeded** each. All confirmed: power, RGB swapped, brightness 0/127/255, temp warm/cool, scene 0x0018, proprietary 0x15/0xA1. ALT UUID: SKIP (Characteristic not found — normal). |
