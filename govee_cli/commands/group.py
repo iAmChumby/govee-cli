@@ -64,6 +64,60 @@ def list_groups() -> None:
         click.echo(f"{name}: {', '.join(macs)}")
 
 
+@group.command(name="state")
+@click.argument("name")
+def group_state(name: str) -> None:
+    """Read state of all devices in a group without sending commands."""
+    cfg = load_config()
+    group_refs = cfg.groups.get(name)
+    if not group_refs:
+        raise click.ClickException(f"Group '{name}' not found.")
+
+    from govee_cli.http import GoveeHTTP
+
+    client = GoveeHTTP()
+    all_ok = True
+
+    for ref in group_refs:
+        try:
+            mac, dev_cfg = resolve_device_ref(cfg, ref)
+        except DeviceNotConfigured:
+            if ref.upper() in cfg.devices:
+                mac = ref.upper()
+                dev_cfg = cfg.devices[mac]
+            else:
+                click.echo(f"⚠️  '{ref}' — device not found, skipping")
+                all_ok = False
+                continue
+        else:
+            mac = mac
+
+        model = dev_cfg.model if dev_cfg else None
+        http_models = ["H6008", "H6183", "H6056"]
+        if model and model.upper() in http_models:
+            try:
+                state = client.get_state(mac, model)
+                power = state.get("powerState", "?")
+                brightness = state.get("brightness", "?")
+                color_temp = state.get("colorTem", 0)
+                color_rgb = state.get("color", {})
+                label = dev_cfg.name if dev_cfg and dev_cfg.name else mac
+                click.echo(f"  {'✅' if power == 'on' else '⚪'} {label}")
+                click.echo(f"     brightness={brightness}% temp={color_temp}K")
+                if color_rgb:
+                    r, g, b = color_rgb.get("r", "?"), color_rgb.get("g", "?"), color_rgb.get("b", "?")
+                    click.echo(f"     color=RGB({r},{g},{b})")
+            except GoveeHTTPError:
+                click.echo(f"  ❌ {mac} — offline or error")
+                all_ok = False
+        else:
+            click.echo(f"  ⚠️  {mac} [{model}] — HTTP not supported, skipping")
+            all_ok = False
+
+    if not all_ok:
+        raise SystemExit(1)
+
+
 @group.command()
 @click.argument("name")
 @click.argument("command", type=str, nargs=-1, required=True)

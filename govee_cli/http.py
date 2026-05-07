@@ -79,6 +79,25 @@ class GoveeHTTP:
         if result.get("code") != 200:
             raise GoveeHTTPError(f"Control failed: {result.get('message', result)}")
 
+    def get_state(self, device_id: str, model: str) -> dict:
+        """Get the current state of a device.
+
+        Returns a dict with keys: powerState, brightness, colorTem, color (dict with r/g/b).
+        """
+        resp = requests.get(
+            f"{GOVEE_API_BASE}/devices/{device_id}/state",
+            headers=self.headers,
+            params={"model": model},
+            timeout=10,
+        )
+        if resp.status_code == 404:
+            raise GoveeHTTPError(f"Device {device_id} not found or offline")
+        resp.raise_for_status()
+        data = resp.json()
+        if data.get("code") != 200:
+            raise GoveeHTTPError(f"State read failed: {data.get('message', data)}")
+        return data.get("data", {})
+
     def turn_on(self, device_id: str, model: str) -> None:
         self.control(device_id, model, "turn", "on")
 

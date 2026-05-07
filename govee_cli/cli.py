@@ -59,6 +59,7 @@ from govee_cli.commands.scan_http import command as scan_http_cmd
 from govee_cli.commands.scene import command as scene_cmd
 from govee_cli.commands.schedule import schedule as schedule_cmd
 from govee_cli.commands.segments import command as segments_cmd
+from govee_cli.commands.state import command as state_cmd
 from govee_cli.commands.temp import command as temp_cmd
 
 main.add_command(power_cmd, name="power")
@@ -75,6 +76,7 @@ main.add_command(schedule_cmd, name="schedule")
 main.add_command(group_cmd, name="group")
 main.add_command(scan_cmd, name="scan")
 main.add_command(scan_http_cmd, name="scan-http")
+main.add_command(state_cmd, name="state")
 main.add_command(info_cmd, name="info")
 main.add_command(daemon_cmd, name="daemon")
 main.add_command(config_cmd, name="config")
