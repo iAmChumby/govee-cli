@@ -70,6 +70,7 @@ class DeviceConfig:
 class GoveeConfig:
     """govee-cli configuration."""
 
+    api_key: str | None = None
     default_mac: str | None = None
     default_adapter: str | None = _DEFAULT_ADAPTER
     default_timeout: float = 10.0
@@ -241,6 +242,7 @@ def load_config() -> GoveeConfig:
         )
 
     return GoveeConfig(
+        api_key=raw.get("api_key"),
         default_mac=raw.get("default_mac"),
         default_adapter=raw.get("default_adapter", _DEFAULT_ADAPTER),
         default_timeout=raw.get("default_timeout", 10.0),
@@ -271,6 +273,7 @@ def save_config(config: GoveeConfig) -> None:
 
     data = {
         "version": CONFIG_VERSION,
+        "api_key": config.api_key,
         "default_mac": config.default_mac,
         "default_adapter": config.default_adapter,
         "default_timeout": config.default_timeout,

@@ -1,4 +1,4 @@
-"""Govee CLI — root command group."""
+"""Govee CLI — control Govee lights over Bluetooth BLE and HTTP API."""
 
 import logging
 
@@ -30,7 +30,7 @@ def setup_logging(verbose: bool = False) -> None:
 @click.option("-v", "--verbose", is_flag=True, help="Enable verbose output")
 @click.pass_context
 def main(ctx: click.Context, verbose: bool) -> None:
-    """govee-cli — control Govee lights over Bluetooth BLE."""
+    """govee-cli — control Govee lights over Bluetooth BLE and HTTP API."""
     setup_logging(verbose)
     # Load config and inject default MAC so all commands can use it
     cfg = load_config()
@@ -55,6 +55,7 @@ from govee_cli.commands.power import command as power_cmd
 from govee_cli.commands.record import command as record_cmd
 from govee_cli.commands.replay import command as replay_cmd
 from govee_cli.commands.scan import command as scan_cmd
+from govee_cli.commands.scan_http import command as scan_http_cmd
 from govee_cli.commands.scene import command as scene_cmd
 from govee_cli.commands.schedule import schedule as schedule_cmd
 from govee_cli.commands.segments import command as segments_cmd
@@ -73,6 +74,7 @@ main.add_command(music_cmd, name="music")
 main.add_command(schedule_cmd, name="schedule")
 main.add_command(group_cmd, name="group")
 main.add_command(scan_cmd, name="scan")
+main.add_command(scan_http_cmd, name="scan-http")
 main.add_command(info_cmd, name="info")
 main.add_command(daemon_cmd, name="daemon")
 main.add_command(config_cmd, name="config")
