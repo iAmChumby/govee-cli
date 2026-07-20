@@ -18,6 +18,9 @@ CONFIG_VERSION = 2
 
 # MAC address validation regex
 _MAC_PATTERN = re.compile(r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
+# Govee's HTTP API identifies devices by an 8-octet MAC-style ID
+# (e.g. 82:1F:5C:E7:53:69:87:FA) — distinct from 6-octet BLE MACs.
+_HTTP_ID_PATTERN = re.compile(r"^([0-9A-Fa-f]{2}:){7}[0-9A-Fa-f]{2}$")
 
 
 def _migrate_v1_to_v2(raw: dict) -> dict:
@@ -181,8 +184,8 @@ def resolve_device_ref(config: GoveeConfig, ref: str) -> tuple[str, DeviceConfig
     """
     from govee_cli.exceptions import DeviceNotConfigured
 
-    # Try as MAC first (exact match)
-    if _MAC_PATTERN.match(ref):
+    # Try as MAC / HTTP device ID first (exact match)
+    if _MAC_PATTERN.match(ref) or _HTTP_ID_PATTERN.match(ref):
         mac = ref.upper()
         device = get_device_by_mac(config, mac)
         if device:

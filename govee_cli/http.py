@@ -85,9 +85,9 @@ class GoveeHTTP:
         Returns a dict with keys: powerState, brightness, colorTem, color (dict with r/g/b).
         """
         resp = requests.get(
-            f"{GOVEE_API_BASE}/devices/{device_id}/state",
+            f"{GOVEE_API_BASE}/devices/state",
             headers=self.headers,
-            params={"model": model},
+            params={"device": device_id, "model": model},
             timeout=10,
         )
         if resp.status_code == 404:
@@ -96,7 +96,12 @@ class GoveeHTTP:
         data = resp.json()
         if data.get("code") != 200:
             raise GoveeHTTPError(f"State read failed: {data.get('message', data)}")
-        return data.get("data", {})
+        # The v1 API returns properties as a list of single-key dicts
+        # ([{"online": true}, {"powerState": "on"}, ...]) — flatten to one dict.
+        flat: dict = {}
+        for prop in data.get("data", {}).get("properties", []):
+            flat.update(prop)
+        return flat
 
     def turn_on(self, device_id: str, model: str) -> None:
         self.control(device_id, model, "turn", "on")
