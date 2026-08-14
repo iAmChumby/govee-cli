@@ -38,7 +38,9 @@ class Effect:
     name: str
     segments: list[SegmentKeyframes]
     loop: bool = True
-    fps: int = 30
+    # Float so cloud playback can run at fractional rates (e.g. 0.5fps) to stay
+    # inside the Govee daily request budget.
+    fps: float = 30
 
     @classmethod
     def from_dict(cls, data: dict) -> "Effect":

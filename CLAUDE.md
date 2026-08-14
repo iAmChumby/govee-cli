@@ -35,15 +35,41 @@ ruff check --fix govee_cli
 
 ## Architecture
 
-The stack is: **CLI → Commands → BLE abstraction → Protocol → Device**
+The stack is: **CLI → Commands → transport routing → (cloud v1 | cloud v2 | BLE) → Device**
+
+### Transports — read this first
+
+Three transports are in play, and which one carries a command depends on the
+**model**, not the command:
+
+| Transport | Endpoint | Used by | Reaches |
+|---|---|---|---|
+| `cloud-v1` | `developer-api.govee.com/v1` | H6056, H6008, H6183 | power, brightness, color, temp, state |
+| `cloud-v2` | `openapi.api.govee.com/router/api/v1` | H6022 | everything above **plus** scenes, DIY scenes, segments, music |
+| `ble` | direct GATT | H6056 scenes/effects/segments; anything unregistered | 0x33 packet protocol |
+
+**The v1 API does not list every device.** The H6022 is invisible to it entirely,
+which is why v2 exists in this codebase. `scan-http` therefore discovers over v2.
+
+Routing lives in **`govee_cli/transport.py`** — one `ModelSpec` per model. Adding
+a model means adding a spec there and a handler in `devices/`, not editing every
+command file.
 
 ### Key layers
 
 - **`govee_cli/cli.py`** — Click root group. Loads config on every invocation, injects `default_mac`, `default_adapter`, `default_timeout` into `ctx.obj`. All commands are registered here via `main.add_command()`.
 
+- **`govee_cli/transport.py`** — `MODEL_SPECS` (segment count, temp range, per-model cloud feature flags) and `resolve_target()`. The single source of truth for which transport reaches which model.
+
+- **`govee_cli/http_v2.py`** — Govee Open API v2 client. Capability-based (`{type, instance, value}`), retries with backoff on 429/5xx, caches the firmware scene library on disk for 7 days.
+
+- **`govee_cli/http.py`** — Legacy v1 client. Still the path for H6056/H6008/H6183; do not migrate them without re-verifying against hardware.
+
 - **`govee_cli/config.py`** — Config dataclass backed by `~/.config/govee-cli/config.json`. Holds default MAC, adapter, timeout, brightness, color, and device groups (`{group_name: [mac, ...]}`).
 
 - **`govee_cli/commands/`** — One file per command. Each exports a `command` (or group) object that gets registered in `cli.py`. Commands pull `default_mac` from `ctx.obj` and accept `--device` to override.
+
+- **`govee_cli/commands/_common.py`** — `resolve()` turns `--device` into a `Target` (device id + model + transport); `parse_segments()` handles `all` / `0,3` / `2-6`; `require_v2()` produces the "this model can't do that" error.
 
 - **`govee_cli/ble/protocol.py`** — The core protocol layer. `encode_*()` functions return `Command` objects; `build_packet(cmd)` produces the final bytes (`[0x33, cmd_type, ...payload, checksum]`). **All GATT UUIDs and packet formats are placeholders pending BLE sniffer verification.**
 
@@ -51,7 +77,7 @@ The stack is: **CLI → Commands → BLE abstraction → Protocol → Device**
 
 - **`govee_cli/ble/scanner.py`** — Wraps `bleak.BleakScanner` for device discovery, filtered by Govee manufacturer prefix.
 
-- **`govee_cli/devices/h6056.py`** — H6056-specific constants (6 segments, segment layout, scene ID map).
+- **`govee_cli/devices/h6056.py`** — H6056-specific constants (6 segments, segment layout, scene ID map). `h6022.py` holds the 15-zone layout and that model's four music modes.
 
 - **`govee_cli/schedule/scheduler.py`** — APScheduler-based scheduler; rules persisted in `~/.config/govee-cli/schedule.json`; runs under `govee-cli daemon`.
 
@@ -81,6 +107,33 @@ The stack is: **CLI → Commands → BLE abstraction → Protocol → Device**
 - **Cloud/LAN API not viable** without a WPA2-Personal network for the bulbs.
 - **Unblocking requires**: nRF52840 passive BLE sniffer dongle (~$10) OR successful iOS sysdiag capture to see what the Govee app sends.
 - See `docs/H6008_PROTOCOL.md` for full investigation.
+
+## Device Notes (H6022 — RGBIC Table Lamp 2, FULLY WORKING)
+
+- **Cloud device ID**: `50:CE:E8:6E:80:C6:50:3F` (registered as `Shelf Lamp`, group `shelf`)
+- **Transport**: cloud v2 **only**. Invisible to the v1 API — a v1 code path cannot see it.
+- **Working**: power, brightness, color, temp (2700–6500K), 15-segment color, 94 firmware
+  scenes, DIY scenes, firmware music mode, cloud-driven keyframe effects.
+- **Segments**: 0–14 addressable; index 15 → 400 `Parameter value out of range`.
+  Two-tone painting confirmed on the physical lamp.
+- **`segmentedBrightness` is not supported** → 400 `devices not support this instance`.
+  (Useful signal: the API really does distinguish supported instances, so a 200 elsewhere means something.)
+- **BLE**: no published protocol for this SKU anywhere. The 0x33 protocol is *not* confirmed
+  to apply. Would need an original nRF52840 capture.
+- **Do NOT enable LAN Control** for this lamp — an open upstream bug
+  (wez/govee2mqtt#518) reports it makes the H6022 unresponsive even to its own
+  buttons until LAN Control is turned back off.
+- See `docs/H6022_PROTOCOL.md` for payload shapes and the full investigation.
+
+### H6022 gotchas
+
+- `diyScene` takes a **bare int**; `{"value": n}` is rejected with `Missing relevant parameters: id`.
+- `lightScene` needs **both** `paramId` and `id`.
+- `/device/state` returns `""` for scene/segment/music **always** — an empty value is not
+  evidence of failure. Those can only be confirmed visually.
+- Setting `colorTemperatureK` zeroes `colorRgb` and vice versa; they are mutually exclusive.
+- Music mode integers are **model-specific**. H6022 = Rhythm 3, Rolling 4, Energic 5,
+  Spectrum 6. The H6056 uses an entirely different mapping. Never share these across models.
 
 ## Protocol Status
 

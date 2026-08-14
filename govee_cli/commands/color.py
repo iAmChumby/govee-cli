@@ -1,9 +1,10 @@
-"""color command — works for both BLE and HTTP devices."""
+"""color command — routes to cloud v1, cloud v2, or BLE per the model registry."""
 
 import click
 
-from govee_cli.config import load_config, resolve_device_ref
+from govee_cli.commands._common import parse_hex, resolve
 from govee_cli.exceptions import GoveeError
+from govee_cli.transport import CLOUD_V1, CLOUD_V2
 
 
 @click.command()
@@ -13,45 +14,44 @@ from govee_cli.exceptions import GoveeError
 @click.pass_context
 def command(ctx: click.Context, hex_color: str, mac: str | None, adapter: str) -> None:
     """Set RGB color (e.g. FF5500 or #FF5500)."""
-    mac = mac or ctx.obj.get("default_mac")
-    cfg = load_config()
+    target = resolve(ctx, mac)
+    r, g, b = parse_hex(hex_color)
+    pretty = f"#{r:02X}{g:02X}{b:02X}"
 
-    hex_color = hex_color.lstrip("#")
+    if target.transport == CLOUD_V2:
+        from govee_cli.commands._common import v2_client
+        from govee_cli.http_v2 import GoveeV2Error
 
-    # Try to resolve model
-    model = None
-    if mac:
         try:
-            resolved_mac, device_config = resolve_device_ref(cfg, mac)
-            mac = resolved_mac
-            model = device_config.model
-        except Exception:
-            pass
+            v2_client().set_color(target.cloud_model, target.device_id, r, g, b)
+        except GoveeV2Error as e:
+            raise click.ClickException(str(e)) from e
+        click.echo(f"Color set to {pretty}")
+        return
 
-    from govee_cli.http import GoveeHTTP, GoveeHTTPError, parse_hex_color
+    if target.transport == CLOUD_V1:
+        from govee_cli.http import GoveeHTTP, GoveeHTTPError
 
-    http_devices = ["H6008", "H6183", "H6056"]
-    if model and model.upper() in http_devices:
         try:
-            client = GoveeHTTP()
-            r, g, b = parse_hex_color(hex_color)
-            client.set_color(mac, model, r, g, b)
-            click.echo(f"Color set to #{hex_color.upper()}")
-            return
+            GoveeHTTP().set_color(target.device_id, target.cloud_model, r, g, b)
         except GoveeHTTPError as e:
             raise click.ClickException(str(e)) from e
+        click.echo(f"Color set to {pretty}")
+        return
 
-    # Fall back to BLE
     from govee_cli.ble import GoveeBLE
     from govee_cli.ble.protocol import encode_color_hex_for_device
 
     async def run() -> None:
-        async with GoveeBLE(mac, adapter=adapter) as client:
-            await client.execute(encode_color_hex_for_device(hex_color, model))
-            click.echo(f"Color set to #{hex_color.upper()}")
+        async with GoveeBLE(target.device_id, adapter=adapter) as client:
+            await client.execute(
+                encode_color_hex_for_device(hex_color.lstrip("#"), target.model)
+            )
+            click.echo(f"Color set to {pretty}")
 
     try:
         import asyncio
+
         asyncio.run(run())
     except GoveeError as e:
         raise click.ClickException(str(e)) from e

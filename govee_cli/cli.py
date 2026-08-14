@@ -47,6 +47,7 @@ from govee_cli.commands.color import command as color_cmd
 from govee_cli.commands.completion import completion
 from govee_cli.commands.config_cmd import command as config_cmd
 from govee_cli.commands.daemon import command as daemon_cmd
+from govee_cli.commands.diy import command as diy_cmd
 from govee_cli.commands.effect import command as effect_cmd
 from govee_cli.commands.group import group as group_cmd
 from govee_cli.commands.info import command as info_cmd
@@ -59,6 +60,7 @@ from govee_cli.commands.scan_http import command as scan_http_cmd
 from govee_cli.commands.scene import command as scene_cmd
 from govee_cli.commands.schedule import schedule as schedule_cmd
 from govee_cli.commands.segments import command as segments_cmd
+from govee_cli.commands.snapshot import command as snapshot_cmd
 from govee_cli.commands.state import command as state_cmd
 from govee_cli.commands.temp import command as temp_cmd
 
@@ -68,6 +70,8 @@ main.add_command(color_cmd, name="color")
 main.add_command(temp_cmd, name="temp")
 main.add_command(segments_cmd, name="segments")
 main.add_command(scene_cmd, name="scene")
+main.add_command(diy_cmd, name="diy")
+main.add_command(snapshot_cmd, name="snapshot")
 main.add_command(record_cmd, name="record")
 main.add_command(replay_cmd, name="replay")
 main.add_command(effect_cmd, name="effect")

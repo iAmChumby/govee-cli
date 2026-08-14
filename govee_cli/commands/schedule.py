@@ -23,7 +23,11 @@ def list() -> None:
 
     for r in rules:
         status = "✓" if r.enabled else "✗"
-        click.echo(f"[{status}] {r.id}  {r.time} {', '.join(r.days)} — {r.name}: {r.command}")
+        target = r.device or "(default device)"
+        click.echo(
+            f"[{status}] {r.id}  {r.time} {', '.join(r.days)} — "
+            f"{r.name}: {r.command}  → {target}"
+        )
 
 
 @schedule.command()
@@ -31,8 +35,25 @@ def list() -> None:
 @click.option("--time", "time_str", required=True, help="Time (HH:MM, 24h)")
 @click.option("--days", required=True, help="Days (comma-separated: Mon,Wed,Fri)")
 @click.option("--command", required=True, help="Command to run (e.g. 'power on')")
-def add(name: str, time_str: str, days: str, command: str) -> None:
-    """Add a new schedule rule."""
+@click.option("--device", help="Device name or ID (default: the configured default device)")
+def add(name: str, time_str: str, days: str, command: str, device: str | None) -> None:
+    """Add a new schedule rule.
+
+    Each rule targets one device. Without --device it falls back to the
+    configured default, which is how rules behaved before per-rule targeting
+    existed, so existing schedules are unaffected.
+    """
+    if device:
+        # Fail now rather than silently at 07:00 on a Tuesday.
+        from govee_cli.config import load_config, resolve_device_ref
+
+        try:
+            resolve_device_ref(load_config(), device)
+        except Exception as e:
+            raise click.ClickException(
+                f"Device '{device}' not found: {e}. Run `govee-cli scan-http`."
+            ) from e
+
     add_rule(
         ScheduleRule(
             id=str(uuid.uuid4())[:8],
@@ -40,9 +61,10 @@ def add(name: str, time_str: str, days: str, command: str) -> None:
             time=time_str,
             days=[d.strip() for d in days.split(",")],
             command=command,
+            device=device,
         )
     )
-    click.echo(f"Added schedule: {name}")
+    click.echo(f"Added schedule: {name}" + (f" → {device}" if device else ""))
 
 
 @schedule.command()

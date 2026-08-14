@@ -26,6 +26,9 @@ class ScheduleRule:
     days: list[str]  # Mon, Tue, Wed, Thu, Fri, Sat, Sun
     command: str  # e.g. "power on", "color FF5500"
     enabled: bool = True
+    # Device name or id this rule targets. None falls back to the configured
+    # default_mac, which is how every rule behaved before this field existed.
+    device: str | None = None
 
 
 def _load_rules() -> list[ScheduleRule]:
@@ -36,7 +39,10 @@ def _load_rules() -> list[ScheduleRule]:
     with open(SCHEDULE_FILE) as f:
         raw = json.load(f)
 
-    return [ScheduleRule(**r) for r in raw]
+    # Ignore unknown keys so a schedule file written by a newer version does not
+    # crash an older one, and so removed fields don't break loading.
+    known = ScheduleRule.__dataclass_fields__.keys()
+    return [ScheduleRule(**{k: v for k, v in r.items() if k in known}) for r in raw]
 
 
 def _save_rules(rules: list[ScheduleRule]) -> None:
