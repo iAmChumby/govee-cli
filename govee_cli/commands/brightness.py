@@ -1,9 +1,10 @@
-"""brightness command — works for both BLE and HTTP devices."""
+"""brightness command — routes to cloud v1, cloud v2, or BLE per the model registry."""
 
 import click
 
-from govee_cli.config import load_config, resolve_device_ref
+from govee_cli.commands._common import resolve
 from govee_cli.exceptions import GoveeError
+from govee_cli.transport import CLOUD_V1, CLOUD_V2
 
 
 @click.command()
@@ -13,44 +14,40 @@ from govee_cli.exceptions import GoveeError
 @click.pass_context
 def command(ctx: click.Context, value: int, mac: str | None, adapter: str) -> None:
     """Set brightness (1-100)."""
-    mac = mac or ctx.obj.get("default_mac")
-    if not mac:
-        raise click.ClickException("No device MAC specified. Use --device or set default.")
+    target = resolve(ctx, mac)
 
-    cfg = load_config()
+    if target.transport == CLOUD_V2:
+        from govee_cli.commands._common import v2_client
+        from govee_cli.http_v2 import GoveeV2Error
 
-    model = None
-    if mac:
         try:
-            resolved_mac, device_config = resolve_device_ref(cfg, mac)
-            mac = resolved_mac
-            model = device_config.model
-        except Exception:
-            pass
+            v2_client().set_brightness(target.cloud_model, target.device_id, value)
+        except GoveeV2Error as e:
+            raise click.ClickException(str(e)) from e
+        click.echo(f"Brightness set to {value}%")
+        return
 
-    from govee_cli.http import GoveeHTTP, GoveeHTTPError
+    if target.transport == CLOUD_V1:
+        from govee_cli.http import GoveeHTTP, GoveeHTTPError
 
-    http_devices = ["H6008", "H6183", "H6056"]
-    if model and model.upper() in http_devices:
         try:
-            client = GoveeHTTP()
-            client.set_brightness(mac, model, value)
-            click.echo(f"Brightness set to {value}%")
-            return
+            GoveeHTTP().set_brightness(target.device_id, target.cloud_model, value)
         except GoveeHTTPError as e:
             raise click.ClickException(str(e)) from e
+        click.echo(f"Brightness set to {value}%")
+        return
 
-    # Fall back to BLE
     from govee_cli.ble import GoveeBLE
     from govee_cli.ble.protocol import encode_brightness
 
     async def run() -> None:
-        async with GoveeBLE(mac, adapter=adapter) as client:
+        async with GoveeBLE(target.device_id, adapter=adapter) as client:
             await client.execute(encode_brightness(value))
             click.echo(f"Brightness set to {value}%")
 
     try:
         import asyncio
+
         asyncio.run(run())
     except GoveeError as e:
         raise click.ClickException(str(e)) from e

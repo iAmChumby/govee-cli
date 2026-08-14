@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+from typing import TYPE_CHECKING
+
 import click
 
 from govee_cli.ble import GoveeBLE
@@ -10,6 +12,10 @@ from govee_cli.ble.protocol import Command
 from govee_cli.config import load_config, resolve_device_ref, save_config
 from govee_cli.exceptions import DeviceNotConfigured, GoveeError
 from govee_cli.http import GoveeHTTP, GoveeHTTPError
+from govee_cli.transport import CLOUD_V1, CLOUD_V2, transport_for
+
+if TYPE_CHECKING:
+    from govee_cli.http_v2 import GoveeHTTPv2
 
 
 @click.group()
@@ -73,9 +79,10 @@ def group_state(name: str) -> None:
     if not group_refs:
         raise click.ClickException(f"Group '{name}' not found.")
 
-    from govee_cli.http import GoveeHTTP
+    from govee_cli.http_v2 import GoveeHTTPv2, GoveeV2Error
 
-    client = GoveeHTTP()
+    v1_client = GoveeHTTP()
+    v2_client_instance = None
     all_ok = True
 
     for ref in group_refs:
@@ -89,30 +96,59 @@ def group_state(name: str) -> None:
                 click.echo(f"⚠️  '{ref}' — device not found, skipping")
                 all_ok = False
                 continue
-        else:
-            mac = mac
 
         model = dev_cfg.model if dev_cfg else None
-        http_models = ["H6008", "H6183", "H6056"]
-        if model and model.upper() in http_models:
+        label = dev_cfg.name if dev_cfg and dev_cfg.name else mac
+        transport = transport_for(model)
+        # transport_for(None) is BLE, so a cloud branch always has a model.
+        cloud_model = model or ""
+
+        if transport == CLOUD_V2:
+            if v2_client_instance is None:
+                v2_client_instance = GoveeHTTPv2()
             try:
-                state = client.get_state(mac, model)
-                power = state.get("powerState", "?")
-                brightness = state.get("brightness", "?")
-                color_temp = state.get("colorTem", 0)
-                color_rgb = state.get("color", {})
-                label = dev_cfg.name if dev_cfg and dev_cfg.name else mac
-                click.echo(f"  {'✅' if power == 'on' else '⚪'} {label}")
-                click.echo(f"     brightness={brightness}% temp={color_temp}K")
-                if color_rgb:
-                    r, g, b = color_rgb.get("r", "?"), color_rgb.get("g", "?"), color_rgb.get("b", "?")
-                    click.echo(f"     color=RGB({r},{g},{b})")
-            except GoveeHTTPError:
-                click.echo(f"  ❌ {mac} — offline or error")
+                state = v2_client_instance.get_state(cloud_model, mac)
+            except GoveeV2Error:
+                click.echo(f"  ❌ {label} — offline or error")
                 all_ok = False
-        else:
-            click.echo(f"  ⚠️  {mac} [{model}] — HTTP not supported, skipping")
-            all_ok = False
+                continue
+            power = "on" if state.get("powerSwitch") == 1 else "off"
+            click.echo(f"  {'✅' if power == 'on' else '⚪'} {label}")
+            click.echo(
+                f"     brightness={state.get('brightness', '?')}% "
+                f"temp={state.get('colorTemperatureK', 0)}K"
+            )
+            rgb_int = state.get("colorRgb")
+            if isinstance(rgb_int, int) and rgb_int > 0:
+                click.echo(
+                    f"     color=RGB({(rgb_int >> 16) & 0xFF},"
+                    f"{(rgb_int >> 8) & 0xFF},{rgb_int & 0xFF})"
+                )
+            continue
+
+        if transport == CLOUD_V1:
+            try:
+                state = v1_client.get_state(mac, cloud_model)
+            except GoveeHTTPError:
+                click.echo(f"  ❌ {label} — offline or error")
+                all_ok = False
+                continue
+            power = state.get("powerState", "?")
+            click.echo(f"  {'✅' if power == 'on' else '⚪'} {label}")
+            click.echo(
+                f"     brightness={state.get('brightness', '?')}% "
+                f"temp={state.get('colorTem', 0)}K"
+            )
+            color_rgb = state.get("color", {})
+            if color_rgb:
+                click.echo(
+                    f"     color=RGB({color_rgb.get('r', '?')},"
+                    f"{color_rgb.get('g', '?')},{color_rgb.get('b', '?')})"
+                )
+            continue
+
+        click.echo(f"  ⚠️  {label} [{model}] — no cloud state available, skipping")
+        all_ok = False
 
     if not all_ok:
         raise SystemExit(1)
@@ -155,14 +191,24 @@ def run(name: str, command: tuple[str, ...], adapter: str) -> None:
         device_cfg = cfg.devices.get(mac.upper())
         model = device_cfg.model if device_cfg else None
 
-        # Route HTTP devices (H6008, H6056, H6183) to HTTP API
-        http_models = ["H6008", "H6183", "H6056"]
-        if model and model.upper() in http_models:
+        transport = transport_for(model)
+        cloud_model = model or ""
+
+        if transport == CLOUD_V2:
+            from govee_cli.http_v2 import GoveeHTTPv2, GoveeV2Error
+
             try:
-                client = GoveeHTTP()
-                _apply_http_command(client, mac, model, cmd_str)
+                _apply_v2_command(GoveeHTTPv2(), mac, cloud_model, cmd_str)
                 results.append((mac, True, "ok"))
-            except GoveeHTTPError as e:
+            except (GoveeV2Error, click.ClickException) as e:
+                results.append((mac, False, str(e)))
+            continue
+
+        if transport == CLOUD_V1:
+            try:
+                _apply_http_command(GoveeHTTP(), mac, cloud_model, cmd_str)
+                results.append((mac, True, "ok"))
+            except (GoveeHTTPError, click.ClickException) as e:
                 results.append((mac, False, str(e)))
             continue
 
@@ -173,7 +219,7 @@ def run(name: str, command: tuple[str, ...], adapter: str) -> None:
                 results.append((mac, False, f"Unknown command: {cmd_str}"))
                 continue
 
-            async def run_ble():
+            async def run_ble() -> None:
                 async with GoveeBLE(mac, adapter=adapter) as client:
                     await client.execute(parsed)
 
@@ -191,6 +237,90 @@ def run(name: str, command: tuple[str, ...], adapter: str) -> None:
         raise SystemExit(1)
 
 
+def _int_arg(value: str, what: str) -> int:
+    """Parse a numeric group-command argument into a clean CLI error.
+
+    `group run <name> brightness abc` used to surface a raw ValueError traceback
+    from int(); a group command is user input and deserves a message.
+    """
+    try:
+        return int(value)
+    except ValueError:
+        raise click.ClickException(f"{what} must be a number, got '{value}'") from None
+
+
+def _apply_v2_command(client: "GoveeHTTPv2", device_id: str, model: str,
+                      cmd_str: str) -> None:
+    """Apply a group command to a cloud v2 device.
+
+    v2 devices accept more verbs than v1 does, so `group run` can drive scenes,
+    DIY scenes, segments and music across a group — not just the basic four.
+    """
+    from govee_cli.commands._common import parse_hex, parse_segments
+    from govee_cli.devices import SUPPORTED_DEVICES
+    from govee_cli.transport import get_spec
+
+    parts = cmd_str.strip().split()
+    if not parts:
+        raise click.ClickException("Empty command.")
+    verb, args = parts[0].lower(), parts[1:]
+
+    if verb == "power" and len(args) == 1:
+        client.turn_on(model, device_id) if args[0] == "on" else client.turn_off(model, device_id)
+        return
+
+    if verb == "brightness" and len(args) == 1:
+        client.set_brightness(model, device_id, _int_arg(args[0], "brightness"))
+        return
+
+    if verb == "color" and len(args) == 1:
+        r, g, b = parse_hex(args[0])
+        client.set_color(model, device_id, r, g, b)
+        return
+
+    if verb == "temp" and len(args) == 1:
+        client.set_color_temp(model, device_id, _int_arg(args[0], "temp"))
+        return
+
+    if verb == "scene" and args:
+        name = " ".join(args)
+        scene = client.find_scene(model, device_id, name)
+        if scene is None:
+            raise click.ClickException(f"Unknown scene '{name}' for {model}")
+        client.set_scene(model, device_id, scene)
+        return
+
+    if verb == "diy" and args:
+        name = " ".join(args)
+        diy = client.find_diy_scene(model, device_id, name)
+        if diy is None:
+            raise click.ClickException(f"Unknown DIY scene '{name}' for {model}")
+        client.set_diy_scene(model, device_id, diy.value)
+        return
+
+    if verb == "segments" and len(args) == 2:
+        spec = get_spec(model)
+        count = spec.segment_count if spec else 15
+        segments = parse_segments(args[0], count)
+        r, g, b = parse_hex(args[1])
+        client.set_segment_color(model, device_id, segments, r, g, b)
+        return
+
+    if verb == "music" and args:
+        handler = SUPPORTED_DEVICES.get(model.upper())
+        modes = dict(getattr(handler, "MUSIC_MODES", {}) or {})
+        key = args[0].lower()
+        if key not in modes:
+            raise click.ClickException(
+                f"Unknown music mode '{args[0]}' for {model}. Available: {', '.join(modes)}"
+            )
+        sensitivity = _int_arg(args[1], "sensitivity") if len(args) > 1 else 60
+        client.set_music_mode(model, device_id, modes[key], sensitivity)
+        return
+
+    raise click.ClickException(f"Unsupported command for {model}: {cmd_str}")
+
+
 def _apply_http_command(client: GoveeHTTP, mac: str, model: str, cmd_str: str) -> None:
     """Apply an HTTP command to a device."""
     parts = cmd_str.strip().split()
@@ -202,17 +332,18 @@ def _apply_http_command(client: GoveeHTTP, mac: str, model: str, cmd_str: str) -
         return
 
     if verb == "brightness" and len(args) == 1:
-        client.set_brightness(mac, model, int(args[0]))
+        client.set_brightness(mac, model, _int_arg(args[0], "brightness"))
         return
 
     if verb == "color" and len(args) == 1:
-        from govee_cli.http import parse_hex_color
-        r, g, b = parse_hex_color(args[0])
+        from govee_cli.commands._common import parse_hex
+
+        r, g, b = parse_hex(args[0])
         client.set_color(mac, model, r, g, b)
         return
 
     if verb == "temp" and len(args) == 1:
-        client.set_color_temp(mac, model, int(args[0]))
+        client.set_color_temp(mac, model, _int_arg(args[0], "temp"))
         return
 
     raise click.ClickException(f"Unsupported HTTP command: {verb}")

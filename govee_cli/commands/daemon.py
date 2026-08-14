@@ -105,25 +105,53 @@ class SchedulerDaemon:
                 break
 
     async def _execute_rule(self, rule: ScheduleRule) -> None:
-        """Execute a single scheduled rule."""
-        from govee_cli.ble import GoveeBLE
+        """Execute a single scheduled rule against its target device.
+
+        Routes by transport like every other command, so a rule can target a
+        cloud-only device. Previously this went straight to BLE against the
+        single configured default_mac, which meant cloud-only models (the H6022
+        has no BLE path at all) could never be scheduled.
+        """
+        from govee_cli.commands.group import _apply_http_command, _apply_v2_command
         from govee_cli.config import load_config
         from govee_cli.exceptions import GoveeError
+        from govee_cli.transport import CLOUD_V1, CLOUD_V2, resolve_target
 
         cfg = load_config()
-        mac = cfg.default_mac
 
-        cmd = _parse_inline_command(rule.command)
+        try:
+            device_id, model, transport = resolve_target(cfg, rule.device)
+        except click.ClickException as e:
+            click.echo(f"  ⚠ {e.format_message()}")
+            return
+
+        try:
+            if transport == CLOUD_V2:
+                from govee_cli.http_v2 import GoveeHTTPv2
+
+                _apply_v2_command(GoveeHTTPv2(), device_id, model or "", rule.command)
+                click.echo("  ✅ Done")
+                return
+
+            if transport == CLOUD_V1:
+                from govee_cli.http import GoveeHTTP
+
+                _apply_http_command(GoveeHTTP(), device_id, model or "", rule.command)
+                click.echo("  ✅ Done")
+                return
+        except Exception as e:
+            click.echo(f"  ❌ Error: {e}")
+            return
+
+        from govee_cli.ble import GoveeBLE
+
+        cmd = _parse_inline_command(rule.command, device_model=model)
         if cmd is None:
             click.echo(f"  ⚠ Could not parse command: {rule.command}")
             return
 
-        if not mac:
-            click.echo("  ⚠ No default MAC configured. Set one in config or use --device.")
-            return
-
         try:
-            async with GoveeBLE(mac, adapter=cfg.default_adapter) as client:
+            async with GoveeBLE(device_id, adapter=cfg.default_adapter) as client:
                 await client.execute(cmd)
                 click.echo("  ✅ Done")
         except GoveeError as e:

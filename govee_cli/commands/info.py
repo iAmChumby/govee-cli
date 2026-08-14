@@ -1,27 +1,92 @@
-"""info command — print device info and current state."""
+"""info command — print device info, capabilities and current state."""
 
 import asyncio
 
 import click
 
-from govee_cli.ble import GoveeBLE
+from govee_cli.commands._common import resolve
 from govee_cli.exceptions import GoveeError
+from govee_cli.transport import BLE, CLOUD_V2
 
 
 @click.command()
-@click.option("--device", "mac", help="Device MAC address")
-@click.option("--adapter", default="hci0", help="Bluetooth adapter")
+@click.option("--device", "mac", help="Device MAC address or name")
+@click.option("--adapter", default="hci0", help="Bluetooth adapter (BLE only)")
 @click.pass_context
 def command(ctx: click.Context, mac: str | None, adapter: str) -> None:
     """Print device info and current state."""
-    mac = mac or ctx.obj.get("default_mac")
-    if not mac:
-        raise click.ClickException("No device MAC specified. Use --device or set default.")
+    target = resolve(ctx, mac)
+    spec = target.spec
+
+    click.echo(f"Device: {target.label}")
+    click.echo(f"  ID: {target.device_id}")
+    click.echo(f"  Model: {target.model or 'unknown'}")
+    click.echo(f"  Transport: {target.transport}")
+    if spec:
+        if spec.segment_count > 1:
+            click.echo(f"  Segments: {spec.segment_count} (0-{spec.segment_count - 1})")
+        click.echo(f"  Color temp range: {spec.temp_min}-{spec.temp_max}K")
+        features = []
+        if spec.cloud_scenes:
+            features.append("scenes")
+        if spec.cloud_segments:
+            features.append("segments")
+        if spec.cloud_music:
+            features.append("music")
+        if features:
+            click.echo(f"  Cloud features: {', '.join(features)}")
+
+    if target.transport == CLOUD_V2:
+        from govee_cli.commands._common import v2_client
+        from govee_cli.http_v2 import GoveeV2Error
+
+        client = v2_client()
+        try:
+            state = client.get_state(target.cloud_model, target.device_id)
+            scenes = client.get_scenes(target.cloud_model, target.device_id)
+            diy = client.get_diy_scenes(target.cloud_model, target.device_id)
+        except GoveeV2Error as e:
+            raise click.ClickException(str(e)) from e
+
+        click.echo(f"  Scenes available: {len(scenes)}")
+        diy_names = f" ({', '.join(d.name for d in diy)})" if diy else ""
+        click.echo(f"  DIY scenes: {len(diy)}{diy_names}")
+        click.echo("")
+        click.echo(f"Online: {'yes' if state.get('online') else 'no'}")
+        click.echo(f"Power: {'On' if state.get('powerSwitch') == 1 else 'Off'}")
+        click.echo(f"Brightness: {state.get('brightness', '?')}%")
+        rgb_int = state.get("colorRgb")
+        if isinstance(rgb_int, int) and rgb_int > 0:
+            click.echo(f"Color: #{rgb_int:06X}")
+        if state.get("colorTemperatureK"):
+            click.echo(f"Color Temp: {state['colorTemperatureK']}K")
+        return
+
+    if target.transport != BLE:
+        from govee_cli.http import GoveeHTTP, GoveeHTTPError
+
+        try:
+            state = GoveeHTTP().get_state(target.device_id, target.cloud_model)
+        except GoveeHTTPError as e:
+            raise click.ClickException(str(e)) from e
+        click.echo("")
+        click.echo(f"Power: {state.get('powerState', 'unknown')}")
+        click.echo(f"Brightness: {state.get('brightness', '?')}%")
+        color = state.get("color") or {}
+        if color:
+            click.echo(
+                f"Color: #{color.get('r', 0):02X}{color.get('g', 0):02X}{color.get('b', 0):02X}"
+            )
+        if state.get("colorTem"):
+            click.echo(f"Color Temp: {state['colorTem']}K")
+        return
+
+    from govee_cli.ble import GoveeBLE
 
     async def run() -> None:
-        async with GoveeBLE(mac, adapter=adapter) as client:
+        async with GoveeBLE(target.device_id, adapter=adapter) as client:
             state = await client.read_state()
-            click.echo(f"Device: {mac}")
+            click.echo("")
             click.echo(f"Power: {'On' if state.power else 'Off'}")
             brightness_str = (
                 f"{state.brightness}%" if state.brightness is not None
