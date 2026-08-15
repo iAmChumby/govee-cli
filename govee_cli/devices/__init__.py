@@ -5,14 +5,16 @@ from typing import Type, Union
 from govee_cli.devices.h6008 import H6008
 from govee_cli.devices.h6022 import H6022
 from govee_cli.devices.h6056 import H6056
+from govee_cli.devices.h6183 import H6183
 
-DeviceHandler = Union[H6056, H6008, H6022]
+DeviceHandler = Union[H6056, H6008, H6022, H6183]
 
 # Registry of supported devices
 SUPPORTED_DEVICES: dict[str, Type[DeviceHandler]] = {
     "H6056": H6056,
     "H6008": H6008,
     "H6022": H6022,
+    "H6183": H6183,
 }
 
 

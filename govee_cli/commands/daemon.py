@@ -144,6 +144,10 @@ class SchedulerDaemon:
             return
 
         from govee_cli.ble import GoveeBLE
+        from govee_cli.commands._common import Target
+
+        # BLE needs the 6-octet address, not the 8-octet cloud id.
+        ble_mac = Target(device_id, model, transport, cfg).ble_mac
 
         cmd = _parse_inline_command(rule.command, device_model=model)
         if cmd is None:
@@ -151,7 +155,7 @@ class SchedulerDaemon:
             return
 
         try:
-            async with GoveeBLE(device_id, adapter=cfg.default_adapter) as client:
+            async with GoveeBLE(ble_mac, adapter=cfg.default_adapter) as client:
                 await client.execute(cmd)
                 click.echo("  ✅ Done")
         except GoveeError as e:

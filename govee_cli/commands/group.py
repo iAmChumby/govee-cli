@@ -214,13 +214,16 @@ def run(name: str, command: tuple[str, ...], adapter: str) -> None:
 
         # BLE fallback
         try:
+            from govee_cli.commands._common import Target
+
+            ble_mac = Target(mac, model, transport, cfg).ble_mac
             parsed = _parse_inline_command(cmd_str, device_model=model)
             if parsed is None:
                 results.append((mac, False, f"Unknown command: {cmd_str}"))
                 continue
 
             async def run_ble() -> None:
-                async with GoveeBLE(mac, adapter=adapter) as client:
+                async with GoveeBLE(ble_mac, adapter=adapter) as client:
                     await client.execute(parsed)
 
             asyncio.run(run_ble())
@@ -304,6 +307,22 @@ def _apply_v2_command(client: "GoveeHTTPv2", device_id: str, model: str,
         segments = parse_segments(args[0], count)
         r, g, b = parse_hex(args[1])
         client.set_segment_color(model, device_id, segments, r, g, b)
+        return
+
+    if verb == "toggle" and len(args) == 2:
+        spec = get_spec(model)
+        wanted = args[0].lower().removesuffix("toggle")
+        known = list(spec.toggles) if spec else []
+        instance = next(
+            (t for t in known if t.lower() in (args[0].lower(), f"{wanted}toggle")),
+            None,
+        )
+        if instance is None:
+            raise click.ClickException(
+                f"Unknown toggle '{args[0]}' for {model}. "
+                f"Available: {', '.join(known) or '(none)'}"
+            )
+        client.set_toggle(model, device_id, instance, args[1].lower() == "on")
         return
 
     if verb == "music" and args:

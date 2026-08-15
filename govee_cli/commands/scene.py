@@ -42,14 +42,20 @@ def _list_ble_scenes() -> None:
 @click.option("--device", "mac", help="Device MAC address or name")
 @click.option("--adapter", default="hci0", help="Bluetooth adapter (BLE only)")
 @click.option("--refresh", is_flag=True, help="Bypass the cached scene list")
+@click.option("--ble", "force_ble", is_flag=True,
+              help="Use the BLE built-in scene table instead of the cloud library")
 @click.pass_context
 def command(ctx: click.Context, scene_name: str, mac: str | None, adapter: str,
-            refresh: bool) -> None:
+            refresh: bool, force_ble: bool) -> None:
     """Play a scene by name (e.g. sunrise, aurora, rainbow).
 
     Run 'govee-cli scene list --device <name>' to see what a device supports.
-    Cloud-connected models fetch their real scene library from Govee; BLE models
-    use the built-in scene table.
+    Cloud-connected models fetch their real scene library from Govee, which is
+    both larger and more reliable than the BLE table (the H6056 gets 69 scenes
+    over the cloud versus 27 built in, several of which need a multi-packet BLE
+    protocol that was never reverse engineered).
+
+    --ble forces the built-in table on a device that can do both.
     """
     listing = scene_name.lower() == "list"
     try:
@@ -61,7 +67,7 @@ def command(ctx: click.Context, scene_name: str, mac: str | None, adapter: str,
             return
         raise
 
-    if target.transport == CLOUD_V2:
+    if target.transport == CLOUD_V2 and not force_ble:
         from govee_cli.http_v2 import GoveeV2Error
 
         if scene_name.lower() == "list":
@@ -102,7 +108,7 @@ def command(ctx: click.Context, scene_name: str, mac: str | None, adapter: str,
     from govee_cli.ble.protocol import encode_scene
 
     async def run() -> None:
-        async with GoveeBLE(target.device_id, adapter=adapter) as client:
+        async with GoveeBLE(target.ble_mac, adapter=adapter) as client:
             await client.execute(encode_scene(builtin.id))
             click.echo(f"Playing scene: {builtin.name}")
 

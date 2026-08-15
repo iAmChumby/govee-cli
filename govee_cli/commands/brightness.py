@@ -41,7 +41,7 @@ def command(ctx: click.Context, value: int, mac: str | None, adapter: str) -> No
     from govee_cli.ble.protocol import encode_brightness
 
     async def run() -> None:
-        async with GoveeBLE(target.device_id, adapter=adapter) as client:
+        async with GoveeBLE(target.ble_mac, adapter=adapter) as client:
             await client.execute(encode_brightness(value))
             click.echo(f"Brightness set to {value}%")
 

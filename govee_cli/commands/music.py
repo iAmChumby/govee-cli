@@ -55,11 +55,21 @@ def command(ctx: click.Context, mode: str | None, sensitivity: int,
     target = resolve(ctx, mac)
     modes = _modes_for(target)
 
-    if not modes or target.transport != CLOUD_V2:
+    spec = target.spec
+    if not modes or not (spec and spec.cloud_music):
+        # Distinguish "this hardware has no music mode" from "we can't reach it
+        # over this transport" — the H6008 is cloud-connected and still has none,
+        # so blaming the transport would send someone debugging the wrong thing.
         raise click.ClickException(
-            f"Music mode is not available for '{target.label}' "
-            f"(model '{target.model or 'unknown'}', transport: {target.transport}). "
-            f"Only cloud v2 models expose a firmware music mode."
+            f"{target.model or 'This model'} has no firmware music mode "
+            f"('{target.label}'). The device rejects musicMode with "
+            f"\"devices not support this instance\"."
+        )
+
+    if target.transport != CLOUD_V2:
+        raise click.ClickException(
+            f"Music mode for {target.model} needs the cloud v2 transport, but "
+            f"'{target.label}' resolves to {target.transport}."
         )
 
     if mode is None or mode.lower() == "list":

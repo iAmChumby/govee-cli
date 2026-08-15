@@ -6,6 +6,7 @@ import json
 import click
 
 from govee_cli.config import (
+    _validate_device_id,
     GoveeConfig,
     _validate_device_name,
     _validate_mac,
@@ -127,7 +128,7 @@ def command(
     # Update provided global fields
     if default_mac is not None:
         try:
-            _validate_mac(default_mac)
+            _validate_device_id(default_mac)
             cfg.default_mac = default_mac.upper()
         except InvalidMACAddress as e:
             raise click.ClickException(str(e)) from None
@@ -158,8 +159,10 @@ async def _add_or_update_device(
     timeout: float,
 ) -> None:
     """Add or update a device configuration."""
-    # Validate MAC format
-    _validate_mac(target_mac)
+    # Accept either form: a 6-octet BLE MAC or Govee's 8-octet cloud device id.
+    # Cloud-controlled models need the 8-octet id, and rejecting it here used to
+    # make them impossible to register by hand.
+    _validate_device_id(target_mac)
     target_mac = target_mac.upper()
 
     # Validate static MAC if provided
@@ -175,6 +178,17 @@ async def _add_or_update_device(
     if device_model:
         _validate_model(device_model)
         device_model = device_model.upper()
+
+        # Registering a cloud model under a BLE MAC produces a device the cloud
+        # cannot address. Say so now instead of at the first command.
+        from govee_cli.transport import is_cloud
+
+        if is_cloud(device_model) and len(target_mac.split(":")) == 6:
+            raise click.ClickException(
+                f"{device_model} is controlled over the Govee cloud, which "
+                f"needs the 8-octet device id from your account, not a "
+                f"Bluetooth MAC. Run `govee-cli scan-http` to register it."
+            )
 
     # Validate name uniqueness (only if name is changing)
     if device_name:
@@ -226,7 +240,7 @@ async def _detect_model_from_ble(mac: str, timeout: float) -> str:
 
 def _remove_device(cfg: GoveeConfig, remove_mac: str) -> None:
     """Remove a device from configuration."""
-    _validate_mac(remove_mac)
+    _validate_device_id(remove_mac)
     remove_mac = remove_mac.upper()
 
     if remove_mac in cfg.devices:
