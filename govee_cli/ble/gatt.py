@@ -68,20 +68,34 @@ class GoveeBLE:
             )
             await self._client.connect()
             logger.info("connected", mac=self.mac)
-        except bleak.exc.BleakError as e:
-            if "not found" not in str(e).lower():
-                raise ConnectionFailed(f"Failed to connect to {self.mac}: {e}") from e
-            logger.info("not_found_trying_scan", mac=self.mac)
-            resolved = await self._resolve_via_scan()
-            if resolved is None:
-                raise ConnectionFailed(f"Device {self.mac} not found directly or via scan.") from e
-            self._client = bleak.BleakClient(
-                resolved,
-                adapter=self.adapter if use_adapter else None,  # type: ignore[arg-type]
-                timeout=self.timeout,
-            )
-            await self._client.connect()
-            logger.info("connected_via_scan", static_mac=self.mac, resolved=resolved)
+        except (bleak.exc.BleakError, asyncio.TimeoutError, OSError) as e:
+            # A bare TimeoutError is not a BleakError, and back-to-back connects
+            # to the same light routinely time out or drop mid-discovery — both
+            # used to escape as raw tracebacks.
+            if isinstance(e, bleak.exc.BleakError) and "not found" in str(e).lower():
+                logger.info("not_found_trying_scan", mac=self.mac)
+                resolved = await self._resolve_via_scan()
+                if resolved is None:
+                    raise ConnectionFailed(
+                        f"Device {self.mac} not found directly or via scan."
+                    ) from e
+                self._client = bleak.BleakClient(
+                    resolved,
+                    adapter=self.adapter if use_adapter else None,  # type: ignore[arg-type]
+                    timeout=self.timeout,
+                )
+                try:
+                    await self._client.connect()
+                except (bleak.exc.BleakError, asyncio.TimeoutError, OSError) as e2:
+                    raise ConnectionFailed(
+                        f"Failed to connect to {self.mac} (resolved {resolved}): {e2}"
+                    ) from e2
+                logger.info("connected_via_scan", static_mac=self.mac, resolved=resolved)
+            else:
+                reason = "timed out" if isinstance(e, asyncio.TimeoutError) else str(e)
+                raise ConnectionFailed(
+                    f"Failed to connect to {self.mac}: {reason}"
+                ) from e
 
     async def _resolve_via_scan(self) -> str | None:
         """

@@ -11,6 +11,14 @@ Govee H6056 "Flow Plus Light Bars". Registered in this setup as "Light Bars".
 
 ---
 
+
+> **The last-6-octets rule is model-specific, not universal.** Verified by scan
+> 2026-08-14: it holds for the H6056 (`6D:19:...:44:0C` → `DD:6E:86:46:44:0C`)
+> and the H6022 (`50:CE:...:50:3F` → `E8:6E:80:C6:50:3F`), but the GVH-series
+> H6008 advertises the last six octets **+1 on the final byte**
+> (cloud `...69:87:FA` → BLE `...69:87:FB`). Don't generalise it.
+
+
 ## Transport Verdict: Dual Transport, Different Jobs
 
 | Transport | Status | Use case |

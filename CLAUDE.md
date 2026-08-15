@@ -106,9 +106,11 @@ command file.
 ## Device Notes (H6056 — Light Bars, dual transport)
 
 - **Cloud device ID**: `6D:19:DD:6E:86:46:44:0C` — **BLE address is the last 6
-  octets, `DD:6E:86:46:44:0C`** (confirmed via `bluetoothctl devices`:
-  "DD:6E:86:46:44:0C Govee_H6056_440C"). Handing the 8-octet cloud id to bleak
-  can never connect; `Target.ble_mac` does the derivation.
+  octets, `DD:6E:86:46:44:0C`** (confirmed by scan: "DD:6E:86:46:44:0C
+  Govee_H6056_440C"). Handing the 8-octet cloud id to bleak can never connect;
+  `Target.ble_mac` does the derivation. Same rule holds for the H6022
+  (`50:CE:...:50:3F` → `E8:6E:80:C6:50:3F`), but **not** for the GVH H6008,
+  which advertises the last six octets *+1 on the final byte* — see below.
 - **Cloud v2 unlocks**: 69 firmware scenes (BLE table has 27, some unreversed),
   4 DIY scenes, segments 0-14, **segmentedBrightness** (the H6022 lacks this),
   8 music modes, `gradientToggle`.
@@ -124,7 +126,10 @@ command file.
 
 ## Device Notes (H6008 — GVH-series: BLE blocked, cloud working)
 
-- **MACs**: `5C:E7:53:69:87:FB` (Lamp Front), `5C:E7:53:63:8F:01` (Lamp Top)
+- **BLE MACs**: `5C:E7:53:69:87:FB` (Lamp Front), `5C:E7:53:63:8F:01` (Lamp Top).
+  Note these are the cloud ids' last six octets **+1** (`...87:FA` → `...87:FB`,
+  `...8F:00` → `...8F:01`) — the H6056/H6022 last-6 rule does not hold here.
+  Moot in practice: this revision's BLE command protocol does not work.
 - **Advertised names**: `GVH600887FB`, `GVH60088F01`
 - **OUI**: `5C:E7:53` (HOMY IOT SOLUTIONS) — different chip from ihoment_ H6008
 - **Cloud v2 works fully** (migrated off v1 2026-08-14): power, brightness, color,

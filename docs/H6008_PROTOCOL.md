@@ -121,6 +121,21 @@ Setting `colorTemperatureK` and `colorRgb` are mutually exclusive modes — sett
 
 ---
 
+## BLE address vs cloud id
+
+This model breaks the pattern the other two follow. Verified by scan 2026-08-14:
+
+| Device | Cloud id | Advertises |
+|---|---|---|
+| Lamp Front | `82:1F:5C:E7:53:69:87:FA` | `5C:E7:53:69:87:FB` |
+| Lamp Top | `FB:7E:5C:E7:53:63:8F:00` | `5C:E7:53:63:8F:01` |
+
+The BLE address is the cloud id's last six octets **+1 on the final byte**, where
+the H6056 and H6022 are the last six octets exactly. `govee-cli` derives last-6
+and does not special-case this, because the BLE command protocol below is
+non-functional on this revision anyway; `static_mac` in the config is the escape
+hatch if an exact address is ever needed.
+
 ## BLE Investigation (historical)
 
 Everything below predates the cloud v2 migration and remains accurate for BLE. It is preserved because the underlying hardware and blockers have not changed — BLE access to the GVH-series H6008 is still not possible.

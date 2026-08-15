@@ -37,12 +37,19 @@ class Target:
     def ble_mac(self) -> str:
         """The address to hand to BLE, which is not the cloud device id.
 
-        Govee's cloud identifies devices by an 8-octet id whose last 6 octets are
-        the device's BLE address: the Light Bars are ``6D:19:DD:6E:86:46:44:0C``
-        in the cloud and advertise as ``DD:6E:86:46:44:0C`` over Bluetooth
-        (confirmed against ``bluetoothctl devices``: "DD:6E:86:46:44:0C
-        Govee_H6056_440C"). Passing the 8-octet id straight to bleak can never
-        connect, which is why a configured ``static_mac`` wins when present.
+        Govee's cloud identifies devices by an 8-octet id. Dropping the first two
+        octets gives the BLE address on the models where BLE actually works —
+        verified by scan on 2026-08-14::
+
+            H6056  cloud 6D:19:DD:6E:86:46:44:0C -> advertises DD:6E:86:46:44:0C
+            H6022  cloud 50:CE:E8:6E:80:C6:50:3F -> advertises E8:6E:80:C6:50:3F
+
+        It is **not** a universal rule. The GVH-series H6008 advertises the last
+        six octets *plus one* on the final byte (cloud ...69:87:FA advertises
+        ...69:87:FB). That model's BLE command protocol is undocumented and
+        non-functional anyway, so it is not special-cased here; if a device ever
+        needs an exact address, set ``static_mac`` in the config, which wins.
+        Failing that, the GATT layer falls back to resolving by scan.
         """
         device = self.config.devices.get(self.device_id.upper())
         if device and device.static_mac:

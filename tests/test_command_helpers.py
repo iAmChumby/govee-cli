@@ -85,10 +85,11 @@ class TestParseHex:
 class TestBleMacDerivation:
     """BLE needs the 6-octet address, not Govee's 8-octet cloud id.
 
-    Confirmed against `bluetoothctl devices`: the Light Bars are
-    `6D:19:DD:6E:86:46:44:0C` in the cloud and advertise as
-    `DD:6E:86:46:44:0C` over Bluetooth. Handing the 8-octet id to bleak can
-    never connect.
+    Verified by scan 2026-08-14: the Light Bars (H6056) are
+    `6D:19:DD:6E:86:46:44:0C` in the cloud and advertise `DD:6E:86:46:44:0C`;
+    the H6022 follows the same rule. The GVH H6008 does NOT — it advertises the
+    last six octets +1 on the final byte — but its BLE protocol is non-functional
+    and `static_mac` is the escape hatch, so it is not special-cased.
     """
 
     @staticmethod
@@ -105,6 +106,19 @@ class TestBleMacDerivation:
     def test_eight_octet_id_drops_the_first_two(self) -> None:
         target = self._target("6D:19:DD:6E:86:46:44:0C")
         assert target.ble_mac == "DD:6E:86:46:44:0C"
+
+    def test_h6022_follows_the_same_rule(self) -> None:
+        target = self._target("50:CE:E8:6E:80:C6:50:3F")
+        assert target.ble_mac == "E8:6E:80:C6:50:3F"
+
+    def test_static_mac_is_the_escape_hatch_for_h6008(self) -> None:
+        # The GVH H6008 advertises last-6 +1 (cloud ...87:FA -> BLE ...87:FB).
+        # The derivation deliberately does not special-case it; static_mac wins.
+        target = self._target("82:1F:5C:E7:53:69:87:FA")
+        assert target.ble_mac == "5C:E7:53:69:87:FA"      # derived, not advertised
+        exact = self._target("82:1F:5C:E7:53:69:87:FA",
+                             static_mac="5C:E7:53:69:87:FB")
+        assert exact.ble_mac == "5C:E7:53:69:87:FB"       # what it really uses
 
     def test_six_octet_mac_is_unchanged(self) -> None:
         target = self._target("DD:6E:86:46:44:0C")
