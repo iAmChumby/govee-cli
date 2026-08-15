@@ -48,11 +48,12 @@ govee-cli temp 4000
 | `brightness <1-100>` | Set brightness |
 | `color <RRGGBB>` | Set RGB color |
 | `temp <kelvin>` | Set color temperature (range is per-model) |
-| `segments <spec> <RRGGBB>` | Color segments — `3`, `0,4,9`, `2-6`, `0-2,8,11-14`, or `all` |
+| `segments <spec> [RRGGBB]` | Color and/or `--brightness` for segments — `3`, `0,4,9`, `2-6`, `0-2,8,11-14`, `all` |
 | `scene <name>` | Play a scene (`scene list --device X` to see all) |
 | `diy [name]` | Play a DIY scene made in the Govee app (no arg lists them) |
 | `snapshot [name\|id]` | Activate a saved snapshot (no arg lists them) |
 | `music <mode>` | Firmware music-reactive mode (`music list` for modes) |
+| `toggle <name> on\|off` | Device feature toggles (no arg lists them) |
 | `effect <file.json>` | Play a keyframe animation |
 | `scan` | Find nearby Govee BLE devices |
 | `scan-http` | Discover cloud devices and register them |
@@ -70,12 +71,15 @@ Which transport carries a command depends on the **model**, not the command:
 
 | Model | Transport | Notes |
 |---|---|---|
-| H6022 | Govee cloud v2 | Full feature set: scenes, segments, music, DIY |
-| H6056 / H6008 / H6183 | Govee cloud v1 | Basic control; scenes/effects/segments go over BLE |
+| H6022 | Govee cloud v2 | 15 segments, 94 scenes, DIY, music |
+| H6056 | Govee cloud v2 + BLE | 15 cloud segments (6 over BLE), 69 scenes, DIY, per-segment brightness, 8 music modes, gradient toggle. BLE keeps keyframe effects at full frame rate |
+| H6008 | Govee cloud v2 | Single zone: 56 scenes, DIY. No segments/music — the hardware rejects them |
+| H6183 | Govee cloud v1 | Unverified against v2 |
 | anything else | BLE | 0x33 GATT protocol |
 
-The v1 API does not list every device — the H6022 is invisible to it — so
-`scan-http` discovers over v2. Run it once to register everything on your account:
+The v1 API does not list every device — the H6022 is invisible to it — and it
+carries only power/brightness/color/temp, so it cannot reach scenes, segments or
+music at all. `scan-http` discovers over v2. Run it once to register everything:
 
 ```bash
 govee-cli scan-http
@@ -162,28 +166,40 @@ govee-cli completion fish | source    # fish
 | RGB color | ✅ Verified (H6056) |
 | White temperature | ✅ Verified (H6056) |
 | Per-segment color | ✅ Verified on H6022 (cloud) — individual addressing over BLE still unverified |
-| Built-in scenes | ✅ Most work — a few need a multi-packet protocol I haven't reversed yet |
+| Built-in scenes (BLE) | ✅ Most work — a few need a multi-packet protocol I haven't reversed yet |
+| Cloud scenes | ✅ Verified on all three cloud models (69 / 56 / 94) |
 | DIY effects | ✅ Verified (H6056) |
-| Scheduling + daemon | ✅ Working |
+| Scheduling + daemon | ✅ Working, per-rule `--device`, routes by transport |
 | Shell completions | ✅ bash / zsh / fish / powershell |
-| Device state (info) | ⚠️ Power only — H6056 doesn't report brightness/color over BLE |
+| Device state | ✅ Cloud state for all models. Scene/segment/music are never reported back by the device |
 | Groups | ✅ Verified across mixed BLE/cloud devices |
 | Record / replay | ⏳ Stub — need a btmon session |
-| Music sync | ✅ Firmware mode on H6022 — ⏳ no host-side audio analysis |
+| Music sync | ✅ Firmware mode on H6056 + H6022 — ⏳ no host-side audio analysis |
 
-### H6022 (RGBIC Table Lamp 2) — cloud v2
+### Per-model capability matrix
 
-| Feature | Status |
-|---------|--------|
-| Power / brightness / color / temp | ✅ Verified, confirmed by state readback |
-| Per-segment color (15 zones) | ✅ Verified on hardware — two-tone painting confirmed |
-| Firmware scenes (94) | ✅ Verified |
-| DIY scenes | ✅ Verified |
-| Music mode (Rhythm/Rolling/Energic/Spectrum) | ✅ Verified — device does its own audio pickup |
-| Keyframe effects | ✅ Verified — cloud playback, capped at 2fps |
-| Snapshots | ✅ Implemented — none saved on the test account |
-| BLE | ❌ No published protocol for this SKU |
-| LAN API | ⚠️ Avoided — see `docs/H6022_PROTOCOL.md` |
+All verified against live hardware. "—" means the hardware itself rejects it.
+
+| Feature | H6056 bars | H6008 bulb | H6022 lamp |
+|---|---|---|---|
+| Power / brightness / color / temp | ✅ | ✅ | ✅ |
+| Color temp range | 2000–9000K | 2700–6500K | 2700–6500K |
+| Firmware scenes | ✅ 69 | ✅ 56 | ✅ 94 |
+| DIY scenes | ✅ | ✅ | ✅ |
+| Per-segment color | ✅ 15 cloud / 6 BLE | — single zone | ✅ 15 |
+| Per-segment brightness | ✅ | — | — rejected |
+| Music mode | ✅ 8 modes | — | ✅ 4 modes |
+| Toggles | ✅ gradient | — | — |
+| Keyframe effects | ✅ BLE full speed | — single zone | ✅ cloud, ≤2fps |
+| Snapshots | ✅ | — | ✅ (none saved) |
+
+Music mode integers are **model-specific**: `beat` is 4 on the H6056, while 4 on
+the H6022 is `rolling`. The CLI resolves them per model, so use the names.
+
+`dreamViewToggle` is advertised by the API for the H6056 and then rejected by the
+hardware — a reminder that the advertised capability list is a starting point for
+probing, not a guarantee. `govee-cli toggle --device "Light Bars"` marks it
+unverified and surfaces the device's own error rather than hiding it.
 
 ## Protocol
 

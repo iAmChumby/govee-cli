@@ -80,3 +80,45 @@ class TestParseHex:
     def test_non_hex_rejected(self) -> None:
         with pytest.raises(click.ClickException, match="Invalid hex color"):
             parse_hex("GGGGGG")
+
+
+class TestBleMacDerivation:
+    """BLE needs the 6-octet address, not Govee's 8-octet cloud id.
+
+    Confirmed against `bluetoothctl devices`: the Light Bars are
+    `6D:19:DD:6E:86:46:44:0C` in the cloud and advertise as
+    `DD:6E:86:46:44:0C` over Bluetooth. Handing the 8-octet id to bleak can
+    never connect.
+    """
+
+    @staticmethod
+    def _target(device_id: str, static_mac: str | None = None):
+        from govee_cli.commands._common import Target
+        from govee_cli.config import DeviceConfig, GoveeConfig
+
+        cfg = GoveeConfig(devices={
+            device_id.upper(): DeviceConfig(
+                model="H6056", name="Light Bars", static_mac=static_mac),
+        })
+        return Target(device_id, "H6056", "cloud-v2", cfg)
+
+    def test_eight_octet_id_drops_the_first_two(self) -> None:
+        target = self._target("6D:19:DD:6E:86:46:44:0C")
+        assert target.ble_mac == "DD:6E:86:46:44:0C"
+
+    def test_six_octet_mac_is_unchanged(self) -> None:
+        target = self._target("DD:6E:86:46:44:0C")
+        assert target.ble_mac == "DD:6E:86:46:44:0C"
+
+    def test_configured_static_mac_wins(self) -> None:
+        # The sticker MAC is authoritative when the user has recorded it.
+        target = self._target("6D:19:DD:6E:86:46:44:0C",
+                              static_mac="D0:C9:07:FE:B6:F0")
+        assert target.ble_mac == "D0:C9:07:FE:B6:F0"
+
+    def test_unregistered_device_falls_back_to_the_reference(self) -> None:
+        from govee_cli.commands._common import Target
+        from govee_cli.config import GoveeConfig
+
+        target = Target("AA:BB:CC:DD:EE:FF", None, "ble", GoveeConfig())
+        assert target.ble_mac == "AA:BB:CC:DD:EE:FF"

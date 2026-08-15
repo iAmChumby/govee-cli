@@ -103,6 +103,24 @@ def _validate_mac(mac: str) -> None:
         )
 
 
+def _validate_device_id(device_id: str) -> None:
+    """Accept either a 6-octet BLE MAC or Govee's 8-octet cloud device id.
+
+    Args:
+        device_id: Identifier to validate.
+
+    Raises:
+        InvalidMACAddress: If it matches neither form.
+    """
+    from govee_cli.exceptions import InvalidMACAddress
+
+    if not (_MAC_PATTERN.match(device_id) or _HTTP_ID_PATTERN.match(device_id)):
+        raise InvalidMACAddress(
+            f"Invalid device id: {device_id}. Expected a 6-octet Bluetooth MAC "
+            f"(XX:XX:XX:XX:XX:XX) or an 8-octet Govee cloud id."
+        )
+
+
 def _validate_device_name(name: str, existing_devices: dict[str, DeviceConfig]) -> None:
     """Ensure device name is unique (case-insensitive).
 

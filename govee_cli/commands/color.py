@@ -43,7 +43,7 @@ def command(ctx: click.Context, hex_color: str, mac: str | None, adapter: str) -
     from govee_cli.ble.protocol import encode_color_hex_for_device
 
     async def run() -> None:
-        async with GoveeBLE(target.device_id, adapter=adapter) as client:
+        async with GoveeBLE(target.ble_mac, adapter=adapter) as client:
             await client.execute(
                 encode_color_hex_for_device(hex_color.lstrip("#"), target.model)
             )

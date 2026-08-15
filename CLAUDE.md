@@ -44,12 +44,19 @@ Three transports are in play, and which one carries a command depends on the
 
 | Transport | Endpoint | Used by | Reaches |
 |---|---|---|---|
-| `cloud-v1` | `developer-api.govee.com/v1` | H6056, H6008, H6183 | power, brightness, color, temp, state |
-| `cloud-v2` | `openapi.api.govee.com/router/api/v1` | H6022 | everything above **plus** scenes, DIY scenes, segments, music |
-| `ble` | direct GATT | H6056 scenes/effects/segments; anything unregistered | 0x33 packet protocol |
+| `cloud-v2` | `openapi.api.govee.com/router/api/v1` | H6022, H6056, H6008 | everything: power/brightness/color/temp/state **plus** scenes, DIY, segments, music, toggles |
+| `cloud-v1` | `developer-api.govee.com/v1` | H6183 only | power, brightness, color, temp, state |
+| `ble` | direct GATT | H6056 keyframe effects; anything unregistered | 0x33 packet protocol |
 
-**The v1 API does not list every device.** The H6022 is invisible to it entirely,
-which is why v2 exists in this codebase. `scan-http` therefore discovers over v2.
+**The v1 API does not list every device, and carries only four commands.** The
+H6022 is invisible to it entirely; the H6056 and H6008 were migrated off it on
+2026-08-14 because it could not reach their scenes, segments or music. Only the
+H6183 remains on v1, and only because there is no hardware here to verify a move
+against. `scan-http` discovers over v2.
+
+**BLE is not dead** — it is still the best path for keyframe effects on the
+H6056, because cloud playback is capped at 2fps by the request budget while BLE
+runs at full frame rate. `ModelSpec.prefer_ble_effects` encodes that.
 
 Routing lives in **`govee_cli/transport.py`** — one `ModelSpec` per model. Adding
 a model means adding a spec there and a handler in `devices/`, not editing every
@@ -96,12 +103,36 @@ command file.
 - **GATT notify characteristic**: `00010203-0405-0607-0809-0a0b0c0d2b10` (responses arrive here)
 - Device must be found by `govee-cli scan` first; connect by name or random address
 
-## Device Notes (H6008 — GVH-series, BLOCKED)
+## Device Notes (H6056 — Light Bars, dual transport)
+
+- **Cloud device ID**: `6D:19:DD:6E:86:46:44:0C` — **BLE address is the last 6
+  octets, `DD:6E:86:46:44:0C`** (confirmed via `bluetoothctl devices`:
+  "DD:6E:86:46:44:0C Govee_H6056_440C"). Handing the 8-octet cloud id to bleak
+  can never connect; `Target.ble_mac` does the derivation.
+- **Cloud v2 unlocks**: 69 firmware scenes (BLE table has 27, some unreversed),
+  4 DIY scenes, segments 0-14, **segmentedBrightness** (the H6022 lacks this),
+  8 music modes, `gradientToggle`.
+- **Segment count differs by transport**: 15 over cloud, 6 over BLE. The API
+  accepting an index is not proof the hardware has that zone.
+- **`dreamViewToggle` is advertised and then rejected** by the hardware:
+  400 "The device does not has DreamView". The advertised capability list is a
+  probing hint, never a guarantee.
+- **Music modes**: Vivid 0, Strike 1, Rhythm 2, Vibrate 3, Beat 4, Torch 5,
+  RainbowCircle 6, Shiny 7. These integers are **not** the H6022's — 4 is `beat`
+  here and `rolling` there, so a mix-up silently sets the wrong mode.
+- See `docs/H6056_PROTOCOL.md`.
+
+## Device Notes (H6008 — GVH-series: BLE blocked, cloud working)
 
 - **MACs**: `5C:E7:53:69:87:FB` (Lamp Front), `5C:E7:53:63:8F:01` (Lamp Top)
 - **Advertised names**: `GVH600887FB`, `GVH60088F01`
 - **OUI**: `5C:E7:53` (HOMY IOT SOLUTIONS) — different chip from ihoment_ H6008
-- **Status**: BLE protocol unknown. Connects fine, GATT writes accepted, bulb ignores all commands.
+- **Cloud v2 works fully** (migrated off v1 2026-08-14): power, brightness, color,
+  temp, **56 firmware scenes** and DIY scenes. Scenes are entirely new — the bulb
+  had none over any transport before. It genuinely lacks segments, segment
+  brightness, music and toggles (all 400 "devices not support this instance").
+- **Status (BLE only)**: protocol unknown. Connects fine, GATT writes accepted,
+  bulb ignores all commands. The "BLOCKED" label below is about BLE, not the device.
 - **0x33 protocol does not work** on this hardware revision.
 - **No WiFi available** (eduroam only, WPA2-Enterprise incompatible with IoT devices).
 - **Cloud/LAN API not viable** without a WPA2-Personal network for the bulbs.
@@ -137,6 +168,12 @@ command file.
 
 ## Protocol Status
 
+**This section describes the BLE protocol only.** Everything below is about the
+0x33 GATT path. Scenes, segments, music, DIY and toggles are all reached over
+cloud v2 now for every model that has hardware here, so an "unverified" BLE item
+is no longer a blocker for that feature — it just means the BLE encoding for it
+was never confirmed. See the per-device sections above for what actually works.
+
 **Confirmed working (community sources + GATT dump):**
 - BLE scanning
 - GATT service/characteristic UUIDs
@@ -156,19 +193,32 @@ command file.
 
 ## Testing Sequence
 
-Start simple, verify each step before proceeding:
+`govee-cli info --device <name>` first — it prints the transport, segment counts
+per transport, colour-temp range, cloud features and toggles for that model, and
+is read-only. Then start simple and verify each step:
 
 ```bash
 source .venv/bin/activate
-govee-cli config --mac D0:C9:07:FE:B6:F0   # set default device
-govee-cli scan                               # confirm device visible
-govee-cli power on                           # simplest test
-govee-cli power off
-govee-cli brightness 50
-govee-cli color FF0000                       # red
-govee-cli color 0000FF                       # blue
-govee-cli temp 4000                          # unverified — try after color works
+govee-cli scan-http                          # register devices from the cloud
+govee-cli info --device "Light Bars"         # read-only: transport + capabilities
+govee-cli state --device "Light Bars"        # read-only: current state
+
+govee-cli power on --device "Light Bars"
+govee-cli brightness 50 --device "Light Bars"
+govee-cli color FF0000 --device "Light Bars"
+govee-cli temp 4000 --device "Light Bars"
+
+# Cloud-only features (nothing to verify over BLE):
+govee-cli scene list --device "Light Bars"   # 69 scenes
+govee-cli segments 0-2 FF0000 --device "Light Bars"
+govee-cli segments 0-2 --brightness 30 --device "Light Bars"
+govee-cli music list --device "Light Bars"
+govee-cli toggle --device "Light Bars"
 ```
+
+Basic control reads back through `state`; scenes, segments and music do not —
+the device reports `""` for those on every model, so a 200 is the only signal
+the API gives you.
 
 ---
 

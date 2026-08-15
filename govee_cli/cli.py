@@ -63,6 +63,7 @@ from govee_cli.commands.segments import command as segments_cmd
 from govee_cli.commands.snapshot import command as snapshot_cmd
 from govee_cli.commands.state import command as state_cmd
 from govee_cli.commands.temp import command as temp_cmd
+from govee_cli.commands.toggle import command as toggle_cmd
 
 main.add_command(power_cmd, name="power")
 main.add_command(brightness_cmd, name="brightness")
@@ -72,6 +73,7 @@ main.add_command(segments_cmd, name="segments")
 main.add_command(scene_cmd, name="scene")
 main.add_command(diy_cmd, name="diy")
 main.add_command(snapshot_cmd, name="snapshot")
+main.add_command(toggle_cmd, name="toggle")
 main.add_command(record_cmd, name="record")
 main.add_command(replay_cmd, name="replay")
 main.add_command(effect_cmd, name="effect")

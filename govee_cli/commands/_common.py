@@ -34,6 +34,25 @@ class Target:
         return get_spec(self.model)
 
     @property
+    def ble_mac(self) -> str:
+        """The address to hand to BLE, which is not the cloud device id.
+
+        Govee's cloud identifies devices by an 8-octet id whose last 6 octets are
+        the device's BLE address: the Light Bars are ``6D:19:DD:6E:86:46:44:0C``
+        in the cloud and advertise as ``DD:6E:86:46:44:0C`` over Bluetooth
+        (confirmed against ``bluetoothctl devices``: "DD:6E:86:46:44:0C
+        Govee_H6056_440C"). Passing the 8-octet id straight to bleak can never
+        connect, which is why a configured ``static_mac`` wins when present.
+        """
+        device = self.config.devices.get(self.device_id.upper())
+        if device and device.static_mac:
+            return device.static_mac
+        octets = self.device_id.split(":")
+        if len(octets) == 8:
+            return ":".join(octets[2:])
+        return self.device_id
+
+    @property
     def cloud_model(self) -> str:
         """The model name, guaranteed non-None.
 

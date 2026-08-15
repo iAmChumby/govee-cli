@@ -1,6 +1,131 @@
-# H6008 BLE Protocol — Reverse Engineering Status
+# H6008 Protocol Status — BLE Blocked, Cloud v2 Working
 
-## Two Different Hardware Revisions
+## Device
+
+Govee H6008 (GVH-series hardware revision). Registered in this setup as "Lamp Front" and "Lamp Top".
+
+- **Cloud device IDs**: `82:1F:5C:E7:53:69:87:FA` (Lamp Front), `FB:7E:5C:E7:53:63:8F:00` (Lamp Top)
+- **BLE addresses**: `5C:E7:53:69:87:FB` (Lamp Front, `GVH600887FB`), `5C:E7:53:63:8F:01` (Lamp Top, `GVH60088F01`)
+- Single-zone bulb — no segments.
+
+---
+
+## Transport Verdict: Cloud v2 Works, BLE Still Blocked
+
+| Transport | Status |
+|---|---|
+| Legacy v1 API (`developer-api.govee.com/v1`) | Worked for basic control; **migrated off** in favor of v2 on 2026-08-14. |
+| v2 Open API (`openapi.api.govee.com/router/api/v1`) | **Works, full capability set verified against live hardware.** This is now the only supported transport. |
+| BLE | **Blocked.** Undocumented protocol on this hardware revision — see [BLE Investigation](#ble-investigation-historical) below. Nothing has changed here; this section is preserved for reference. |
+
+This is the headline change from earlier investigation: the device is no longer "blocked" in a general sense — it is **fully controllable over the cloud**, including scenes, which the bulb never had over any transport before. BLE remains unreachable and is not required.
+
+---
+
+## Cloud v2 API
+
+### Migration
+
+Migrated from Govee cloud v1 to v2 on 2026-08-14. v1 could only reach power/brightness/color/temp; v2 adds scenes, DIY scenes, and confirms what is and is not supported for this single-zone bulb.
+
+### Endpoint & Envelope
+
+- Base: `https://openapi.api.govee.com/router/api/v1`
+- Request envelope:
+
+```json
+{
+  "requestId": "<uuid>",
+  "payload": { "...": "..." }
+}
+```
+
+- Auth header: `Govee-API-Key`
+
+### Capability Table
+
+| Capability | Instance | Status | Evidence |
+|---|---|---|---|
+| Power | `powerSwitch` | Working | State readback confirms `1`/`0` |
+| Brightness | `brightness` | Working | State readback confirms 1-100 |
+| Color | `colorRgb` | Working | State readback confirms packed int |
+| Color temperature | `colorTemperatureK` | Working | State readback confirms 2700-6500K |
+| Firmware scenes | `lightScene` | Working (new) | 56 scenes returned by `/device/scenes`; previously unsupported over any transport |
+| DIY scenes | `diyScene` | Working (new) | 2 scenes on this account: `sleep`, `FRoesy2k` |
+| Segmented color | `segmentedColorRgb` | **Not supported** | HTTP/body 400 `"devices not support this instance"` |
+| Segmented brightness | `segmentedBrightness` | **Not supported** | HTTP/body 400 `"devices not support this instance"` |
+| Music mode | `musicMode` | **Not supported** | HTTP/body 400 `"devices not support this instance"` |
+| Gradient toggle | `gradientToggle` | **Not supported** | HTTP/body 400 `"devices not support this instance"` |
+
+The four "not supported" rejections are expected: this is a single-zone bulb, so there is nothing to segment, and it has no gradient or onboard music-reactive hardware.
+
+### Verified Payload Shapes
+
+#### Power
+
+```json
+{"type": "devices.capabilities.on_off", "instance": "powerSwitch", "value": 1}
+```
+`value` is `1` or `0`.
+
+#### Brightness
+
+```json
+{"type": "devices.capabilities.range", "instance": "brightness", "value": 50}
+```
+`value` is an int, 1-100.
+
+#### Color
+
+```json
+{"type": "devices.capabilities.color_setting", "instance": "colorRgb", "value": 16711680}
+```
+`value` is a single packed int: `(r << 16) | (g << 8) | b`.
+
+#### Color Temperature
+
+```json
+{"type": "devices.capabilities.color_setting", "instance": "colorTemperatureK", "value": 4000}
+```
+`value` is an int, range **2700-6500**. `7000` is correctly rejected client-side by govee-cli before the request is even sent.
+
+Setting `colorTemperatureK` and `colorRgb` are mutually exclusive modes — setting one clears the other, same behavior as the H6022.
+
+#### Scene
+
+```json
+{
+  "type": "devices.capabilities.dynamic_scene",
+  "instance": "lightScene",
+  "value": {"paramId": 18595, "id": 11275}
+}
+```
+**Both** `paramId` and `id` are required to activate a scene.
+
+#### DIY Scene
+
+```json
+{
+  "type": "devices.capabilities.dynamic_scene",
+  "instance": "diyScene",
+  "value": 22391958
+}
+```
+`value` is a **bare int**, not an object — same gotcha as the H6022. Wrapping it (`{"value": ...}`) is rejected.
+
+### Scenes
+
+**56 firmware scenes** returned by `POST /device/scenes` — this is entirely new capability; the bulb previously had no scene support over any transport (v1 or BLE). Examples: Dusk, Sunset Glow, Starry Sky, Forest, River, Desert, Flower Field, Aurora, Rainbow, Karst Cave, Fire, Christmas.
+
+**2 DIY scenes** on this account, via `POST /device/diy-scenes`: `sleep`, `FRoesy2k`.
+
+---
+
+## BLE Investigation (historical)
+
+Everything below predates the cloud v2 migration and remains accurate for BLE. It is preserved because the underlying hardware and blockers have not changed — BLE access to the GVH-series H6008 is still not possible.
+
+### Two Different Hardware Revisions
 
 There are two distinct H6008 hardware variants with incompatible protocols:
 
@@ -12,11 +137,7 @@ There are two distinct H6008 hardware variants with incompatible protocols:
 | Protocol | `0x33`-header, documented | Unknown, undocumented |
 | Community support | Yes (sisiphamus, hardcpp) | None |
 
-**The devices in this repo are the GVH-series (new hardware). Everything below applies to them.**
-
----
-
-## What Has Been Confirmed
+**The devices in this repo are the GVH-series (new hardware).** Everything below applies to them.
 
 ### GATT Layout (via bleak discovery)
 
@@ -47,9 +168,7 @@ Service: 00001801-0000-1000-8000-00805f9b34fb
 - The app is NOT holding a persistent connection — device keeps advertising throughout
 - No WiFi needed for app control
 
----
-
-## What Has Been Ruled Out
+### What Has Been Ruled Out
 
 | Approach | Result |
 |---|---|
@@ -67,9 +186,7 @@ Service: 00001801-0000-1000-8000-00805f9b34fb
 - **`hcidump`**: works but only captures Linux's own HCI traffic (`hci0`), not the iPhone's radio
 - **Single-connection BLE limit**: can't subscribe to notifications while the Govee app is connected — the device is only connectable by one central at a time
 
----
-
-## fff6 Service Notes
+### fff6 Service Notes
 
 The `18ee2ef5` UUIDs match the Matter CHIPoBLE spec (C1/C2 characteristics). However:
 - No Matter service data in the advertisement (a device in commissioning mode would advertise UUID `0xFFF6`)
@@ -78,17 +195,13 @@ The `18ee2ef5` UUIDs match the Matter CHIPoBLE spec (C1/C2 characteristics). How
 
 The `64630238` characteristic returns 23 bytes that resemble Matter TLV (Rotating Device ID format), but its role in the control protocol is unknown.
 
----
+### BLE Status: Still Blocked
 
-## Current Status
+The GVH-series H6008 uses an undocumented BLE protocol. No public reverse engineering project has cracked it. The only confirmed BLE controller is the Govee iOS app. **This no longer matters for day-to-day control** — cloud v2 covers everything the app can do, including scenes BLE never had. BLE would only be worth revisiting for use cases that specifically need it (e.g. offline control, or higher frame-rate effects than the cloud budget allows, as is the case for the H6056).
 
-**Blocked.** The GVH-series H6008 uses an undocumented BLE protocol. No public reverse engineering project has cracked it. The only confirmed working controller is the Govee iOS app.
+### Paths Forward for BLE (if ever revisited)
 
----
-
-## Paths Forward
-
-### Option 1: Passive BLE Sniffer (recommended)
+**Option 1: Passive BLE Sniffer (recommended)**
 An **nRF52840 USB dongle** (~$10-15) flashed with Nordic Semiconductor's Bluetooth Sniffer firmware can passively capture the iPhone↔bulb BLE traffic without connecting. This would reveal the exact bytes the Govee app sends. Wireshark reads the output natively.
 
 Steps once obtained:
@@ -97,21 +210,28 @@ Steps once obtained:
 3. Use Govee app to control bulb while capturing
 4. Filter by device MAC, look for ATT Write Command/Request PDUs
 
-### Option 2: iOS Bluetooth Logging (free, annoying)
+**Option 2: iOS Bluetooth Logging (free, annoying)**
 1. Install Bluetooth Logging profile from `developer.apple.com/bug-reporting/profiles-and-logs/`
 2. Restart iPhone
 3. Control bulb with Govee app
 4. Wait ~20 minutes, then check Settings → Privacy & Security → Analytics & Improvements → Analytics Data for a `sysdiag-*.tar.gz` file
 5. Open the `.pklg` inside in Wireshark
 
-### Option 3: WiFi + API (requires own network)
-Provision bulbs to a WPA2-Personal WiFi network (not eduroam), then control via:
-- **Govee Cloud API** (requires API key from Govee app, internet on device)
-- **Govee LAN API** (UDP port 4003, local only — H6008 LAN support unconfirmed)
-
-Requires a dedicated AP/router or travel router — eduroam (WPA2-Enterprise) is incompatible with IoT devices.
+**Option 3: WiFi + LAN API (requires own network)**
+Provision bulbs to a WPA2-Personal WiFi network (not eduroam), then control via the Govee LAN API (UDP port 4003, local only — H6008 LAN support unconfirmed). Now largely moot since cloud v2 already works.
 
 ---
 
-*Last updated: 2026-03-30*
-*Devices: GVH600887FB (`5C:E7:53:69:87:FB`), GVH60088F01 (`5C:E7:53:63:8F:01`)*
+## Gotchas
+
+- **DIY scene value is a bare int, not an object**, same as the H6022 and unlike `lightScene` (which needs `{"paramId": ..., "id": ...}`).
+- **`segmentedColorRgb`, `segmentedBrightness`, `musicMode`, `gradientToggle` all 400** with `"devices not support this instance"` — expected for a single-zone bulb with no gradient/music hardware, not a bug.
+- **Colour temp range is 2700-6500K** — govee-cli correctly rejects 7000K client-side; don't assume the H6022/H6056 range (2000-9000K) applies here.
+- **`colorTemperatureK` and `colorRgb` are mutually exclusive** — setting one clears the other.
+- **Cloud device IDs are not BLE addresses.** `82:1F:5C:E7:53:69:87:FA` and `FB:7E:5C:E7:53:63:8F:00` are 8-octet cloud IDs; the actual BLE MACs are the 6-octet `5C:E7:53:69:87:FB` / `5C:E7:53:63:8F:01`. This mirrors the same trap documented for the H6056.
+- **BLE remains blocked regardless of cloud success** — do not assume cloud v2 working means the BLE protocol got solved. It didn't; it's just no longer necessary.
+
+---
+
+*Verified against live hardware: 2026-08-14.*
+*Devices: Lamp Front (`82:1F:5C:E7:53:69:87:FA` cloud / `5C:E7:53:69:87:FB` BLE), Lamp Top (`FB:7E:5C:E7:53:63:8F:00` cloud / `5C:E7:53:63:8F:01` BLE).*

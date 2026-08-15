@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING
 import click
 
 from govee_cli.commands._common import resolve
+from govee_cli.exceptions import GoveeError
 from govee_cli.transport import CLOUD_V2
 
 if TYPE_CHECKING:
@@ -45,6 +46,8 @@ CLOUD_DEFAULT_FPS = 1.0
 @click.option("--adapter", default="hci0", show_default=True, help="Bluetooth adapter")
 @click.option("--fps", default=None, type=float, help="Override FPS from effect file")
 @click.option("--no-loop", is_flag=True, help="Play once and exit (overrides the file)")
+@click.option("--ble", "force_ble", is_flag=True, help="Force BLE playback")
+@click.option("--cloud", "force_cloud", is_flag=True, help="Force cloud playback")
 @click.pass_context
 def command(
     ctx: click.Context,
@@ -53,6 +56,8 @@ def command(
     adapter: str,
     fps: float | None,
     no_loop: bool,
+    force_ble: bool,
+    force_cloud: bool,
 ) -> None:
     """Play a DIY keyframe animation from a JSON file.
 
@@ -74,6 +79,9 @@ def command(
       ]
     }
     """
+    if force_ble and force_cloud:
+        raise click.ClickException("--ble and --cloud are mutually exclusive.")
+
     target = resolve(ctx, mac)
 
     from govee_cli.scenes.effects import Effect
@@ -88,15 +96,27 @@ def command(
         raise click.ClickException("Effect has no keyframes.")
 
     spec = target.spec
-    if spec and spec.segment_count:
-        bad = sorted({s.id for s in effect.segments if s.id >= spec.segment_count})
-        if bad:
-            raise click.ClickException(
-                f"Effect uses segment(s) {bad}, but {spec.model} has "
-                f"{spec.segment_count} (0-{spec.segment_count - 1})."
-            )
 
-    if target.transport == CLOUD_V2:
+    # A device that can animate over BLE should, even when its primary transport
+    # is the cloud: BLE runs at full frame rate while cloud playback is capped at
+    # 2fps by the request budget. `--cloud` forces the cloud path anyway, which
+    # is what you want when the Bluetooth adapter is busy or out of range.
+    use_ble = bool(spec and spec.prefer_ble_effects) and not force_cloud
+    if force_ble:
+        use_ble = True
+
+    if spec:
+        segment_limit = spec.ble_segment_count if use_ble else spec.segment_count
+        if segment_limit:
+            bad = sorted({s.id for s in effect.segments if s.id >= segment_limit})
+            if bad:
+                raise click.ClickException(
+                    f"Effect uses segment(s) {bad}, but {spec.model} addresses "
+                    f"{segment_limit} (0-{segment_limit - 1}) over "
+                    f"{'BLE' if use_ble else 'the cloud'}."
+                )
+
+    if target.transport == CLOUD_V2 and not use_ble:
         requested = effect.fps if fps is not None else min(effect.fps, CLOUD_DEFAULT_FPS)
         capped = min(requested, CLOUD_MAX_FPS)
         if capped < requested:
@@ -122,14 +142,26 @@ def command(
             click.echo("\nStopped.")
         return
 
-    click.echo(f"Playing effect: {effect.name}  ({effect.fps} fps, loop={effect.loop})")
+    click.echo(
+        f"Playing effect: {effect.name}  ({effect.fps} fps, loop={effect.loop}, BLE)"
+    )
     click.echo("Press Ctrl+C to stop.")
     try:
         asyncio.run(
-            _play(effect, target.device_id, adapter, ctx.obj.get("default_timeout", 10.0))
+            _play(effect, target.ble_mac, adapter, ctx.obj.get("default_timeout", 10.0))
         )
     except KeyboardInterrupt:
         click.echo("\nStopped.")
+    except GoveeError as e:
+        # A device that also has a cloud path can still animate, just slower.
+        # Say so instead of leaving the user with a bare Bluetooth error.
+        if target.transport == CLOUD_V2:
+            raise click.ClickException(
+                f"BLE playback failed: {e}\n"
+                f"'{target.label}' can also animate over the cloud — retry with "
+                f"--cloud (slower: max {CLOUD_MAX_FPS}fps)."
+            ) from e
+        raise click.ClickException(f"BLE playback failed: {e}") from e
 
 
 def _frames(effect: "Effect") -> "Iterator[tuple[float, dict[int, tuple[int, int, int]]]]":

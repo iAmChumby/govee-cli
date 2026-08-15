@@ -24,17 +24,33 @@ def command(ctx: click.Context, mac: str | None, adapter: str) -> None:
     click.echo(f"  Transport: {target.transport}")
     if spec:
         if spec.segment_count > 1:
-            click.echo(f"  Segments: {spec.segment_count} (0-{spec.segment_count - 1})")
+            click.echo(
+                f"  Segments (cloud): {spec.segment_count} "
+                f"(0-{spec.segment_count - 1})"
+            )
+        if spec.ble_segment_count:
+            # The same device can address a different count per transport.
+            click.echo(
+                f"  Segments (BLE): {spec.ble_segment_count} "
+                f"(0-{spec.ble_segment_count - 1})"
+            )
         click.echo(f"  Color temp range: {spec.temp_min}-{spec.temp_max}K")
         features = []
         if spec.cloud_scenes:
             features.append("scenes")
+        if spec.cloud_diy:
+            features.append("diy")
         if spec.cloud_segments:
             features.append("segments")
+        if spec.cloud_segment_brightness:
+            features.append("segment-brightness")
         if spec.cloud_music:
             features.append("music")
-        if features:
-            click.echo(f"  Cloud features: {', '.join(features)}")
+        click.echo(f"  Cloud features: {', '.join(features) if features else 'basic control only'}")
+        if spec.toggles:
+            click.echo(f"  Toggles: {', '.join(spec.toggles)}")
+        if spec.prefer_ble_effects:
+            click.echo("  Effects: BLE preferred (full frame rate; --cloud to override)")
 
     if target.transport == CLOUD_V2:
         from govee_cli.commands._common import v2_client
@@ -84,7 +100,7 @@ def command(ctx: click.Context, mac: str | None, adapter: str) -> None:
     from govee_cli.ble import GoveeBLE
 
     async def run() -> None:
-        async with GoveeBLE(target.device_id, adapter=adapter) as client:
+        async with GoveeBLE(target.ble_mac, adapter=adapter) as client:
             state = await client.read_state()
             click.echo("")
             click.echo(f"Power: {'On' if state.power else 'Off'}")

@@ -53,7 +53,7 @@ def command(ctx: click.Context, kelvin: int, mac: str | None, adapter: str) -> N
     from govee_cli.ble.protocol import encode_temp_for_device
 
     async def run() -> None:
-        async with GoveeBLE(target.device_id, adapter=adapter) as client:
+        async with GoveeBLE(target.ble_mac, adapter=adapter) as client:
             await client.execute(encode_temp_for_device(kelvin, target.model))
             click.echo(f"Color temperature set to {kelvin}K")
 

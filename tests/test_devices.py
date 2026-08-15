@@ -24,7 +24,7 @@ class TestSupportedDevices:
 
     def test_registry_contains_all_known_models(self) -> None:
         # Membership rather than a count, so adding a model doesn't fail the suite.
-        assert set(SUPPORTED_DEVICES) == {"H6056", "H6008", "H6022"}
+        assert set(SUPPORTED_DEVICES) == {"H6056", "H6008", "H6022", "H6183"}
 
     def test_registry_keys_are_uppercase(self) -> None:
         assert all(key == key.upper() for key in SUPPORTED_DEVICES)
