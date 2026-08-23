@@ -183,48 +183,57 @@ App name: **filament** — lowercase wordmark, tagline "govee control console".
 It should feel like a precision lighting desk designed by one person who owns
 the same lights you do.
 
-### 5.2 Design language — "control room"
+### 5.2 Design language — "optical" (v2, supersedes the original "control room")
 
-Handcrafted instrument-panel aesthetic. Warm, mechanical, precise. Explicitly
-banned: purple/blue gradients, glassmorphism blur cards, neon glow chrome,
-generic SaaS dashboard look, Inter/Roboto as identity font, emoji icons,
-terminal-green-on-black pastiche, drop shadows floating in space.
+**Concept: the interface is a neutral optical bench; the devices are the only
+sources of color.** Chrome is monochrome graphite — cool, flat, quiet. Every
+drop of color on screen is *light content*: device glow, swatches, segment
+paints, scene gradients. The drama lives in the stage renderer and motion
+physics, never in surface decoration.
 
-**Typography** (next/font/google):
-- Display: `Instrument Serif` — headings, scene names, big numerals get mono
-  instead. Italic reserved for flourish words ("mood", "scene").
-- UI: `Archivo` — body and labels. Micro-labels: uppercase, tracking 0.14em,
-  11px, color-mid.
+Banned: warm/ivory/cream tints anywhere (the v1 "notebook" look), amber
+chrome accents, serif display fonts, purple/blue gradients, glassmorphism,
+neon chrome, drop shadows floating cards, generic SaaS dashboard layout,
+Inter/Roboto as identity font, emoji icons, terminal-green pastiche, film
+grain overlays, decorative corner ticks.
+
+**Typography** (next/font/google) — strictly two families:
+- UI + display: `Archivo` — everything. Display style = Archivo 500–600 with
+  tight tracking (-0.02em) at large sizes; no separate display face.
 - Data: `IBM Plex Mono` — values, IDs, times, temperatures. Tabular.
+- Micro-labels: uppercase, tracking 0.14em, 11px, color-mid.
 
 **Color tokens** (CSS custom properties, both themes):
 
 | token | dark | light |
 |---|---|---|
-| --bg | #131110 | #EDE7D9 |
-| --panel | #1B1815 | #F6F1E4 |
-| --raised | #242019 | #FCF8ED |
-| --hairline | ivory @ 9% | ink @ 13% |
-| --hairline-strong | ivory @ 18% | ink @ 26% |
-| --text-hi | #EFE7D6 | #211C15 |
-| --text-mid | #A89F8D | #5C5546 |
-| --text-low | #6E675B | #8A8272 |
-| --accent | #E3A455 | #96601A |
-| --accent-press | #C98B3F | #7C4E12 |
-| --ember | #C4553B | #A93F27 |
-| --sage | #8FA982 | #55703F |
+| --bg | #0B0C0E | #F7F7F8 |
+| --panel | #121316 | #FFFFFF |
+| --raised | #17181C | #FFFFFF |
+| --hairline | white @ 8% | black @ 10% |
+| --hairline-strong | white @ 16% | black @ 20% |
+| --text-hi | #F2F3F5 | #131417 |
+| --text-mid | #9BA0A8 | #55595F |
+| --text-low | #5C6167 | #8A8F96 |
+| --accent | #FFFFFF | #111214 |
+| --accent-dim | white @ 8% fill | black @ 6% fill |
+| --ember | #E5484D | #D93A3F |
+| --sage | #46A758 | #2F9E44 |
 
-Device light colors are *content* rendered inside previews/swatches — never
-used as UI chrome accents.
+- Interactive accent is **white** (dark theme) / near-black ink (light theme).
+  Fills, focus rings, slider tracks, tab underlines, active states: all accent.
+- Device light colors are *content* rendered inside previews/swatches/stage —
+  never used as UI chrome.
+- ember/sage are status semantics only (errors, online dots).
 
-**Borders & corners** — one system, no exceptions:
+**Borders & corners** — soft geometry, one system:
 - Hairline 1px borders at --hairline; interactive hover raises to
-  --hairline-strong.
-- Radius scale: 3px inputs/chips · 6px buttons · 10px panels · 16px overlays.
-- Signature: major panels carry an **offset outer ring** (1px hairline 4px
-  outside the border = engraved faceplate) plus **corner ticks** — 8px L-shaped
-  registration marks at the four corners, drawn with pseudo-elements/SVG.
-  Buttons and chips never get ticks.
+  --hairline-strong. Flat fills; shadows banned except a single large soft
+  ambient shadow on overlays (dialogs/popovers).
+- Radius scale (generous, smooth): 6px chips/thumbs · 10px buttons/inputs ·
+  14px small panels · 20px panels · 28px stage/overlays. Switches are pills.
+- Panels are flat hairline-bordered rounded rectangles. No offset rings, no
+  registration marks, no texture.
 
 **Motion** — nothing snaps, ever:
 - framer-motion (`motion/react`) springs everywhere.
@@ -242,6 +251,11 @@ used as UI chrome accents.
   except tiny inline ones; prefer progress via layout (panels breathe open).
 
 ### 5.3 Information architecture
+
+Layout model: a full-height **app frame**, not a marketing page. Left rail
+(72px collapsed / 220px expanded) carries navigation; content area is the
+console. Tight 12–13px base UI text, dense but airy through whitespace, not
+through boxes-in-boxes.
 
 - `/` **Console** — grid of device plates (mini live preview, power, brightness
   scrub, current color/temp readout), groups strip with group actions, global
