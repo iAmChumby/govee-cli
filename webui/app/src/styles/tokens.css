@@ -1,0 +1,176 @@
+/* ============================================================
+   filament — design tokens  ("optical" v2)
+   Source of truth: WEBUI_SPEC.md §5.2
+   Neutral optical bench. Chrome is monochrome graphite; every
+   drop of color on screen is light CONTENT (device glow,
+   swatches, segment paints, scene gradients). Zero warm tints.
+   ============================================================ */
+
+/* ---- Registered custom properties --------------------------
+   Registered via @property so gradients/filters driven by them
+   interpolate *continuously* — never a class flip.
+   ------------------------------------------------------------- */
+@property --glow-alpha {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+@property --glow-scale {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 1;
+}
+@property --glow-hue {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 220;
+}
+@property --glow-radius {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 140px;
+}
+
+/* ---- Primitives (theme-invariant) -------------------------- */
+:root {
+  /* radius scale (raw) — generous, smooth */
+  --radius-raw-chip: 6px; /* chips, thumbs          */
+  --radius-raw-btn: 10px; /* buttons, inputs        */
+  --radius-raw-card: 14px; /* small panels, wells    */
+  --radius-raw-panel: 20px; /* panels                 */
+  --radius-raw-stage: 28px; /* stage, overlays        */
+  --radius-raw-overlay: 28px; /* dialogs, sheets       */
+
+  /* motion */
+  --dur-fast: 140ms;
+  --dur-base: 240ms;
+  --dur-slow: 420ms;
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ---- Light theme ------------------------------------------- */
+:root {
+  color-scheme: light;
+
+  --bg: #f7f7f8;
+  --panel: #ffffff;
+  --raised: #ffffff;
+
+  --hairline: rgb(0 0 0 / 10%);
+  --hairline-strong: rgb(0 0 0 / 20%);
+
+  --text-hi: #131417;
+  --text-mid: #55595f;
+  --text-low: #8a8f96;
+
+  --accent: #111214;
+  --accent-press: #26282c;
+  --accent-contrast: #ffffff;
+  --accent-dim: rgb(17 18 20 / 6%);
+
+  --ember: #d93a3f;
+  --ember-press: #b92f34;
+  --ember-contrast: #ffffff;
+  --sage: #2f9e44;
+
+  /* overlay scrim + the single allowed ambient shadow */
+  --scrim: rgb(0 0 0 / 35%);
+  --shadow-overlay-raw: 0 32px 80px -24px rgb(0 0 0 / 28%),
+    0 8px 24px -12px rgb(0 0 0 / 14%);
+}
+
+/* ---- Dark theme (default) ---------------------------------- */
+.dark {
+  color-scheme: dark;
+
+  --bg: #0b0c0e;
+  --panel: #121316;
+  --raised: #17181c;
+
+  --hairline: rgb(255 255 255 / 8%);
+  --hairline-strong: rgb(255 255 255 / 16%);
+
+  --text-hi: #f2f3f5;
+  --text-mid: #9ba0a8;
+  --text-low: #5c6167;
+
+  --accent: #ffffff;
+  --accent-press: #e2e4e7;
+  --accent-contrast: #111214;
+  --accent-dim: rgb(255 255 255 / 8%);
+
+  --ember: #e5484d;
+  --ember-press: #c93a3f;
+  --ember-contrast: #ffffff;
+  --sage: #46a758;
+
+  /* overlay scrim + the single allowed ambient shadow */
+  --scrim: rgb(0 0 0 / 60%);
+  --shadow-overlay-raw: 0 32px 90px -20px rgb(0 0 0 / 65%),
+    0 8px 28px -12px rgb(0 0 0 / 45%);
+}
+
+/* ---- Tailwind theme bridge ----------------------------------
+   `inline` so utilities reference the live custom properties and
+   follow the active theme without re-emitting values.
+   -------------------------------------------------------------- */
+@theme inline {
+  /* Archivo carries UI *and* display duty (display = weight 500–600,
+     tracking −0.02em). IBM Plex Mono stays for data. Two families. */
+  --font-display: var(--font-ui-src), "Archivo", "Helvetica Neue", sans-serif;
+  --font-ui: var(--font-ui-src), "Archivo", "Helvetica Neue", sans-serif;
+  --font-mono: var(--font-mono-src), "IBM Plex Mono", ui-monospace,
+    "Cascadia Mono", monospace;
+
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-raised: var(--raised);
+  --color-hairline: var(--hairline);
+  --color-hairline-strong: var(--hairline-strong);
+  --color-hi: var(--text-hi);
+  --color-mid: var(--text-mid);
+  --color-low: var(--text-low);
+  --color-accent: var(--accent);
+  --color-accent-press: var(--accent-press);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-accent-dim: var(--accent-dim);
+  --color-ember: var(--ember);
+  --color-ember-press: var(--ember-press);
+  --color-ember-contrast: var(--ember-contrast);
+  --color-sage: var(--sage);
+
+  --radius-chip: var(--radius-raw-chip);
+  --radius-btn: var(--radius-raw-btn);
+  --radius-card: var(--radius-raw-card);
+  --radius-panel: var(--radius-raw-panel);
+  --radius-stage: var(--radius-raw-stage);
+  --radius-overlay: var(--radius-raw-overlay);
+
+  --shadow-overlay: var(--shadow-overlay-raw);
+
+  --tracking-micro: 0.14em;
+
+  --animate-skeleton-breathe: skeleton-breathe 2.8s var(--ease-out-soft)
+    infinite;
+  --animate-dot-breathe: dot-breathe 3.4s ease-in-out infinite;
+
+  @keyframes skeleton-breathe {
+    0%,
+    100% {
+      opacity: 0.38;
+    }
+    50% {
+      opacity: 0.85;
+    }
+  }
+
+  @keyframes dot-breathe {
+    0%,
+    100% {
+      opacity: 0.5;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+}
