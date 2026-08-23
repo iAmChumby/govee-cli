@@ -76,3 +76,15 @@ def remove_rule(rule_id: str) -> bool:
     _save_rules(rules)
     logger.info("rule_removed", id=rule_id)
     return True
+
+
+def set_rule_enabled(rule_id: str, enabled: bool) -> bool:
+    """Enable or disable a schedule rule by ID. Returns True if found."""
+    rules = _load_rules()
+    for rule in rules:
+        if rule.id == rule_id:
+            rule.enabled = enabled
+            _save_rules(rules)
+            logger.info("rule_updated", id=rule_id, enabled=enabled)
+            return True
+    return False

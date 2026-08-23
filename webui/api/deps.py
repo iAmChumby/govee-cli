@@ -1,0 +1,368 @@
+"""Shared dependencies: settings, client providers, ref resolution, state cache.
+
+Everything here exists to keep routers free of three concerns: where the v2
+client comes from (real or mock), how a ``{ref}`` path parameter becomes a
+routable target, and how raw cloud state becomes the spec's normalised shape
+without hammering the rate limit.
+"""
+
+from __future__ import annotations
+
+import os
+import threading
+import time
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Protocol, cast
+
+import anyio.to_thread
+import click
+from fastapi import Request
+
+from govee_cli.config import DeviceConfig, GoveeConfig, load_config, resolve_device_ref
+from govee_cli.exceptions import DeviceNotConfigured
+from govee_cli.http_v2 import DIYScene, Scene, V2Device
+from govee_cli.transport import BLE, CLOUD_V1, CLOUD_V2, ModelSpec, get_spec, resolve_target
+
+from .errors import bad_request, conflict, not_found
+
+if TYPE_CHECKING:
+    from .mock import MockV2
+
+STATE_CACHE_TTL = 2.5  # >= 2s per spec; absorbs 10s UI polls plus manual refresh bursts
+
+
+class V2Client(Protocol):
+    """The slice of ``GoveeHTTPv2`` the sidecar uses; MockV2 implements it too."""
+
+    def get_devices(self) -> list[V2Device]: ...
+
+    def get_device(self, sku: str, device_id: str) -> V2Device | None: ...
+
+    def get_state(self, sku: str, device_id: str) -> dict[str, Any]: ...
+
+    def turn_on(self, sku: str, device_id: str) -> None: ...
+
+    def turn_off(self, sku: str, device_id: str) -> None: ...
+
+    def set_brightness(self, sku: str, device_id: str, value: int) -> None: ...
+
+    def set_color(self, sku: str, device_id: str, r: int, g: int, b: int) -> None: ...
+
+    def set_color_temp(self, sku: str, device_id: str, kelvin: int) -> None: ...
+
+    def set_segment_color(self, sku: str, device_id: str, segments: list[int],
+                          r: int, g: int, b: int) -> None: ...
+
+    def set_segment_brightness(self, sku: str, device_id: str, segments: list[int],
+                               brightness: int) -> None: ...
+
+    def set_scene(self, sku: str, device_id: str, scene: Scene) -> None: ...
+
+    def set_diy_scene(self, sku: str, device_id: str, value: int) -> None: ...
+
+    def set_snapshot(self, sku: str, device_id: str, value: int) -> None: ...
+
+    def set_music_mode(self, sku: str, device_id: str, mode: int, sensitivity: int,
+                       auto_color: bool | None = None,
+                       rgb: int | None = None) -> None: ...
+
+    def set_toggle(self, sku: str, device_id: str, instance: str, on: bool) -> None: ...
+
+    def get_scenes(self, sku: str, device_id: str,
+                   *, use_cache: bool = True) -> list[Scene]: ...
+
+    def get_diy_scenes(self, sku: str, device_id: str) -> list[DIYScene]: ...
+
+    def find_scene(self, sku: str, device_id: str, name: str) -> Scene | None: ...
+
+    def find_diy_scene(self, sku: str, device_id: str, name: str) -> DIYScene | None: ...
+
+
+@dataclass(frozen=True)
+class Settings:
+    """Sidecar configuration, read from the environment once at app creation."""
+
+    mock: bool
+    scheduler_enabled: bool
+    port: int
+
+    @classmethod
+    def from_env(cls) -> "Settings":
+        mock = os.environ.get("GOVEE_WEBUI_MOCK") == "1"
+        # Default on, but never in mock mode: the embedded scheduler would fire
+        # real commands at real devices while someone thinks they are demoing.
+        scheduler_enabled = (
+            os.environ.get("GOVEE_WEBUI_SCHEDULER", "1") != "0" and not mock
+        )
+        port = int(os.environ.get("GOVEE_WEBUI_PORT", "6057"))
+        return cls(mock=mock, scheduler_enabled=scheduler_enabled, port=port)
+
+
+class TTLCache:
+    """Minimal thread-safe TTL cache for device state reads.
+
+    The cloud allows ~2 req/s sustained; a UI polling several devices would blow
+    through that on its own. Entries expire after :data:`STATE_CACHE_TTL` seconds
+    and are invalidated on mutations so the UI sees its own writes immediately.
+    """
+
+    def __init__(self, ttl: float = STATE_CACHE_TTL) -> None:
+        self._ttl = ttl
+        self._entries: dict[str, tuple[float, Any]] = {}
+        self._lock = threading.Lock()
+
+    def get(self, key: str) -> Any | None:
+        now = time.monotonic()
+        with self._lock:
+            entry = self._entries.get(key)
+            if entry is None or now - entry[0] > self._ttl:
+                return None
+            return entry[1]
+
+    def set(self, key: str, value: Any) -> None:
+        with self._lock:
+            self._entries[key] = (time.monotonic(), value)
+
+    def invalidate(self, key: str) -> None:
+        with self._lock:
+            self._entries.pop(key, None)
+
+
+@dataclass(frozen=True)
+class Resolved:
+    """A device reference resolved far enough to route a command."""
+
+    device_id: str
+    model: str | None
+    transport: str
+    config: GoveeConfig
+    device_cfg: DeviceConfig | None
+
+    @property
+    def spec(self) -> ModelSpec | None:
+        return get_spec(self.model)
+
+    @property
+    def label(self) -> str:
+        if self.device_cfg and self.device_cfg.name:
+            return self.device_cfg.name
+        return self.device_id
+
+    @property
+    def name(self) -> str:
+        return self.label
+
+    @property
+    def sku(self) -> str:
+        """The model name guaranteed non-None, for v2 calls that require it."""
+        if not self.model:
+            raise conflict(
+                f"Device '{self.device_id}' has no model recorded. "
+                f"Run `govee-cli scan-http` to refresh the registry."
+            )
+        return self.model
+
+
+def resolve_ref(cfg: GoveeConfig, ref: str | None) -> Resolved:
+    """Resolve a device name or id, mapping failures to 404/409.
+
+    Mirrors ``_common.resolve()`` but raises API errors instead of ClickException,
+    keeping the library's own message text.
+    """
+    ref = ref or cfg.default_mac
+    if not ref:
+        raise bad_request(
+            "No device specified. Use --device or set a default with `govee-cli config`."
+        )
+    try:
+        _mac, device_cfg = resolve_device_ref(cfg, ref)
+    except DeviceNotConfigured as e:
+        raise not_found(str(e)) from e
+    try:
+        device_id, model, transport = resolve_target(cfg, ref)
+    except click.ClickException as e:
+        # resolve_target's only failure is a cloud model registered under a
+        # 6-octet BLE MAC — a routing misconfiguration, not a missing device.
+        raise conflict(e.format_message()) from e
+    return Resolved(
+        device_id=device_id, model=model, transport=transport, config=cfg,
+        device_cfg=device_cfg,
+    )
+
+
+def get_settings(request: Request) -> Settings:
+    return cast(Settings, request.app.state.settings)
+
+
+def get_config() -> GoveeConfig:
+    """Load the config. Blocking disk IO — call via ``anyio.to_thread``."""
+    return load_config()
+
+
+def get_client(request: Request) -> V2Client:
+    """Return the v2 client for this app: MockV2 in mock mode, else the real one."""
+    if request.app.state.settings.mock:
+        mock: MockV2 = request.app.state.mock_client
+        return mock
+    client: V2Client | None = request.app.state.v2_client
+    if client is None:
+        from govee_cli.http_v2 import GoveeHTTPv2, GoveeV2Error
+
+        try:
+            client = GoveeHTTPv2()
+        except GoveeV2Error as e:
+            raise bad_request(str(e)) from e
+        request.app.state.v2_client = client
+    return client
+
+
+def get_state_cache(request: Request) -> TTLCache:
+    return cast(TTLCache, request.app.state.state_cache)
+
+
+async def run_blocking(func: Any, *args: Any) -> Any:
+    """Run a blocking library call on a worker thread.
+
+    Every requests-based client call goes through here so the event loop never
+    blocks, per the spec's sidecar requirements.
+    """
+    return await anyio.to_thread.run_sync(func, *args)
+
+
+async def read_state(request: Request, target: Resolved) -> dict[str, Any]:
+    """Read device state through the TTL cache, off the event loop."""
+    if target.transport == BLE:
+        # No BLE state read exists in the library (parse_state is unverified), so
+        # there is nothing to fetch — report an offline-looking empty state.
+        return {}
+    cache = get_state_cache(request)
+    cached = cache.get(target.device_id)
+    if cached is not None:
+        return dict(cached)
+    client = get_client(request)
+    raw = await run_blocking(client.get_state, target.sku, target.device_id)
+    cache.set(target.device_id, raw)
+    return dict(raw)
+
+
+def invalidate_state(request: Request, target: Resolved) -> None:
+    get_state_cache(request).invalidate(target.device_id)
+
+
+def capabilities_block(spec: ModelSpec | None) -> dict[str, Any]:
+    """The capabilities object exactly as WEBUI_SPEC.md §4 defines it."""
+    if spec is None:
+        return {
+            "segments": False, "segment_brightness": False, "scenes": False,
+            "diy": False, "music": False, "toggles": [], "temp_min": 2700,
+            "temp_max": 9000, "segment_count_cloud": 0, "segment_count_ble": 0,
+            "prefer_ble_effects": False,
+        }
+    return {
+        "segments": spec.cloud_segments,
+        "segment_brightness": spec.cloud_segment_brightness,
+        "scenes": spec.cloud_scenes,
+        "diy": spec.cloud_diy,
+        "music": spec.cloud_music,
+        "toggles": list(spec.toggles),
+        "temp_min": spec.temp_min,
+        "temp_max": spec.temp_max,
+        "segment_count_cloud": spec.segment_count,
+        "segment_count_ble": spec.ble_segment_count,
+        "prefer_ble_effects": spec.prefer_ble_effects,
+    }
+
+
+def normalize_state(target: Resolved, raw: dict[str, Any]) -> dict[str, Any]:
+    """Convert raw transport state into the spec's normalised shape.
+
+    Only power/brightness/colorRgb/colorTemperatureK/online are reliable reads;
+    scene/segment/music instances come back as "" and are ignored.
+    """
+    color: dict[str, Any] | None = None
+    temp_k: int | None = None
+
+    if target.transport == CLOUD_V1:
+        power = str(raw.get("powerState", "")).lower() == "on"
+        brightness = _as_int(raw.get("brightness"))
+        rgb_dict = raw.get("color") if isinstance(raw.get("color"), dict) else {}
+        if rgb_dict:
+            r, g, b = (int(rgb_dict.get(k, 0) or 0) for k in ("r", "g", "b"))
+            color = _color_out((r << 16) | (g << 8) | b)
+        temp_k = _as_int(raw.get("colorTem"))
+        online: bool | None = None
+    else:
+        power = bool(raw.get("powerSwitch"))
+        brightness = _as_int(raw.get("brightness"))
+        color = _color_out(_as_int(raw.get("colorRgb")))
+        temp_k = _as_int(raw.get("colorTemperatureK"))
+        online_raw = raw.get("online")
+        online = bool(online_raw) if online_raw is not None else None
+
+    return {
+        "ref": target.name,
+        "id": target.device_id,
+        "model": target.model,
+        "name": target.name,
+        "transport": target.transport,
+        "online": online,
+        "power": power,
+        "brightness": brightness,
+        "color": color,
+        "color_temp_k": temp_k,
+        "capabilities": capabilities_block(target.spec),
+    }
+
+
+def _as_int(value: Any) -> int | None:
+    """int-or-None for cloud values that arrive as ints, "" or 0 placeholders."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        as_int = int(value)
+        return as_int if as_int > 0 else None
+    return None
+
+
+def _color_out(rgb_int: int | None) -> dict[str, Any] | None:
+    if not rgb_int:
+        return None
+    r, g, b = (rgb_int >> 16) & 0xFF, (rgb_int >> 8) & 0xFF, rgb_int & 0xFF
+    return {"hex": f"#{r:02X}{g:02X}{b:02X}", "rgb": [r, g, b]}
+
+
+def require_v2_feature(target: Resolved, feature: str, supported: bool) -> None:
+    """409 when a model cannot carry a feature, with the CLI's own wording."""
+    if target.transport != CLOUD_V2:
+        raise conflict(
+            f"{feature} over the cloud requires a v2-capable model. "
+            f"'{target.label}' is model '{target.model or 'unknown'}' "
+            f"(transport: {target.transport})."
+        )
+    if not supported:
+        raise conflict(
+            f"{feature} is not available on {target.model}. "
+            f"The device rejects it with \"devices not support this instance\"."
+        )
+
+
+__all__ = [
+    "BLE",
+    "CLOUD_V1",
+    "CLOUD_V2",
+    "Resolved",
+    "Settings",
+    "TTLCache",
+    "V2Client",
+    "capabilities_block",
+    "get_client",
+    "get_config",
+    "get_settings",
+    "get_state_cache",
+    "invalidate_state",
+    "normalize_state",
+    "read_state",
+    "require_v2_feature",
+    "resolve_ref",
+    "run_blocking",
+]
