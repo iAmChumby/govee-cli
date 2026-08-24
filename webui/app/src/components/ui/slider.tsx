@@ -19,6 +19,8 @@ export interface SliderProps {
   max?: number;
   step?: number;
   onValueChange?: (value: number) => void;
+  /** fired when the drag ends / keyboard commit — the "send it" moment */
+  onValueCommit?: (value: number) => void;
   /** accessible name for the thumb */
   ariaLabel: string;
   /** mono readout bubble above the thumb (hover/focus/drag) */
@@ -39,6 +41,7 @@ export function Slider({
   max = 100,
   step = 1,
   onValueChange,
+  onValueCommit,
   ariaLabel,
   showBubble = false,
   disabled = false,
@@ -66,6 +69,7 @@ export function Slider({
     <SliderPrimitive.Root
       value={[current]}
       onValueChange={handleChange}
+      onValueCommit={(values) => onValueCommit?.(values[0] ?? min)}
       min={min}
       max={max}
       step={step}

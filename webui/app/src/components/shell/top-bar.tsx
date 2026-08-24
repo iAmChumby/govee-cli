@@ -6,11 +6,16 @@ import { motion } from "motion/react";
 import { Chip, ThemeToggle } from "@/components/ui";
 import { fadeUp } from "@/lib/motion";
 
+export interface TopBarProps {
+  /** breadcrumb segments after "console" */
+  crumbs?: string[];
+}
+
 /**
  * Top bar shell: lowercase Archivo wordmark (600, tracking −0.02em),
- * tagline micro-label, breadcrumb, refresh cadence chip, theme toggle.
+ * tagline micro-label, breadcrumb, theme toggle.
  */
-export function TopBar() {
+export function TopBar({ crumbs }: TopBarProps) {
   return (
     <motion.header
       initial="hidden"
@@ -37,13 +42,18 @@ export function TopBar() {
       <span aria-hidden className="hidden h-4 w-px bg-hairline md:block" />
 
       {/* breadcrumb */}
-      <span className="hidden font-mono text-[11px] text-low md:inline">
+      <span className="hidden items-center gap-2 font-mono text-[11px] text-low md:flex">
         console
+        {(crumbs ?? []).map((crumb) => (
+          <React.Fragment key={crumb}>
+            <span aria-hidden className="text-hairline-strong">/</span>
+            <span className="text-mid">{crumb}</span>
+          </React.Fragment>
+        ))}
       </span>
 
       <div className="flex-1" />
 
-      {/* cadence */}
       <Chip className="hidden sm:inline-flex">poll 10s</Chip>
 
       <ThemeToggle />
