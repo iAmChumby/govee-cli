@@ -7,8 +7,6 @@ import { motion } from "motion/react";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 
 import { Button, Panel, Skeleton } from "@/components/ui";
-import { StatusStrip } from "@/components/shell/status-strip";
-import { TopBar } from "@/components/shell/top-bar";
 import { DeviceStage } from "@/components/stage/stage";
 import { useDeviceState } from "@/lib/queries";
 import { ApiError } from "@/lib/api";
@@ -34,60 +32,62 @@ function safeDecode(raw: string | undefined): string {
 export default function DeviceConsolePage() {
   const params = useParams<{ ref: string }>();
   const ref = safeDecode(Array.isArray(params?.ref) ? params.ref[0] : params?.ref);
-  const state = useDeviceState(ref !== "" ? ref : null);
+
+  // Keyed by ref: navigating between devices remounts the whole console, so
+  // tab state, dial scrub, segment selection and scroll never leak from one
+  // device into the next. The query cache keeps revisits instant regardless.
+  return ref !== "" ? <DeviceConsoleContent key={ref} ref={ref} /> : null;
+}
+
+function DeviceConsoleContent({ ref }: { ref: string }) {
+  const state = useDeviceState(ref);
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-bg">
-      <TopBar crumbs={[ref || "device"]} />
+    <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+      <div className="mx-auto max-w-[1200px] px-6 pb-14 pt-6">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-micro text-low transition-colors duration-150 hover:text-hi"
+        >
+          <ArrowLeft size={12} strokeWidth={1.75} aria-hidden />
+          console
+        </Link>
 
-      <main className="min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-[1200px] px-6 pb-14 pt-6">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-micro text-low transition-colors duration-150 hover:text-hi"
+        {state.isLoading ? (
+          <LoadingSkeleton />
+        ) : state.isError || !state.data ? (
+          <ErrorPanel
+            message={
+              state.error instanceof ApiError
+                ? state.error.message
+                : "The sidecar could not resolve that device."
+            }
+            onRetry={() => void state.refetch()}
+          />
+        ) : (
+          <motion.div
+            variants={staggerParent}
+            initial="hidden"
+            animate="show"
+            className="mt-4 grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(0,11fr)_minmax(0,9fr)]"
           >
-            <ArrowLeft size={12} strokeWidth={1.75} aria-hidden />
-            console
-          </Link>
+            {/* stage column */}
+            <motion.section variants={panelIn} className="lg:sticky lg:top-6">
+              <DeviceStage state={state.data} className="h-[380px] lg:h-[480px]" />
+              <p className="mt-3 px-1 font-mono text-[10px] leading-relaxed text-low">
+                {state.data.id}
+                {state.data.capabilities?.segments
+                  ? ` · ${state.data.capabilities.segment_count_cloud} cloud segments`
+                  : ""}
+              </p>
+            </motion.section>
 
-          {state.isLoading ? (
-            <LoadingSkeleton />
-          ) : state.isError || !state.data ? (
-            <ErrorPanel
-              message={
-                state.error instanceof ApiError
-                  ? state.error.message
-                  : "The sidecar could not resolve that device."
-              }
-              onRetry={() => void state.refetch()}
-            />
-          ) : (
-            <motion.div
-              variants={staggerParent}
-              initial="hidden"
-              animate="show"
-              className="mt-4 grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(0,11fr)_minmax(0,9fr)]"
-            >
-              {/* stage column */}
-              <motion.section variants={panelIn} className="lg:sticky lg:top-6">
-                <DeviceStage state={state.data} className="h-[380px] lg:h-[480px]" />
-                <p className="mt-3 px-1 font-mono text-[10px] leading-relaxed text-low">
-                  {state.data.id}
-                  {state.data.capabilities?.segments
-                    ? ` · ${state.data.capabilities.segment_count_cloud} cloud segments`
-                    : ""}
-                </p>
-              </motion.section>
-
-              {/* control deck column */}
-              <ControlDeck refId={ref} state={state.data} />
-            </motion.div>
-          )}
-        </div>
-      </main>
-
-      <StatusStrip />
-    </div>
+            {/* control deck column */}
+            <ControlDeck refId={ref} state={state.data} />
+          </motion.div>
+        )}
+      </div>
+    </main>
   );
 }
 

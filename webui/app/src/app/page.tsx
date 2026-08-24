@@ -22,8 +22,6 @@ import {
   StatusDot,
   Switch,
 } from "@/components/ui";
-import { StatusStrip } from "@/components/shell/status-strip";
-import { TopBar } from "@/components/shell/top-bar";
 import type { DeviceSummary } from "@/lib/api";
 import {
   useDeviceControls,
@@ -332,13 +330,10 @@ export default function ConsolePage() {
   };
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-bg">
-      <TopBar />
+    <>
+      <Rail devices={list} />
 
-      <div className="flex min-h-0 flex-1">
-        <Rail devices={list} />
-
-        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+      <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">
           <motion.div
             variants={staggerParent}
             initial="hidden"
@@ -413,11 +408,8 @@ export default function ConsolePage() {
             {/* groups */}
             <GroupsSection />
           </motion.div>
-        </main>
-      </div>
-
-      <StatusStrip />
-    </div>
+      </main>
+    </>
   );
 }
 

@@ -4,6 +4,8 @@ import { Archivo, IBM_Plex_Mono } from "next/font/google";
 
 import "../styles/globals.css";
 import { Providers } from "@/components/providers";
+import { TopBar } from "@/components/shell/top-bar";
+import { StatusStrip } from "@/components/shell/status-strip";
 
 // UI + display — Archivo carries everything (display = weight 500–600,
 // tracking −0.02em; no separate display face per spec §5.2)
@@ -34,7 +36,15 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${ui.variable} ${mono.variable} font-ui`}>
-        <Providers>{children}</Providers>
+        <Providers>
+          {/* Persistent app frame: chrome mounts once and survives every
+              route change — no header replays, no status-strip resets. */}
+          <div className="flex h-dvh flex-col overflow-hidden bg-bg">
+            <TopBar />
+            <div className="flex min-h-0 flex-1">{children}</div>
+            <StatusStrip />
+          </div>
+        </Providers>
       </body>
     </html>
   );

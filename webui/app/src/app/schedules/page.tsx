@@ -7,8 +7,6 @@ import { Plus, Trash2 } from "lucide-react";
 
 import { Button, Chip, Panel, SectionLabel, Skeleton, Switch } from "@/components/ui";
 import { useToast } from "@/components/ui/toaster";
-import { StatusStrip } from "@/components/shell/status-strip";
-import { TopBar } from "@/components/shell/top-bar";
 import { ApiError, api, type DeviceSummary, type ScheduleRule } from "@/lib/api";
 import { useDevices, useSchedules } from "@/lib/queries";
 import { cn } from "@/lib/cn";
@@ -197,11 +195,8 @@ export default function SchedulesPage() {
   const enabledCount = rules.filter((r) => r.enabled).length;
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-bg">
-      <TopBar crumbs={["schedules"]} />
-
-      <div className="flex min-h-0 flex-1">
-        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+    <>
+      <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">
           <motion.div
             variants={staggerParent}
             initial="hidden"
@@ -269,11 +264,8 @@ export default function SchedulesPage() {
             </motion.section>
           </motion.div>
         </main>
-      </div>
-
-      <StatusStrip />
 
       <AddRuleDialog open={addOpen} onOpenChange={setAddOpen} />
-    </div>
+    </>
   );
 }

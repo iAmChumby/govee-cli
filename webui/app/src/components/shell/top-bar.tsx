@@ -1,21 +1,33 @@
 "use client";
 
 import * as React from "react";
+import { usePathname } from "next/navigation";
 import { motion } from "motion/react";
 
 import { Chip, ThemeToggle } from "@/components/ui";
 import { fadeUp } from "@/lib/motion";
 
-export interface TopBarProps {
-  /** breadcrumb segments after "console" */
-  crumbs?: string[];
+/** Path segment → readable crumb ("device" stays, refs decode). */
+function crumbLabel(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
 }
 
 /**
- * Top bar shell: lowercase Archivo wordmark (600, tracking −0.02em),
- * tagline micro-label, breadcrumb, theme toggle.
+ * Top bar shell — persistent chrome, mounted once in the root layout so it
+ * never replays its entrance or resets its state across navigation.
+ * Breadcrumbs derive from the pathname; no per-page wiring.
  */
-export function TopBar({ crumbs }: TopBarProps) {
+export function TopBar() {
+  const pathname = usePathname();
+  const crumbs = React.useMemo(() => {
+    if (pathname === "/") return [];
+    return pathname.split("/").filter(Boolean).map(crumbLabel);
+  }, [pathname]);
+
   return (
     <motion.header
       initial="hidden"
@@ -44,7 +56,7 @@ export function TopBar({ crumbs }: TopBarProps) {
       {/* breadcrumb */}
       <span className="hidden items-center gap-2 font-mono text-[11px] text-low md:flex">
         console
-        {(crumbs ?? []).map((crumb) => (
+        {crumbs.map((crumb) => (
           <React.Fragment key={crumb}>
             <span aria-hidden className="text-hairline-strong">/</span>
             <span className="text-mid">{crumb}</span>
