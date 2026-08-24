@@ -1,0 +1,28 @@
+# govee-cli web console sidecar (FastAPI). Binds loopback only — nginx/Next
+# own the public surface. The embedded scheduler fires schedule rules, so do
+# NOT run `govee-cli daemon` as a service alongside this unit.
+[Unit]
+Description=govee-cli web console API sidecar
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Adjust User/WorkingDirectory/ExecStart paths to where this repo lives.
+User=luke
+WorkingDirectory=/home/luke/Projects/govee-cli
+ExecStart=/home/luke/Projects/govee-cli/.venv/bin/python -m webui.api.main
+Environment=GOVEE_WEBUI_PORT=6057
+Environment=GOVEE_WEBUI_SCHEDULER=1
+# GOVEE_WEBUI_MOCK must stay unset in production.
+Restart=on-failure
+RestartSec=3
+
+# Hardening: everything read-only except the config dir the library writes.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=%h/.config/govee-cli
+
+[Install]
+WantedBy=multi-user.target

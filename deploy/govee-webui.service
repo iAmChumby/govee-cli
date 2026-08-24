@@ -1,0 +1,22 @@
+# govee-cli web console frontend (Next.js production server).
+# Build first:  cd webui/app && npm ci && npm run build
+[Unit]
+Description=govee-cli web console (Next.js)
+After=network-online.target govee-webui-api.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=luke
+WorkingDirectory=/home/luke/Projects/govee-cli/webui/app
+ExecStart=/usr/bin/npm run start -- -p 6056 -H 127.0.0.1
+Environment=NODE_ENV=production
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=%h/.config/govee-cli
+
+[Install]
+WantedBy=multi-user.target
