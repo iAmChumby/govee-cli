@@ -4,7 +4,7 @@ import * as React from "react";
 import { motion } from "motion/react";
 
 import type { DeviceState } from "@/lib/api";
-import { useDeviceControls } from "@/lib/queries";
+import { useDeviceControls, usePendingState } from "@/lib/queries";
 import {
   Chip,
   Dial,
@@ -47,6 +47,7 @@ interface ControlDeckProps {
 export function ControlDeck({ refId, state }: ControlDeckProps) {
   const caps = state.capabilities;
   const name = state.name ?? state.ref;
+  const pending = usePendingState(refId);
 
   return (
     <motion.section variants={panelIn} className="flex min-w-0 flex-col gap-5">
@@ -57,13 +58,13 @@ export function ControlDeck({ refId, state }: ControlDeckProps) {
         </h1>
         {state.model ? <Chip tone="accent">{state.model}</Chip> : null}
         <Chip>{state.transport}</Chip>
-        <HeaderPower refId={refId} state={state} />
+        <HeaderPower refId={refId} state={state} pending={pending} />
       </div>
 
       {/* tab rail */}
-      <Panel className="px-5 pb-5 pt-4">
+      <Panel className="px-4 pb-5 pt-4 sm:px-5">
         <Tabs defaultValue="light">
-          <TabsList className="flex-wrap">
+          <TabsList className="-mx-1 overflow-x-auto px-1 sm:flex-wrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <TabsTrigger value="light">Light</TabsTrigger>
             {caps?.segments ? <TabsTrigger value="segments">Segments</TabsTrigger> : null}
             {caps?.scenes ? <TabsTrigger value="scenes">Scenes</TabsTrigger> : null}
@@ -126,17 +127,18 @@ export function ControlDeck({ refId, state }: ControlDeckProps) {
 
 /* ------------------------------------------------------------------ power */
 
-function HeaderPower({ refId, state }: { refId: string; state: DeviceState }) {
+function HeaderPower({ refId, state, pending }: { refId: string; state: DeviceState; pending: boolean }) {
   const controls = useDeviceControls();
   return (
     <div className="ml-auto flex items-center gap-2.5">
       <span className="text-[11px] uppercase tracking-micro text-low">
-        {state.power === null ? "?" : state.power ? "on" : "off"}
+        {pending ? "syncing" : state.power === null ? "?" : state.power ? "on" : "off"}
       </span>
       <Switch
         checked={state.power === true}
         onCheckedChange={(on) => void controls.power({ ref: refId, vars: on })}
         ariaLabel={`Power ${state.name ?? refId}`}
+        pending={pending}
       />
     </div>
   );

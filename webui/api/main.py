@@ -18,7 +18,7 @@ from typing import Any
 import structlog
 from fastapi import FastAPI
 
-from .deps import Settings, TTLCache
+from .deps import Settings, TTLCache, WriteEcho
 from .errors import install_error_handlers
 from .mock import MockV2
 from .mock import install as install_mock
@@ -68,6 +68,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app.state.settings = resolved
     app.state.state_cache = TTLCache()
+    app.state.write_echo = WriteEcho()
     app.state.playback = PlaybackManager()
     app.state.mock_client = MockV2() if resolved.mock else None
     app.state.v2_client = None

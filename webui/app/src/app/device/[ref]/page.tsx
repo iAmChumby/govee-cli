@@ -73,7 +73,7 @@ function DeviceConsoleContent({ ref }: { ref: string }) {
           >
             {/* stage column */}
             <motion.section variants={panelIn} className="lg:sticky lg:top-6">
-              <DeviceStage state={state.data} className="h-[380px] lg:h-[480px]" />
+              <DeviceStage state={state.data} className="h-[320px] sm:h-[380px] lg:h-[480px]" />
               <p className="mt-3 px-1 font-mono text-[10px] leading-relaxed text-low">
                 {state.data.id}
                 {state.data.capabilities?.segments
@@ -97,7 +97,7 @@ function LoadingSkeleton() {
   return (
     <div className="mt-4 grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(0,11fr)_minmax(0,9fr)]">
       {/* stage skeleton */}
-      <div className="flex h-[380px] items-center justify-center rounded-stage border border-hairline bg-raised lg:h-[480px]">
+      <div className="flex h-[320px] items-center justify-center rounded-stage border border-hairline bg-raised sm:h-[380px] lg:h-[480px]">
         <Skeleton className="h-40 w-40 rounded-full" />
       </div>
       {/* deck skeleton */}

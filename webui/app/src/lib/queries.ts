@@ -9,8 +9,14 @@
  * error toast when the device or cloud refuses. Scene/DIY/music/toggle
  * mutations invalidate instead: the device reports "" for those, so there is
  * nothing meaningful to preview optimistically.
+ *
+ * Sync discipline: every state read passes through the intent ledger
+ * (`reconcile`) so a lagging cloud read can never visibly undo a command, and
+ * writes to one device are serialized through a per-ref promise chain so five
+ * quick toggles land in order instead of racing.
  */
 
+import * as React from "react";
 import {
   useMutation,
   useQuery,
@@ -19,6 +25,13 @@ import {
 } from "@tanstack/react-query";
 
 import { api, ApiError, type DeviceState, type DeviceSummary } from "@/lib/api";
+import {
+  isPending,
+  recordIntent,
+  reconcile,
+  subscribeIntents,
+  type IntentPatch,
+} from "@/lib/intent";
 import { useToast } from "@/components/ui/toaster";
 
 export const POLL_MS = 10_000;
@@ -36,6 +49,23 @@ function deviceKeys(ref: string): QueryKey[] {
   ];
 }
 
+/* --------------------------------------------------------- write ordering */
+
+/**
+ * One in-flight write per device, in command order. The cloud processes
+ * concurrent writes to the same lamp out of order; serializing keeps five
+ * quick toggles deterministic and halves the burst rate as a bonus.
+ */
+const writeChains = new Map<string, Promise<unknown>>();
+
+function enqueueWrite<T>(ref: string, task: () => Promise<T>): Promise<T> {
+  const previous = writeChains.get(ref) ?? Promise.resolve();
+  // Run regardless of whether the previous write resolved or rejected.
+  const next = previous.then(task, task);
+  writeChains.set(ref, next.catch(() => undefined));
+  return next;
+}
+
 /* ---------------------------------------------------------------- queries */
 
 export function useHealth() {
@@ -50,7 +80,10 @@ export function useHealth() {
 export function useDevices() {
   return useQuery({
     queryKey: ["devices"],
-    queryFn: api.devices,
+    queryFn: async () => {
+      const devices = await api.devices();
+      return devices.map((d) => reconcile(d.ref, d));
+    },
     refetchInterval: POLL_MS,
   });
 }
@@ -58,7 +91,7 @@ export function useDevices() {
 export function useDeviceState(ref: string | null) {
   return useQuery({
     queryKey: ["device", ref],
-    queryFn: () => api.deviceState(ref as string),
+    queryFn: async () => reconcile(ref as string, await api.deviceState(ref as string)),
     enabled: ref !== null,
     refetchInterval: POLL_MS,
   });
@@ -119,7 +152,13 @@ export function useGroups() {
 export function useGroupState(name: string | null) {
   return useQuery({
     queryKey: ["group-state", name],
-    queryFn: () => api.groupState(name as string),
+    queryFn: async () => {
+      const state = await api.groupState(name as string);
+      return {
+        ...state,
+        devices: state.devices.map((d) => reconcile(d.ref, d)),
+      };
+    },
     enabled: name !== null,
     refetchInterval: POLL_MS,
   });
@@ -148,6 +187,21 @@ export function usePlayingEffects() {
   });
 }
 
+/* --------------------------------------------------------- pending state */
+
+/** Reactive view of a device's unconfirmed commands — drives syncing pulses. */
+export function usePendingState(ref: string | null): boolean {
+  const subscribe = React.useCallback(
+    (listener: () => void) => (ref ? subscribeIntents(listener) : () => undefined),
+    [ref],
+  );
+  const snapshot = React.useCallback(
+    () => (ref ? isPending(ref) : false),
+    [ref],
+  );
+  return React.useSyncExternalStore(subscribe, snapshot, snapshot);
+}
+
 /* ------------------------------------------------------------- mutations */
 
 interface MutationMeta {
@@ -163,14 +217,18 @@ function useOptimisticDeviceMutation<TVars>(
     vars: TVars,
   ) => DeviceState | undefined,
   successTitle: (vars: TVars) => string,
+  intent: (vars: TVars) => IntentPatch,
 ) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   return useMutation({
     mutationFn: ({ ref, vars }: { ref: string; vars: TVars }) =>
-      mutationFn(ref, vars),
+      enqueueWrite(ref, () => mutationFn(ref, vars)),
     onMutate: async ({ ref, vars }) => {
+      // Ledger first: every read from now on holds the commanded value until
+      // the cloud confirms it, however fast the user keeps toggling.
+      recordIntent(ref, intent(vars));
       await queryClient.cancelQueries({ queryKey: ["device", ref] });
       const key: QueryKey = ["device", ref];
       const previous = queryClient.getQueryData<DeviceState>(key);
@@ -205,12 +263,14 @@ function useOptimisticDeviceMutation<TVars>(
       });
     },
     onSuccess: (state, { ref, vars }) => {
-      queryClient.setQueryData(["device", ref], state);
+      // The sidecar echoes commanded values over lagging cloud reads, so this
+      // state is intent-aware; reconcile confirms the ledger entry.
+      queryClient.setQueryData(["device", ref], reconcile(ref, state));
       void queryClient.invalidateQueries({ queryKey: ["devices"] });
       toast({
         variant: "ok",
         title: successTitle(vars),
-        description: `${meta.label} · ${state.transport}`,
+        description: `${state.name ?? ref} · ${state.transport}`,
       });
     },
   }).mutateAsync;
@@ -218,7 +278,7 @@ function useOptimisticDeviceMutation<TVars>(
 
 /**
  * Returns stable mutate helpers. Each takes {ref, ...vars}; each is
- * optimistic and self-toasting.
+ * optimistic, intent-recorded, and self-toasting.
  */
 export function useDeviceControls() {
   const power = useOptimisticDeviceMutation<boolean>(
@@ -226,6 +286,7 @@ export function useDeviceControls() {
     (ref, on) => api.setPower(ref, on),
     (prev, on) => (prev ? { ...prev, power: on } : prev),
     (on) => (on ? "Powered on" : "Powered off"),
+    (on) => ({ power: on }),
   );
 
   const brightness = useOptimisticDeviceMutation<number>(
@@ -233,6 +294,7 @@ export function useDeviceControls() {
     (ref, value) => api.setBrightness(ref, value),
     (prev, value) => (prev ? { ...prev, brightness: value } : prev),
     (value) => `Brightness ${value}%`,
+    (value) => ({ brightness: value }),
   );
 
   const color = useOptimisticDeviceMutation<string>(
@@ -247,6 +309,7 @@ export function useDeviceControls() {
           }
         : prev,
     (hex) => `Color ${hex.toUpperCase()}`,
+    (hex) => ({ color: { hex, rgb: hexToRgb(hex) }, color_temp_k: null }),
   );
 
   const temperature = useOptimisticDeviceMutation<number>(
@@ -255,12 +318,15 @@ export function useDeviceControls() {
     (prev, kelvin) =>
       prev ? { ...prev, color_temp_k: kelvin, color: null } : prev,
     (kelvin) => `Temperature ${kelvin}K`,
+    (kelvin) => ({ color_temp_k: kelvin, color: null }),
   );
 
   return { power, brightness, color, temperature };
 }
 
-/** Fire-and-forget mutations that only invalidate + toast. */
+/**
+ * Fire-and-forget mutations that only invalidate + toast.
+ */
 export function useApplyMutation<TResult>(
   label: string,
   fn: (args: { ref: string; vars: TResult }) => Promise<unknown>,
@@ -285,6 +351,80 @@ export function useApplyMutation<TResult>(
       toast({ variant: "error", title: `${label} failed`, description: errMessage(err) });
     },
   }).mutateAsync;
+}
+
+export interface GroupRunVars {
+  command: string;
+  /** member refs — used to record intents so plates hold the commanded value */
+  members: string[];
+}
+
+/** Broadcast a CLI-style command to a group; records intents per member. */
+export function useGroupRun() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ name, vars }: { name: string; vars: GroupRunVars }) =>
+      api.runGroupCommand(name, vars.command),
+    onMutate: ({ name, vars }) => {
+      void name;
+      for (const ref of vars.members) {
+        recordIntentForCommand(ref, vars.command);
+      }
+    },
+    onSuccess: (data, { name, vars }) => {
+      void name;
+      const failed = data.results.filter((r) => !r.ok);
+      if (data.ok) {
+        toast({
+          variant: "ok",
+          title: `Group "${vars.command}" sent`,
+          description: `${data.results.length} device${data.results.length === 1 ? "" : "s"} acknowledged`,
+        });
+      } else {
+        toast({
+          variant: "error",
+          title: `Group "${vars.command}" partially failed`,
+          description: failed.map((r) => `${r.ref}: ${r.error}`).join(" · "),
+        });
+      }
+      for (const key of [["devices"], ["group-state"]]) {
+        void queryClient.invalidateQueries({ queryKey: key });
+      }
+    },
+    onError: (err) => {
+      toast({ variant: "error", title: "Group command failed", description: errMessage(err) });
+    },
+  }).mutateAsync;
+}
+
+/** Map a CLI-style command string onto intent fields for each member. */
+function recordIntentForCommand(ref: string, command: string): void {
+  const [verb, arg] = command.split(/\s+/, 2);
+  if (!arg) return;
+  switch (verb) {
+    case "power":
+      recordIntent(ref, { power: arg === "on" });
+      break;
+    case "brightness": {
+      const value = Number(arg);
+      if (Number.isFinite(value)) recordIntent(ref, { brightness: value });
+      break;
+    }
+    case "color": {
+      const hex = `#${arg.replace("#", "").toUpperCase()}`;
+      recordIntent(ref, { color: { hex, rgb: hexToRgb(hex) }, color_temp_k: null });
+      break;
+    }
+    case "temp": {
+      const kelvin = Number(arg);
+      if (Number.isFinite(kelvin)) recordIntent(ref, { color_temp_k: kelvin, color: null });
+      break;
+    }
+    default:
+      break;
+  }
 }
 
 export function hexToRgb(hex: string): [number, number, number] {

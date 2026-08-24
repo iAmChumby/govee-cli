@@ -19,6 +19,7 @@ os.environ.setdefault("GOVEE_WEBUI_SCHEDULER", "0")
 
 from webui.api.main import create_app  # noqa: E402
 from webui.api.mock import uninstall as uninstall_mock  # noqa: E402
+from webui.api.deps import WriteEcho  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -44,6 +45,52 @@ def test_health(client: TestClient) -> None:
     assert body["status"] == "ok"
     assert body["mock"] is True
     assert body["scheduler"] is False
+
+
+# ----------------------------------------------------------------- write echo
+
+
+def test_write_echo_overlays_stale_reads() -> None:
+    """A commanded value outranks lagging cloud reads until confirmed."""
+    echo = WriteEcho()
+    echo.record("dev", {"power": True, "brightness": 80})
+
+    # Cloud still reports the pre-write state.
+    stale = {"power": False, "brightness": 42, "color": None}
+    overlaid = echo.overlay("dev", stale)
+    assert overlaid["power"] is True
+    assert overlaid["brightness"] == 80
+    assert overlaid["color"] is None  # untouched fields pass through
+
+    # Cloud catches up: the echo stands down.
+    fresh = {"power": True, "brightness": 80}
+    assert echo.overlay("dev", fresh) == fresh
+    # ...and a later stale read is no longer corrected.
+    assert echo.overlay("dev", stale)["power"] is False
+
+
+def test_write_echo_clears_counterpart_field() -> None:
+    """Setting color clears color_temp_k (mutually exclusive on hardware)."""
+    echo = WriteEcho()
+    echo.record("dev", {"color": {"hex": "#FF0000", "rgb": [255, 0, 0]},
+                        "color_temp_k": None})
+    state = {"color": None, "color_temp_k": 2700}
+    overlaid = echo.overlay("dev", state)
+    assert overlaid["color"] == {"hex": "#FF0000", "rgb": [255, 0, 0]}
+    assert overlaid["color_temp_k"] is None
+
+
+def test_write_echo_ttl_expiry() -> None:
+    """After the TTL the device is trusted again, even without confirmation."""
+    echo = WriteEcho(ttl=0.0)
+    echo.record("dev", {"power": True})
+    assert echo.overlay("dev", {"power": False})["power"] is False
+
+
+def test_write_echo_is_per_device() -> None:
+    echo = WriteEcho()
+    echo.record("dev-a", {"power": True})
+    assert echo.overlay("dev-b", {"power": False})["power"] is False
 
 
 # -------------------------------------------------------------------- devices

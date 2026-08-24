@@ -86,3 +86,16 @@ export function hslaCss(hsl: Hsl, alpha: number): string {
 export function withLightness(hsl: Hsl, lightness: number): Hsl {
   return [hsl[0], hsl[1], clamp(Math.round(lightness), 0, 100)];
 }
+
+/** Warm incandescent anchor — the color a filament glows before it settles. */
+export const WARM_HSL: Hsl = [36, 92, 64];
+
+/**
+ * Emission color for a given brightness factor (0..1): deep colors stay
+ * readable at low brightness but the whole surface visibly dims as the
+ * device is turned down, so the render tracks the physical dial.
+ */
+export function emissionHsl(hsl: Hsl, factor: number): Hsl {
+  const scaled = hsl[2] * (0.58 + 0.42 * clamp(factor, 0, 1));
+  return withLightness(hsl, scaled);
+}

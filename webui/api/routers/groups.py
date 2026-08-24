@@ -19,10 +19,12 @@ from govee_cli.transport import CLOUD_V1, CLOUD_V2
 
 from ..deps import (
     Resolved,
+    apply_echo,
     get_client_async,
     invalidate_state,
     normalize_state,
     read_state,
+    record_write,
     resolve_ref,
     run_blocking,
 )
@@ -90,7 +92,7 @@ async def group_state(request: Request, name: str) -> dict[str, Any]:
         try:
             target = resolve_ref(cfg, ref)
             raw = await read_state(request, target)
-            devices.append(normalize_state(target, raw))
+            devices.append(apply_echo(request, target, normalize_state(target, raw)))
         except Exception as e:
             message = str(getattr(e, "message", e)) or e.__class__.__name__
             errors.append({"ref": ref, "message": message})
@@ -112,7 +114,9 @@ async def run_group_command(request: Request, name: str,
             target = resolve_ref(cfg, ref)
             await _apply_to_member(request, target, body.command)
             # Members' cached state must drop, or the next read reports the
-            # pre-command value for the TTL window.
+            # pre-command value for the TTL window. The echo overlay keeps the
+            # commanded values visible until the cloud's lagging reads catch up.
+            record_write(request, target, _echo_fields_for(body.command))
             invalidate_state(request, target)
             results.append({"ref": target.label, "id": target.device_id, "ok": True})
         except Exception as e:
@@ -121,6 +125,16 @@ async def run_group_command(request: Request, name: str,
 
     ok_all = all(r["ok"] for r in results)
     return {"group": name, "command": body.command, "ok": ok_all, "results": results}
+
+
+def _echo_fields_for(cmd: str) -> dict[str, Any]:
+    """Normalised-state overlay for a CLI-style command string ("power on")."""
+    from .devices import _echo_fields
+
+    parts = cmd.split(None, 1)
+    if len(parts) != 2:
+        return {}
+    return _echo_fields(parts[0], parts[1].strip())
 
 
 async def _apply_to_member(request: Request, target: Resolved, cmd: str) -> None:

@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     from .mock import MockV2
 
 STATE_CACHE_TTL = 2.5  # >= 2s per spec; absorbs 10s UI polls plus manual refresh bursts
+WRITE_ECHO_TTL = 8.0  # how long a successful write outranks a lagging cloud read
 
 # Same address shapes the config module accepts for device references.
 _MAC_PATTERN = re.compile(r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
@@ -145,6 +146,61 @@ class TTLCache:
     def current_generation(self) -> int:
         with self._lock:
             return self._generation
+
+
+class WriteEcho:
+    """Remembers what this sidecar successfully commanded, per device.
+
+    The Govee cloud's state read lags several seconds behind its write
+    endpoint: a ``PUT /power`` returns 200 but the following ``GET /state``
+    can still report the old value. Without compensation the UI flips back
+    to stale state right after every mutation — toggle five times quickly
+    and the console disagrees with the room.
+
+    Writes are recorded as ``{field: (value, monotonic)}`` and overlaid onto
+    normalised state for :data:`WRITE_ECHO_TTL` seconds. A field stops
+    overriding as soon as a fresh read *confirms* the commanded value (the
+    cloud caught up) or when the TTL lapses (trust the device again — this
+    also bounds how long a silently-ignored command can mislead the UI).
+    Thread-safe: writes land from worker threads, reads from the event loop.
+    """
+
+    def __init__(self, ttl: float = WRITE_ECHO_TTL) -> None:
+        self._ttl = ttl
+        self._entries: dict[str, dict[str, tuple[Any, float]]] = {}
+        self._lock = threading.Lock()
+
+    def record(self, device_id: str, fields: dict[str, Any]) -> None:
+        """Record commanded values. ``None`` is a legitimate commanded value
+        (setting color clears color_temp_k on the hardware) and overlays as one."""
+        now = time.monotonic()
+        with self._lock:
+            entry = self._entries.setdefault(device_id, {})
+            for field, value in fields.items():
+                entry[field] = (value, now)
+
+    def overlay(self, device_id: str, state: dict[str, Any]) -> dict[str, Any]:
+        """Return ``state`` with unexpired, unconfirmed echoes applied."""
+        now = time.monotonic()
+        with self._lock:
+            entry = self._entries.get(device_id)
+            if not entry:
+                return state
+            confirmed: list[str] = []
+            overlaid = dict(state)
+            for field, (value, at) in entry.items():
+                if now - at >= self._ttl:
+                    confirmed.append(field)
+                    continue
+                if field in overlaid and overlaid[field] == value:
+                    confirmed.append(field)  # cloud caught up — stand down
+                    continue
+                overlaid[field] = value
+            for field in confirmed:
+                entry.pop(field, None)
+            if not entry:
+                self._entries.pop(device_id, None)
+            return overlaid
 
 
 @dataclass(frozen=True)
@@ -269,6 +325,20 @@ def _build_and_store_client(request: Request) -> V2Client:
 
 def get_state_cache(request: Request) -> TTLCache:
     return cast(TTLCache, request.app.state.state_cache)
+
+
+def get_write_echo(request: Request) -> WriteEcho:
+    return cast(WriteEcho, request.app.state.write_echo)
+
+
+def record_write(request: Request, target: Resolved, fields: dict[str, Any]) -> None:
+    """Remember commanded values so lagging cloud reads can't undo them."""
+    get_write_echo(request).record(target.device_id, fields)
+
+
+def apply_echo(request: Request, target: Resolved, state: dict[str, Any]) -> dict[str, Any]:
+    """Overlay recent commanded values onto a normalised state dict."""
+    return get_write_echo(request).overlay(target.device_id, state)
 
 
 async def run_blocking(func: Any, *args: Any) -> Any:
@@ -424,14 +494,18 @@ __all__ = [
     "Settings",
     "TTLCache",
     "V2Client",
+    "WriteEcho",
+    "apply_echo",
     "capabilities_block",
     "get_client",
     "get_config",
     "get_settings",
     "get_state_cache",
+    "get_write_echo",
     "invalidate_state",
     "normalize_state",
     "read_state",
+    "record_write",
     "require_v2_feature",
     "resolve_ref",
     "run_blocking",

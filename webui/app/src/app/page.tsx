@@ -12,7 +12,6 @@ import {
 } from "lucide-react";
 
 import {
-  Chip,
   IconButton,
   Odometer,
   Panel,
@@ -22,20 +21,26 @@ import {
   StatusDot,
   Switch,
 } from "@/components/ui";
+import { DeviceStage } from "@/components/stage/stage";
 import type { DeviceSummary } from "@/lib/api";
 import {
   useDeviceControls,
   useDevices,
+  useGroupRun,
   useGroupState,
   useGroups,
   useHealth,
+  usePendingState,
 } from "@/lib/queries";
 import { cn } from "@/lib/cn";
 import { panelIn, staggerParent } from "@/lib/motion";
 
 /* ==================================================================
    Console — the live dashboard.
-   Device plates read polled state; controls are optimistic mutations.
+   Device plates render the same faithful instruments as the device
+   console (mini variant), carry quick color/temperature controls, and
+   read polled state through the intent ledger so a lagging cloud can
+   never visibly undo a command. Groups broadcast real commands.
    ================================================================== */
 
 const NAV_ITEMS = [
@@ -87,19 +92,19 @@ function Rail({ devices }: { devices: DeviceSummary[] }) {
         </div>
       </div>
 
-      <RailFooter devices={devices} />
+      <RailFooter />
     </aside>
   );
 }
 
-function RailFooter({ devices }: { devices: DeviceSummary[] }) {
+function RailFooter() {
   const groups = useGroups();
   const names = Object.keys(groups.data ?? {});
 
   return (
     <div className="mt-auto border-t border-hairline p-3">
       {names.map((name) => (
-        <GroupRailButton key={name} name={name} devices={devices} />
+        <GroupRailButton key={name} name={name} />
       ))}
       {names.length === 0 && !groups.isLoading ? (
         <p className="px-2.5 py-2 font-mono text-[10px] leading-relaxed text-low">
@@ -110,23 +115,14 @@ function RailFooter({ devices }: { devices: DeviceSummary[] }) {
   );
 }
 
-function GroupRailButton({
-  name,
-  devices,
-}: {
-  name: string;
-  devices: DeviceSummary[];
-}) {
+function GroupRailButton({ name }: { name: string }) {
   const groups = useGroups();
   const members = groups.data?.[name] ?? [];
-  const online = members.filter((id) =>
-    devices.some((d) => d.id === id && d.online !== false),
-  ).length;
 
   return (
     <button
       type="button"
-      title={`${online}/${members.length} online`}
+      title={`${members.length} member${members.length === 1 ? "" : "s"}`}
       className="flex w-full cursor-pointer items-center gap-2.5 rounded-btn px-2.5 py-2 text-[13px] text-mid transition-colors duration-150 hover:bg-accent-dim hover:text-hi"
     >
       {name}
@@ -137,114 +133,27 @@ function GroupRailButton({
   );
 }
 
-/* ------------------------------------------------------------------ stage */
-
-/** Whole-device color as a zone strip; per-segment colors are not reported
- * by the cloud, so the strip interprets the single color across zones. */
-function MiniStage({
-  device,
-  power,
-}: {
-  device: DeviceSummary;
-  power: boolean;
-}) {
-  const hueSat = React.useMemo(() => {
-    if (!device.color) return null;
-    const [r, g, b] = device.color.rgb;
-    const max = Math.max(r, g, b) / 255;
-    const min = Math.min(r, g, b) / 255;
-    const l = (max + min) / 2;
-    const d = max - min;
-    if (d === 0) return { h: 0, s: 0, l };
-    const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-    let h = 0;
-    if (max === r / 255) h = ((g - b) / 255 / d) % 6;
-    else if (max === g / 255) h = ((b - r) / 255 / d) + 2;
-    else h = ((r - g) / 255 / d) + 4;
-    return { h: ((h * 60) + 360) % 360, s: s * 100, l };
-  }, [device.color]);
-
-  const glow = springGlow(power, device.brightness ?? 50);
-  const bodyOpacity = glow === 0 ? 0.07 : Math.min(1, 0.25 + glow * 0.75);
-  const isOrb = !device.model || !hasZones(device);
-
-  return (
-    <div
-      className="relative mt-3 h-24 overflow-hidden rounded-card border border-hairline bg-raised"
-      role="img"
-      aria-label={`${device.name ?? device.ref} preview`}
-    >
-      {hueSat && power ? (
-        <>
-          <div
-            aria-hidden
-            className="absolute inset-x-8 -top-10 h-24 blur-2xl transition-opacity duration-500"
-            style={{
-              opacity: glow * 0.9,
-              background: `radial-gradient(closest-side, hsl(${hueSat.h} ${hueSat.s}% 62% / 0.9), transparent)`,
-            }}
-          />
-          {isOrb ? (
-            <div
-              aria-hidden
-              className="absolute left-1/2 top-1/2 h-11 w-11 -translate-x-1/2 -translate-y-1/2 rounded-full border border-hairline-strong transition-opacity duration-500"
-              style={{
-                opacity: bodyOpacity,
-                background: `radial-gradient(circle at 35% 30%, hsl(${hueSat.h} ${hueSat.s}% 88%), hsl(${hueSat.h} ${hueSat.s}% 55%))`,
-              }}
-            />
-          ) : (
-            <div aria-hidden className="absolute inset-x-4 bottom-4 flex gap-[3px]" style={{ opacity: bodyOpacity }}>
-              {Array.from({ length: zoneCount(device) }, (_, i) => {
-                const t = i / Math.max(zoneCount(device) - 1, 1);
-                const l = Math.max(hueSat.l * 100, 30) - t * 14;
-                return (
-                  <div
-                    key={i}
-                    className="h-12 flex-1 rounded-[2px]"
-                    style={{ background: `hsl(${hueSat.h} ${hueSat.s}% ${l}%)` }}
-                  />
-                );
-              })}
-            </div>
-          )}
-        </>
-      ) : (
-        <div
-          aria-hidden
-          className="absolute inset-x-4 bottom-4 flex h-12 items-end gap-[3px]"
-        >
-          {Array.from({ length: isOrb ? 1 : zoneCount(device) }, (_, i) => (
-            <div key={i} className="h-full flex-1 rounded-[2px] bg-accent-dim" />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** Brightness as a 0..1 glow factor, eased so low values stay visible. */
-function springGlow(power: boolean, brightness: number): number {
-  if (!power) return 0;
-  return 0.25 + 0.75 * (brightness / 100);
-}
-
-const ZONE_MODELS: Record<string, number> = { H6056: 6, H6022: 15 };
-
-function hasZones(d: DeviceSummary): boolean {
-  return (d.model && ZONE_MODELS[d.model] !== undefined) || false;
-}
-
-function zoneCount(d: DeviceSummary): number {
-  return (d.model && ZONE_MODELS[d.model]) || 1;
-}
-
 /* ------------------------------------------------------------------ plate */
+
+/** Compact temperature presets — inside every registered model's range. */
+const TEMP_PRESETS = [2700, 4000, 6500] as const;
+
+/** Six quick colors, shared with the device console's paint palette. */
+const QUICK_COLORS = [
+  "#FF4545",
+  "#FFA53D",
+  "#FFD23D",
+  "#46D06A",
+  "#3D7BFF",
+  "#EAF2FF",
+] as const;
 
 function DevicePlate({ device }: { device: DeviceSummary }) {
   const controls = useDeviceControls();
+  const pending = usePendingState(device.ref);
   const [scrub, setScrub] = React.useState<number | null>(null);
   const brightness = scrub ?? device.brightness ?? 0;
+  const name = device.name ?? device.ref;
 
   const commitBrightness = (value: number) => {
     setScrub(null);
@@ -261,7 +170,7 @@ function DevicePlate({ device }: { device: DeviceSummary }) {
           href={`/device/${encodeURIComponent(device.ref)}`}
           className="truncate text-[13px] font-medium leading-none text-hi hover:underline hover:underline-offset-4"
         >
-          {device.name ?? device.ref}
+          {name}
         </Link>
         <span className="ml-auto font-mono text-[10px] uppercase tracking-[0.08em] text-low">
           {device.model}
@@ -269,11 +178,23 @@ function DevicePlate({ device }: { device: DeviceSummary }) {
         <Switch
           checked={device.power === true}
           onCheckedChange={(on) => void controls.power({ ref: device.ref, vars: on })}
-          ariaLabel={`Power ${device.name ?? device.ref}`}
+          ariaLabel={`Power ${name}`}
+          pending={pending}
         />
       </div>
 
-      <MiniStage device={device} power={device.power === true} />
+      {/* live instrument — tap through to the full console */}
+      <Link
+        href={`/device/${encodeURIComponent(device.ref)}`}
+        aria-label={`Open ${name} console`}
+        className="group/stage mt-3 block rounded-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      >
+        <DeviceStage
+          state={device}
+          variant="mini"
+          className="h-28 transition-colors duration-200 group-hover/stage:border-hairline-strong"
+        />
+      </Link>
 
       <div className="mt-3.5">
         <Slider
@@ -282,7 +203,7 @@ function DevicePlate({ device }: { device: DeviceSummary }) {
           max={100}
           onValueChange={setScrub}
           onValueCommit={commitBrightness}
-          ariaLabel={`${device.name ?? device.ref} brightness`}
+          ariaLabel={`${name} brightness`}
         />
       </div>
 
@@ -303,6 +224,52 @@ function DevicePlate({ device }: { device: DeviceSummary }) {
           ) : (
             "—"
           )}
+        </span>
+      </div>
+
+      {/* quick set — per-light color + temperature without leaving the console */}
+      <div className="mt-3 flex flex-wrap items-center gap-x-1.5 gap-y-2 border-t border-hairline pt-3">
+        {QUICK_COLORS.map((hex) => {
+          const active = device.color?.hex.toUpperCase() === hex;
+          return (
+            <button
+              key={hex}
+              type="button"
+              title={hex}
+              aria-label={`Set ${name} to ${hex}`}
+              aria-pressed={active}
+              onClick={() => void controls.color({ ref: device.ref, vars: hex })}
+              className={cn(
+                "h-6 w-6 shrink-0 cursor-pointer rounded-chip border border-hairline transition-all duration-150 hover:scale-110 hover:border-hairline-strong active:scale-95",
+                active && "ring-2 ring-accent ring-offset-2 ring-offset-panel",
+              )}
+              style={{ background: hex }}
+            />
+          );
+        })}
+        <span aria-hidden className="mx-1 h-4 w-px bg-hairline" />
+        <span className="flex items-center gap-1.5">
+          {TEMP_PRESETS.map((kelvin) => {
+            const active = device.color_temp_k === kelvin;
+            return (
+              <button
+                key={kelvin}
+                type="button"
+                aria-pressed={active}
+                onClick={() =>
+                  void controls.temperature({ ref: device.ref, vars: kelvin })
+                }
+                className={cn(
+                  "shrink-0 cursor-pointer rounded-chip border px-1.5 py-1 font-mono text-[10px] leading-none transition-colors duration-150",
+                  active
+                    ? "border-hairline-strong bg-accent-dim text-hi"
+                    : "border-hairline text-low hover:border-hairline-strong hover:text-hi",
+                )}
+              >
+                {kelvin}
+              </button>
+            );
+          })}
         </span>
       </div>
     </Panel>
@@ -338,7 +305,7 @@ export default function ConsolePage() {
             variants={staggerParent}
             initial="hidden"
             animate="show"
-            className="mx-auto max-w-[1080px] space-y-5 px-6 pb-16 pt-6"
+            className="mx-auto max-w-[1080px] space-y-5 px-4 pb-16 pt-6 sm:px-6"
           >
             {/* head */}
             <motion.section variants={panelIn} className="flex flex-wrap items-end justify-between gap-4">
@@ -387,12 +354,12 @@ export default function ConsolePage() {
             {/* device plates */}
             <motion.section variants={panelIn}>
               <SectionLabel title="devices" />
-              <div className="mt-3 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {devices.isLoading
                   ? Array.from({ length: 3 }, (_, i) => (
                       <Panel key={i} className="p-4">
                         <Skeleton className="h-5 w-40" />
-                        <Skeleton className="mt-3 h-24 w-full" />
+                        <Skeleton className="mt-3 h-28 w-full" />
                         <Skeleton className="mt-3.5 h-6 w-full" />
                       </Panel>
                     ))
@@ -412,6 +379,8 @@ export default function ConsolePage() {
     </>
   );
 }
+
+/* ----------------------------------------------------------------- groups */
 
 function GroupsSection() {
   const groups = useGroups();
@@ -473,14 +442,72 @@ function GroupsSection() {
             </p>
           ))}
 
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <Chip>poll 10s</Chip>
-            <span className="font-mono text-[10px] text-low">
-              broadcast controls live on each device console
-            </span>
-          </div>
+          {active ? <GroupBroadcast name={active} members={state.data?.devices.map((d) => d.ref) ?? []} /> : null}
         </Panel>
       )}
     </motion.section>
+  );
+}
+
+/** Broadcast controls — real `group run` commands, one tap for the room. */
+function GroupBroadcast({ name, members }: { name: string; members: string[] }) {
+  const run = useGroupRun();
+  const [scrub, setScrub] = React.useState<number | null>(null);
+
+  const fire = (command: string) =>
+    void run({ name, vars: { command, members } });
+
+  return (
+    <div className="mt-4 space-y-3 border-t border-hairline pt-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-[11px] uppercase tracking-micro text-low">
+          broadcast
+        </span>
+        <button
+          type="button"
+          onClick={() => fire("power on")}
+          className="cursor-pointer rounded-btn border border-hairline px-3 py-1.5 text-[12px] text-hi transition-colors duration-150 hover:border-hairline-strong hover:bg-accent-dim"
+        >
+          all on
+        </button>
+        <button
+          type="button"
+          onClick={() => fire("power off")}
+          className="cursor-pointer rounded-btn border border-hairline px-3 py-1.5 text-[12px] text-hi transition-colors duration-150 hover:border-hairline-strong hover:bg-accent-dim"
+        >
+          all off
+        </button>
+        <div className="ml-auto flex items-center gap-1.5">
+          {QUICK_COLORS.map((hex) => (
+            <button
+              key={hex}
+              type="button"
+              title={`Group color ${hex}`}
+              aria-label={`Set group color ${hex}`}
+              onClick={() => fire(`color ${hex.replace("#", "")}`)}
+              className="h-6 w-6 shrink-0 cursor-pointer rounded-chip border border-hairline transition-all duration-150 hover:scale-110 hover:border-hairline-strong active:scale-95"
+              style={{ background: hex }}
+            />
+          ))}
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+        <Slider
+          value={scrub ?? 50}
+          min={1}
+          max={100}
+          onValueChange={setScrub}
+          onValueCommit={(value) => {
+            setScrub(null);
+            fire(`brightness ${value}`);
+          }}
+          ariaLabel={`${name} group brightness`}
+          className="max-w-[280px] flex-1"
+        />
+        <span className="font-mono text-[10px] text-low">
+          {scrub !== null ? `${scrub}%` : "drag to set all"}
+        </span>
+      </div>
+    </div>
   );
 }

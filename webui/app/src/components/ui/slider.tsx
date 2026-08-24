@@ -50,6 +50,8 @@ export function Slider({
   const isControlled = value !== undefined;
   const [internal, setInternal] = React.useState(defaultValue ?? min);
   const current = isControlled ? (value as number) : internal;
+  // Bubbles must show during touch drags (no hover), so track active drag.
+  const [dragging, setDragging] = React.useState(false);
 
   const fraction = (current - min) / (max - min || 1);
   const fillWidth = useSpring(fraction * 100, springStandard);
@@ -69,13 +71,18 @@ export function Slider({
     <SliderPrimitive.Root
       value={[current]}
       onValueChange={handleChange}
-      onValueCommit={(values) => onValueCommit?.(values[0] ?? min)}
+      onValueCommit={(values) => {
+        setDragging(false);
+        onValueCommit?.(values[0] ?? min);
+      }}
       min={min}
       max={max}
       step={step}
       disabled={disabled}
+      onPointerDown={() => setDragging(true)}
+      onKeyDown={() => setDragging(false)}
       className={cn(
-        "relative flex h-5 w-full touch-none select-none items-center",
+        "relative flex h-6 w-full touch-none select-none items-center",
         disabled && "opacity-40",
         className,
       )}
@@ -98,11 +105,16 @@ export function Slider({
         <motion.span
           whileTap={{ scale: 1.12 }}
           transition={springStandard}
-          className="group relative block h-[18px] w-[18px] rounded-full border border-hairline-strong bg-raised transition-colors duration-150 hover:border-accent focus-visible:border-accent"
+          className="group relative block h-5 w-5 rounded-full border border-hairline-strong bg-raised transition-colors duration-150 hover:border-accent focus-visible:border-accent"
         >
-          <span className="absolute inset-[5px] rounded-full bg-accent" />
+          <span className="absolute inset-[6px] rounded-full bg-accent" />
           {showBubble ? (
-            <span className="pointer-events-none absolute -top-7 left-1/2 -translate-x-1/2 rounded-chip border border-hairline bg-raised px-1.5 py-0.5 font-mono text-[10px] leading-none text-hi opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
+            <span
+              className={cn(
+                "pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 rounded-chip border border-hairline bg-raised px-1.5 py-0.5 font-mono text-[10px] leading-none text-hi transition-opacity duration-150",
+                dragging ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100",
+              )}
+            >
               {Math.round(current)}
             </span>
           ) : null}

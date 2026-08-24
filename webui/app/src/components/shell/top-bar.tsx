@@ -1,11 +1,14 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "motion/react";
+import { CalendarClock, Settings, Terminal } from "lucide-react";
 
 import { Chip, ThemeToggle } from "@/components/ui";
 import { fadeUp } from "@/lib/motion";
+import { cn } from "@/lib/cn";
 
 /** Path segment → readable crumb ("device" stays, refs decode). */
 function crumbLabel(segment: string): string {
@@ -16,10 +19,17 @@ function crumbLabel(segment: string): string {
   }
 }
 
+const NAV_ITEMS = [
+  { href: "/", label: "Console", icon: Terminal },
+  { href: "/schedules", label: "Schedules", icon: CalendarClock },
+  { href: "/settings", label: "Settings", icon: Settings },
+] as const;
+
 /**
  * Top bar shell — persistent chrome, mounted once in the root layout so it
  * never replays its entrance or resets its state across navigation.
- * Breadcrumbs derive from the pathname; no per-page wiring.
+ * Breadcrumbs derive from the pathname; no per-page wiring. On narrow
+ * screens the breadcrumb yields to icon navigation (the side rail hides).
  */
 export function TopBar() {
   const pathname = usePathname();
@@ -53,7 +63,7 @@ export function TopBar() {
 
       <span aria-hidden className="hidden h-4 w-px bg-hairline md:block" />
 
-      {/* breadcrumb */}
+      {/* breadcrumb (desktop) */}
       <span className="hidden items-center gap-2 font-mono text-[11px] text-low md:flex">
         console
         {crumbs.map((crumb) => (
@@ -63,6 +73,27 @@ export function TopBar() {
           </React.Fragment>
         ))}
       </span>
+
+      {/* icon nav (mobile — the side rail is hidden below md) */}
+      <nav aria-label="Primary" className="flex items-center gap-1 md:hidden">
+        {NAV_ITEMS.map((item) => {
+          const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={active ? "page" : undefined}
+              aria-label={item.label}
+              className={cn(
+                "flex h-9 w-9 items-center justify-center rounded-btn transition-colors duration-150",
+                active ? "bg-accent-dim text-hi" : "text-mid hover:bg-accent-dim hover:text-hi",
+              )}
+            >
+              <item.icon size={16} strokeWidth={1.5} aria-hidden />
+            </Link>
+          );
+        })}
+      </nav>
 
       <div className="flex-1" />
 

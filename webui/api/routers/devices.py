@@ -19,11 +19,13 @@ from govee_cli.transport import CLOUD_V1, CLOUD_V2
 
 from ..deps import (
     Resolved,
+    apply_echo,
     get_client_async,
     get_config,
     invalidate_state,
     normalize_state,
     read_state,
+    record_write,
     resolve_ref,
     run_blocking,
 )
@@ -48,7 +50,7 @@ async def list_devices(request: Request) -> dict[str, Any]:
         target = resolve_ref(cfg, mac)
         try:
             raw = await read_state(request, target)
-            state = normalize_state(target, raw)
+            state = apply_echo(request, target, normalize_state(target, raw))
         except Exception:
             # One offline device must not blank the console's device grid.
             state = {}
@@ -124,7 +126,7 @@ async def _device_state(request: Request, ref: str) -> dict[str, Any]:
     cfg = await run_blocking(get_config)
     target = resolve_ref(cfg, ref)
     raw = await read_state(request, target)
-    return normalize_state(target, raw)
+    return apply_echo(request, target, normalize_state(target, raw))
 
 
 @router.put("/devices/{ref}/power")
@@ -172,9 +174,32 @@ async def _basic_control(request: Request, ref: str, verb: str,
     else:
         await run_blocking(_apply_ble_command, target, cmd)
 
+    # The cloud's state read lags behind its write endpoint; remember what we
+    # commanded so reads (including this one) report intent until it catches up.
+    record_write(request, target, _echo_fields(verb, arg))
     invalidate_state(request, target)
     raw = await read_state(request, target)
-    return normalize_state(target, raw)
+    return apply_echo(request, target, normalize_state(target, raw))
+
+
+def _echo_fields(verb: str, arg: str) -> dict[str, Any]:
+    """Commanded state as a normalised-state overlay for :class:`WriteEcho`.
+
+    colorRgb and colorTemperatureK are mutually exclusive on the hardware —
+    setting one zeroes the other — so each command clears its counterpart.
+    """
+    if verb == "power":
+        return {"power": arg == "on"}
+    if verb == "brightness":
+        return {"brightness": int(arg)}
+    if verb == "color":
+        digits = arg.upper().lstrip("#")
+        hex_value = f"#{digits}"
+        rgb = [int(digits[i:i + 2], 16) for i in (0, 2, 4)]
+        return {"color": {"hex": hex_value, "rgb": rgb}, "color_temp_k": None}
+    if verb == "temp":
+        return {"color_temp_k": int(arg), "color": None}
+    return {}
 
 
 def _apply_v1_command(target: Resolved, cmd: str) -> None:
