@@ -28,7 +28,8 @@ export interface Capabilities {
   prefer_ble_effects: boolean;
 }
 
-/** Normalised device state — the shape every state-bearing endpoint returns. */
+/** Normalised device state — the shape every state-bearing endpoint returns.
+ *  Nullable fields are unknowns: BLE devices report no readable state. */
 export interface DeviceState {
   ref: string;
   id: string;
@@ -36,7 +37,7 @@ export interface DeviceState {
   name: string | null;
   transport: Transport;
   online: boolean | null;
-  power: boolean;
+  power: boolean | null;
   brightness: number | null;
   color: LightColor | null;
   color_temp_k: number | null;

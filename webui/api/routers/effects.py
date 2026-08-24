@@ -17,7 +17,7 @@ from govee_cli.commands.effect import CLOUD_DEFAULT_FPS, CLOUD_MAX_FPS
 from govee_cli.scenes.effects import SCENES_DIR, Effect
 from govee_cli.transport import BLE
 
-from ..deps import get_client, get_config, resolve_ref, run_blocking
+from ..deps import get_client_async, get_config, resolve_ref, run_blocking
 from ..errors import bad_request, not_found
 from ..schemas import EffectPlayRequest
 
@@ -84,7 +84,10 @@ async def play_effect(request: Request, body: EffectPlayRequest) -> dict[str, An
         )
         return {**manager.record(entry), "note": None}
 
-    requested = effect.fps
+    requested = (
+        body.fps if body.fps is not None
+        else min(effect.fps, CLOUD_DEFAULT_FPS)
+    )
     capped = min(requested, CLOUD_MAX_FPS)
     if requested > capped:
         note = (
@@ -98,7 +101,7 @@ async def play_effect(request: Request, body: EffectPlayRequest) -> dict[str, An
         )
     effect.fps = capped
 
-    client = get_client(request)
+    client = await get_client_async(request)
     entry = await manager.start_cloud(
         target.label, target.device_id, effect, client, target.sku, effect.fps
     )

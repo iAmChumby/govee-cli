@@ -131,10 +131,10 @@ function HeaderPower({ refId, state }: { refId: string; state: DeviceState }) {
   return (
     <div className="ml-auto flex items-center gap-2.5">
       <span className="text-[11px] uppercase tracking-micro text-low">
-        {state.power ? "on" : "off"}
+        {state.power === null ? "?" : state.power ? "on" : "off"}
       </span>
       <Switch
-        checked={state.power}
+        checked={state.power === true}
         onCheckedChange={(on) => void controls.power({ ref: refId, vars: on })}
         ariaLabel={`Power ${state.name ?? refId}`}
       />
@@ -212,7 +212,7 @@ function LightTab({ refId, state }: ControlDeckProps) {
           <SectionLabel index="01" title="power" />
           <div className="flex items-center gap-4">
             <Switch
-              checked={state.power}
+              checked={state.power === true}
               onCheckedChange={(on) => void controls.power({ ref: refId, vars: on })}
               ariaLabel={`Power ${state.name ?? refId}`}
             />

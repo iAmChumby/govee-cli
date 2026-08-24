@@ -53,13 +53,26 @@ class PlayingEffect:
 
 
 class PlaybackManager:
-    """Registry of running effect tasks, keyed by device id."""
+    """Registry of running effect tasks, keyed by device id.
+
+    A per-device asyncio lock serialises stop+register so two overlapping
+    starts cannot both pass the "stop existing" phase and orphan a task.
+    """
 
     def __init__(self) -> None:
         self._playing: dict[str, PlayingEffect] = {}
         self._lock = threading.Lock()
         self._stop_flags: dict[str, threading.Event] = {}
         self._mock_stops: dict[str, asyncio.Event] = {}
+        self._device_locks: dict[str, asyncio.Lock] = {}
+
+    def _device_lock(self, device_id: str) -> asyncio.Lock:
+        key = device_id.upper()
+        lock = self._device_locks.get(key)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._device_locks[key] = lock
+        return lock
 
     # ------------------------------------------------------------------ queries
 
@@ -90,58 +103,61 @@ class PlaybackManager:
         """Play over BLE using the CLI's async engine, as a cancellable task."""
         from govee_cli.commands.effect import _play
 
-        await self._stop_existing(device_id)
-        entry = PlayingEffect(
-            ref=target_ref, device_id=device_id.upper(), file=str(effect.name),
-            fps=fps, transport="ble",
-            started_at=datetime.now().isoformat(timespec="seconds"),
-        )
-        entry.task = asyncio.create_task(
-            _play(effect, mac, adapter, timeout), name=f"effect-ble-{device_id}"
-        )
-        entry.task.add_done_callback(lambda _t: self._finished(entry))
-        self._register(entry)
+        async with self._device_lock(device_id):
+            await self._stop_existing(device_id)
+            entry = PlayingEffect(
+                ref=target_ref, device_id=device_id.upper(), file=str(effect.name),
+                fps=fps, transport="ble",
+                started_at=datetime.now().isoformat(timespec="seconds"),
+            )
+            entry.task = asyncio.create_task(
+                _play(effect, mac, adapter, timeout), name=f"effect-ble-{device_id}"
+            )
+            entry.task.add_done_callback(lambda _t: self._finished(entry))
+            self._register(entry)
         return entry
 
     async def start_cloud(self, target_ref: str, device_id: str, effect: Any,
                           client: Any, sku: str, fps: float) -> PlayingEffect:
         """Play over the cloud on a worker thread with a cooperative stop flag."""
-        await self._stop_existing(device_id)
-        entry = PlayingEffect(
-            ref=target_ref, device_id=device_id.upper(), file=str(effect.name),
-            fps=fps, transport="cloud",
-            started_at=datetime.now().isoformat(timespec="seconds"),
-        )
-        stop = threading.Event()
-        entry.task = asyncio.create_task(
-            self._cloud_runner(client, sku, device_id, effect, stop),
-            name=f"effect-cloud-{device_id}",
-        )
-        entry.task.add_done_callback(lambda _t: self._finished(entry))
-        # The stop flag rides on the task object via a closure-free side table so
-        # stop() can reach it without changing the record shape.
-        self._stop_flags[entry.device_id] = stop
-        self._register(entry)
+        async with self._device_lock(device_id):
+            await self._stop_existing(device_id)
+            entry = PlayingEffect(
+                ref=target_ref, device_id=device_id.upper(), file=str(effect.name),
+                fps=fps, transport="cloud",
+                started_at=datetime.now().isoformat(timespec="seconds"),
+            )
+            stop = threading.Event()
+            entry.task = asyncio.create_task(
+                self._cloud_runner(client, sku, device_id, effect, stop),
+                name=f"effect-cloud-{device_id}",
+            )
+            entry.task.add_done_callback(lambda _t: self._finished(entry))
+            # The stop flag rides on the task object via a closure-free side table so
+            # stop() can reach it without changing the record shape.
+            self._stop_flags[entry.device_id] = stop
+            self._register(entry)
         return entry
 
     async def start_mock(self, target_ref: str, device_id: str, effect: Any,
                          mock_client: "MockV2", fps: float,
                          transport_label: str) -> PlayingEffect:
         """Simulate playback: tick frames against fixture state, no hardware."""
-        await self._stop_existing(device_id)
-        entry = PlayingEffect(
-            ref=target_ref, device_id=device_id.upper(), file=str(effect.name),
-            fps=fps, transport=transport_label,
-            started_at=datetime.now().isoformat(timespec="seconds"),
-        )
-        stop = asyncio.Event()
-        entry.task = asyncio.create_task(
-            self._mock_runner(mock_client, device_id, effect, stop),
-            name=f"effect-mock-{device_id}",
-        )
-        entry.task.add_done_callback(lambda _t: self._finished(entry))
-        self._mock_stops[entry.device_id] = stop
-        self._register(entry)
+        async with self._device_lock(device_id):
+            await self._stop_existing(device_id)
+            entry = PlayingEffect(
+                ref=target_ref, device_id=device_id.upper(), file=str(effect.name),
+                fps=fps, transport=transport_label,
+                started_at=datetime.now().isoformat(timespec="seconds"),
+            )
+            stop = asyncio.Event()
+            entry.task = asyncio.create_task(
+                self._mock_runner(mock_client, device_id, effect, stop),
+                name=f"effect-mock-{device_id}",
+            )
+            entry.task.add_done_callback(lambda _t: self._finished(entry))
+            self._mock_stops[entry.device_id] = stop
+            self._register(entry)
         return entry
 
     async def stop(self, device_id: str) -> PlayingEffect | None:

@@ -21,7 +21,7 @@ from govee_cli.transport import CLOUD_V2
 
 from ..deps import (
     Resolved,
-    get_client,
+    get_client_async,
     get_config,
     invalidate_state,
     read_state,
@@ -59,8 +59,8 @@ async def list_scenes(request: Request, ref: str) -> dict[str, Any]:
     """The firmware scene library, served through the client's disk cache."""
     target = await _target(request, ref)
     require_v2_feature(target, "Scenes", bool(target.spec and target.spec.cloud_scenes))
-    client = get_client(request)
-    cached = _scenes_served_from_cache(request, target)
+    client = await get_client_async(request)
+    cached = await run_blocking(_scenes_served_from_cache, request, target)
     scenes = await run_blocking(client.get_scenes, target.sku, target.device_id)
     return {
         "scenes": [
@@ -87,7 +87,7 @@ async def apply_scene(
     """Activate a firmware scene by name. ``?refresh=1`` bypasses the disk cache."""
     target = await _target(request, ref)
     require_v2_feature(target, "Scenes", bool(target.spec and target.spec.cloud_scenes))
-    client = get_client(request)
+    client = await get_client_async(request)
 
     scene = None
     if refresh:
@@ -115,7 +115,7 @@ async def apply_scene(
 async def list_diy(request: Request, ref: str) -> dict[str, Any]:
     target = await _target(request, ref)
     require_v2_feature(target, "DIY scenes", bool(target.spec and target.spec.cloud_diy))
-    client = get_client(request)
+    client = await get_client_async(request)
     scenes = await run_blocking(client.get_diy_scenes, target.sku, target.device_id)
     return {"scenes": [{"name": s.name, "value": s.value} for s in scenes]}
 
@@ -124,7 +124,7 @@ async def list_diy(request: Request, ref: str) -> dict[str, Any]:
 async def apply_diy(request: Request, ref: str, body: DiyApplyRequest) -> dict[str, Any]:
     target = await _target(request, ref)
     require_v2_feature(target, "DIY scenes", bool(target.spec and target.spec.cloud_diy))
-    client = get_client(request)
+    client = await get_client_async(request)
     diy = await run_blocking(client.find_diy_scene, target.sku, target.device_id,
                              body.name)
     if diy is None:
@@ -142,7 +142,7 @@ async def list_snapshots(request: Request, ref: str) -> dict[str, Any]:
     """Snapshots saved in the Govee app, read from the device description."""
     target = await _target(request, ref)
     require_v2_feature(target, "Snapshots", True)
-    client = get_client(request)
+    client = await get_client_async(request)
     options = await run_blocking(_snapshot_options, client, target)
     return {"snapshots": [{"name": name, "value": value} for name, value in options]}
 
@@ -170,7 +170,7 @@ async def apply_snapshot(request: Request, ref: str,
                          body: SnapshotApplyRequest) -> dict[str, Any]:
     target = await _target(request, ref)
     require_v2_feature(target, "Snapshots", True)
-    client = get_client(request)
+    client = await get_client_async(request)
     options = await run_blocking(_snapshot_options, client, target)
 
     value: int | None = next(
@@ -242,7 +242,7 @@ async def apply_music(request: Request, ref: str,
         if auto_color is None:
             auto_color = False
 
-    client = get_client(request)
+    client = await get_client_async(request)
     await run_blocking(
         client.set_music_mode, target.sku, target.device_id, modes[key],
         body.sensitivity, auto_color, rgb,
@@ -271,7 +271,7 @@ async def list_toggles(request: Request, ref: str) -> dict[str, Any]:
     verified = list(target.spec.toggles) if target.spec else []
 
     advertised: list[str] = []
-    client = get_client(request)
+    client = await get_client_async(request)
     device = await run_blocking(client.get_device, target.sku, target.device_id)
     if device is not None:
         advertised = [
@@ -292,7 +292,7 @@ async def apply_toggle(request: Request, ref: str,
     known = list(target.spec.toggles) if target.spec else []
     # Advertised-but-unverified instances are accepted too: the device rejecting
     # one is a real answer (the H6056's dreamViewToggle), never a client error.
-    client = get_client(request)
+    client = await get_client_async(request)
     device = await run_blocking(client.get_device, target.sku, target.device_id)
     if device is not None:
         known += [
@@ -349,7 +349,7 @@ async def apply_segments(request: Request, ref: str,
                 f"per-segment brightness. Use `govee-cli brightness` to set the "
                 f"whole device."
             )
-        client = get_client(request)
+        client = await get_client_async(request)
         if rgb is not None:
             await run_blocking(client.set_segment_color, target.sku, target.device_id,
                                segments, *rgb)

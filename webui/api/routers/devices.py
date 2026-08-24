@@ -19,7 +19,7 @@ from govee_cli.transport import CLOUD_V1, CLOUD_V2
 
 from ..deps import (
     Resolved,
-    get_client,
+    get_client_async,
     get_config,
     invalidate_state,
     normalize_state,
@@ -74,7 +74,7 @@ async def discover(request: Request, body: DiscoverRequest) -> dict[str, Any]:
     if not body.sync:
         return {"devices": [_registry_entry(cfg, mac) for mac in sorted(cfg.devices)]}
 
-    client = get_client(request)
+    client = await get_client_async(request)
     found = await run_blocking(client.get_devices)
     registered_ids = {mac.upper() for mac in cfg.devices}
     devices = []
@@ -165,7 +165,7 @@ async def _basic_control(request: Request, ref: str, verb: str,
     cmd = f"{verb} {arg}"
 
     if target.transport == CLOUD_V2:
-        client = get_client(request)
+        client = await get_client_async(request)
         await run_blocking(_apply_v2_command, client, target.device_id, target.sku, cmd)
     elif target.transport == CLOUD_V1:
         await run_blocking(_apply_v1_command, target, cmd)

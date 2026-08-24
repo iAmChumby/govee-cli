@@ -9,6 +9,7 @@ without hammering the rate limit.
 from __future__ import annotations
 
 import os
+import re
 import threading
 import time
 from dataclasses import dataclass
@@ -29,6 +30,10 @@ if TYPE_CHECKING:
     from .mock import MockV2
 
 STATE_CACHE_TTL = 2.5  # >= 2s per spec; absorbs 10s UI polls plus manual refresh bursts
+
+# Same address shapes the config module accepts for device references.
+_MAC_PATTERN = re.compile(r"^([0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}$")
+_HTTP_ID_PATTERN = re.compile(r"^([0-9A-Fa-f]{2}:){7}[0-9A-Fa-f]{2}$")
 
 
 class V2Client(Protocol):
@@ -104,12 +109,17 @@ class TTLCache:
     The cloud allows ~2 req/s sustained; a UI polling several devices would blow
     through that on its own. Entries expire after :data:`STATE_CACHE_TTL` seconds
     and are invalidated on mutations so the UI sees its own writes immediately.
+
+    A generation counter guards against a stale-read race: a fetch that started
+    before an invalidation must not repopulate pre-mutation data when it
+    completes, so ``set`` drops entries fetched under an older generation.
     """
 
     def __init__(self, ttl: float = STATE_CACHE_TTL) -> None:
         self._ttl = ttl
         self._entries: dict[str, tuple[float, Any]] = {}
         self._lock = threading.Lock()
+        self._generation = 0
 
     def get(self, key: str) -> Any | None:
         now = time.monotonic()
@@ -119,13 +129,22 @@ class TTLCache:
                 return None
             return entry[1]
 
-    def set(self, key: str, value: Any) -> None:
+    def set(self, key: str, value: Any, *, generation: int | None = None) -> None:
         with self._lock:
+            if generation is not None and generation != self._generation:
+                # A fetch that overlapped an invalidation: its data predates
+                # the mutation, so it must not land.
+                return
             self._entries[key] = (time.monotonic(), value)
 
     def invalidate(self, key: str) -> None:
         with self._lock:
             self._entries.pop(key, None)
+            self._generation += 1
+
+    def current_generation(self) -> int:
+        with self._lock:
+            return self._generation
 
 
 @dataclass(frozen=True)
@@ -167,7 +186,8 @@ def resolve_ref(cfg: GoveeConfig, ref: str | None) -> Resolved:
     """Resolve a device name or id, mapping failures to 404/409.
 
     Mirrors ``_common.resolve()`` but raises API errors instead of ClickException,
-    keeping the library's own message text.
+    keeping the library's own message text. An unregistered ref that looks like a
+    MAC or cloud id falls back to BLE basic control, exactly as the CLI does.
     """
     ref = ref or cfg.default_mac
     if not ref:
@@ -175,8 +195,15 @@ def resolve_ref(cfg: GoveeConfig, ref: str | None) -> Resolved:
             "No device specified. Use --device or set a default with `govee-cli config`."
         )
     try:
-        _mac, device_cfg = resolve_device_ref(cfg, ref)
+        mac, device_cfg = resolve_device_ref(cfg, ref)
     except DeviceNotConfigured as e:
+        if _MAC_PATTERN.match(ref) or _HTTP_ID_PATTERN.match(ref):
+            # Same fallback as resolve_target(): an ad-hoc address is still
+            # drivable over BLE even though the registry has never seen it.
+            return Resolved(
+                device_id=ref.upper(), model=None, transport=BLE, config=cfg,
+                device_cfg=None,
+            )
         raise not_found(str(e)) from e
     try:
         device_id, model, transport = resolve_target(cfg, ref)
@@ -200,7 +227,12 @@ def get_config() -> GoveeConfig:
 
 
 def get_client(request: Request) -> V2Client:
-    """Return the v2 client for this app: MockV2 in mock mode, else the real one."""
+    """Return the v2 client for this app: MockV2 in mock mode, else the real one.
+
+    Constructing the real client reads config.json from disk; call sites that
+    run on the event loop must reach this through :func:`run_blocking` (the
+    routers do). Direct calls are only safe from worker threads.
+    """
     if request.app.state.settings.mock:
         mock: MockV2 = request.app.state.mock_client
         return mock
@@ -214,6 +246,25 @@ def get_client(request: Request) -> V2Client:
             raise bad_request(str(e)) from e
         request.app.state.v2_client = client
     return client
+
+
+async def get_client_async(request: Request) -> V2Client:
+    """Event-loop-safe variant: builds the real client on a worker thread."""
+    if request.app.state.settings.mock:
+        return get_client(request)
+    client: V2Client | None = request.app.state.v2_client
+    if client is None:
+        return cast(V2Client, await run_blocking(_build_and_store_client, request))
+    return client
+
+
+def _build_and_store_client(request: Request) -> V2Client:
+    # Double-checked after the blocking construct: a concurrent request may
+    # have stored one while this thread was reading config.
+    existing: V2Client | None = request.app.state.v2_client
+    if existing is not None:
+        return existing
+    return get_client(request)
 
 
 def get_state_cache(request: Request) -> TTLCache:
@@ -233,15 +284,17 @@ async def read_state(request: Request, target: Resolved) -> dict[str, Any]:
     """Read device state through the TTL cache, off the event loop."""
     if target.transport == BLE:
         # No BLE state read exists in the library (parse_state is unverified), so
-        # there is nothing to fetch — report an offline-looking empty state.
+        # there is nothing to fetch — report an empty state the normaliser maps
+        # to unknowns rather than fabricated values.
         return {}
     cache = get_state_cache(request)
     cached = cache.get(target.device_id)
     if cached is not None:
         return dict(cached)
     client = get_client(request)
+    generation = cache.current_generation()
     raw = await run_blocking(client.get_state, target.sku, target.device_id)
-    cache.set(target.device_id, raw)
+    cache.set(target.device_id, raw, generation=generation)
     return dict(raw)
 
 
@@ -277,8 +330,25 @@ def normalize_state(target: Resolved, raw: dict[str, Any]) -> dict[str, Any]:
     """Convert raw transport state into the spec's normalised shape.
 
     Only power/brightness/colorRgb/colorTemperatureK/online are reliable reads;
-    scene/segment/music instances come back as "" and are ignored.
+    scene/segment/music instances come back as "" and are ignored. An empty raw
+    dict (the BLE path) maps to unknowns — fabricating ``power: false`` would
+    misreport an unreachable device as switched off.
     """
+    if not raw:
+        return {
+            "ref": target.name,
+            "id": target.device_id,
+            "model": target.model,
+            "name": target.name,
+            "transport": target.transport,
+            "online": None,
+            "power": None,
+            "brightness": None,
+            "color": None,
+            "color_temp_k": None,
+            "capabilities": capabilities_block(target.spec),
+        }
+
     color: dict[str, Any] | None = None
     temp_k: int | None = None
 

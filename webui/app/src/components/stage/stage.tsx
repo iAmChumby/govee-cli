@@ -440,7 +440,7 @@ export function DeviceStage({
   const sel = selected ?? internalSel;
 
   const hsl = useActiveHsl(state);
-  const glow = useGlow(state.power, state.brightness);
+  const glow = useGlow(state.power === true, state.brightness);
   const zones = zoneCountFor(state);
   const name = state.name ?? state.ref;
 

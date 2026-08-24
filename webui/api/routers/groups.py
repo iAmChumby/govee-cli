@@ -19,7 +19,7 @@ from govee_cli.transport import CLOUD_V1, CLOUD_V2
 
 from ..deps import (
     Resolved,
-    get_client,
+    get_client_async,
     invalidate_state,
     normalize_state,
     read_state,
@@ -125,7 +125,7 @@ async def run_group_command(request: Request, name: str,
 
 async def _apply_to_member(request: Request, target: Resolved, cmd: str) -> None:
     if target.transport == CLOUD_V2:
-        client = get_client(request)
+        client = await get_client_async(request)
         await run_blocking(_apply_v2_command, client, target.device_id, target.sku, cmd)
     elif target.transport == CLOUD_V1:
         await run_blocking(_apply_v1, target, cmd)

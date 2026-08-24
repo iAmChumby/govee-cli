@@ -65,12 +65,15 @@ def _map_v2_error(exc: GoveeV2Error) -> ApiError:
     The client raises one exception type for both transport-level failure (the
     "Govee cloud unreachable after N attempts" path) and application-level
     rejection ("Govee API error 400: ..."), so the prefix is the discriminator.
+    A non-JSON body is gateway-level by definition — a device that answered
+    would have produced JSON.
     """
     if isinstance(exc, GoveeV2RateLimited):
         return bad_gateway(str(exc))
-    if str(exc).startswith("Govee cloud unreachable"):
-        return bad_gateway(str(exc))
-    return conflict(str(exc))
+    text = str(exc)
+    if text.startswith(("Govee cloud unreachable", "Non-JSON response")):
+        return bad_gateway(text)
+    return conflict(text)
 
 
 def _map_v1_error(exc: GoveeHTTPError) -> ApiError:

@@ -74,11 +74,15 @@ class SchedulerRunner:
         current_minute = now.strftime("%H:%M")
         if current_minute == self._last_fired_minute:
             return 0
-        self._last_fired_minute = current_minute
 
         current_day = now.strftime("%a").lower()[:3]
+        # Rules load before the minute guard is committed: a transient read
+        # failure must leave this minute retryable, not silently skipped.
+        rules = list_rules()
+        self._last_fired_minute = current_minute
+
         due = [
-            rule for rule in list_rules()
+            rule for rule in rules
             if rule.enabled
             and rule.time == current_minute
             and current_day in (d.lower()[:3] for d in rule.days)
