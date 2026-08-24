@@ -72,7 +72,6 @@ export function useScenes(ref: string | null) {
     staleTime: 5 * 60_000,
   });
 }
-
 export function useDiyScenes(ref: string | null) {
   return useQuery({
     queryKey: ["diy", ref],

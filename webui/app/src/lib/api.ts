@@ -212,7 +212,7 @@ export const api = {
   scenes: (ref: string) =>
     request<{ scenes: FirmwareScene[]; cached: boolean }>(
       `/devices/${encodeURIComponent(ref)}/scenes`,
-    ).then((r) => r.scenes),
+    ),
 
   applyScene: (ref: string, name: string) =>
     put<{ applied: FirmwareScene }>(
