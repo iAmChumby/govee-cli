@@ -25,10 +25,50 @@
   inherits: true;
   initial-value: 220;
 }
+/* --glow-radius: originally scoped to a single instrument's own halo blur.
+   Repurposed (V3_VISUAL_DIRECTION.md §C) as the shared ambient-shadow blur
+   channel for `.dev-bleed` card spill too — "how far this glow reaches" is
+   the same meaning either way, so no rename. --glow-hue/--glow-scale stay
+   untouched and unused, reserved for a future per-instrument use that
+   shouldn't collide with the new card-level --dev-* system below. */
 @property --glow-radius {
   syntax: "<length>";
   inherits: true;
   initial-value: 140px;
+}
+
+/* ---- Chassis/Signal card bleed (V3_VISUAL_DIRECTION.md §C) --
+   Each device card writes its own --dev-* quartet on its own root
+   element; `inherits: true` means every descendant (slider thumb,
+   switch track, quick-swatch ring) resolves `var(--dev-hue)` etc.
+   to its own nearest ancestor's value, so N differently-colored
+   cards compose on one page with zero cross-card coordination.
+   Registered (not plain custom properties) so hue/sat/light can
+   ride a CSS `transition` and alpha can be driven by a JS spring —
+   neither works on an unregistered custom property. Initial values
+   are the off/unknown chassis state: warm hue at zero saturation,
+   zero alpha, so an element that never opts into `.dev-bleed`
+   resolves these to "no bleed" if it ever references them.
+   ------------------------------------------------------------- */
+@property --dev-hue {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 36; /* WARM_HSL's hue (stage/color.ts) — the off/unknown fallback */
+}
+@property --dev-sat {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 0%;
+}
+@property --dev-light {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 50%;
+}
+@property --dev-alpha {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0; /* off/unknown = zero bleed, always */
 }
 
 /* ---- Primitives (theme-invariant) -------------------------- */

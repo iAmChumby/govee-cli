@@ -5,12 +5,13 @@ import {
   animate,
   motion,
   useMotionTemplate,
+  useReducedMotion,
   useSpring,
 } from "motion/react";
 import * as SliderPrimitive from "@radix-ui/react-slider";
 
 import { cn } from "@/lib/cn";
-import { springStandard } from "@/lib/motion";
+import { springSnappy, springStandard } from "@/lib/motion";
 
 export interface SliderProps {
   value?: number;
@@ -26,6 +27,15 @@ export interface SliderProps {
   /** mono readout bubble above the thumb (hover/focus/drag) */
   showBubble?: boolean;
   disabled?: boolean;
+  /**
+   * Opts the fill/thumb into `var(--dev-hue)`-driven color while actively
+   * dragging (V3_VISUAL_DIRECTION.md §D) — a real dimmer fader tinted by
+   * the channel it drives. Reverts to the neutral `--accent` fill the
+   * instant the drag ends, so a settled slider never sits there glowing
+   * (§B: quiet when not actively signaling). Default `false`: every
+   * existing consumer keeps its neutral fill unconditionally.
+   */
+  tint?: boolean;
   className?: string;
 }
 
@@ -45,6 +55,7 @@ export function Slider({
   ariaLabel,
   showBubble = false,
   disabled = false,
+  tint = false,
   className,
 }: SliderProps) {
   const isControlled = value !== undefined;
@@ -52,6 +63,7 @@ export function Slider({
   const current = isControlled ? (value as number) : internal;
   // Bubbles must show during touch drags (no hover), so track active drag.
   const [dragging, setDragging] = React.useState(false);
+  const reduced = useReducedMotion();
 
   const fraction = (current - min) / (max - min || 1);
   const fillWidth = useSpring(fraction * 100, springStandard);
@@ -89,10 +101,17 @@ export function Slider({
     >
       {/* track */}
       <SliderPrimitive.Track className="relative h-[2px] w-full grow rounded-full bg-hairline transition-colors duration-150 hover:bg-hairline-strong">
-        {/* spring-driven accent fill */}
+        {/* spring-driven fill — tints to the live device color while
+            dragging (tint + dragging), neutral --accent otherwise */}
         <motion.div
-          className="absolute left-0 h-full rounded-full bg-accent"
-          style={{ width: fillWidthStyle }}
+          className="absolute left-0 h-full rounded-full"
+          style={{
+            width: fillWidthStyle,
+            backgroundColor:
+              tint && dragging
+                ? "hsl(var(--dev-hue) var(--dev-sat) var(--dev-light))"
+                : "var(--accent)",
+          }}
         />
       </SliderPrimitive.Track>
 
@@ -103,9 +122,11 @@ export function Slider({
         className="block cursor-grab outline-none active:cursor-grabbing"
       >
         <motion.span
-          whileTap={{ scale: 1.12 }}
+          data-dragging={dragging ? "true" : "false"}
+          data-tint={tint ? "true" : "false"}
+          whileTap={reduced ? undefined : { scale: 1.12, transition: springSnappy }}
           transition={springStandard}
-          className="group relative block h-5 w-5 rounded-full border border-hairline-strong bg-raised transition-colors duration-150 hover:border-accent focus-visible:border-accent"
+          className="slider-thumb group relative block h-5 w-5 rounded-full border border-hairline-strong bg-raised transition-colors duration-150 hover:border-accent focus-visible:border-accent"
         >
           <span className="absolute inset-[6px] rounded-full bg-accent" />
           {showBubble ? (

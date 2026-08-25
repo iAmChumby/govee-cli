@@ -31,6 +31,14 @@ export interface DialProps {
   format?: (v: number) => string;
   size?: number;
   disabled?: boolean;
+  /**
+   * Opts the progress arc/indicator into `var(--dev-hue)`-driven color
+   * while actively dragging (V3_VISUAL_DIRECTION.md §D/§E — the same
+   * "loud only while live" rule already applied to `Slider`). Reverts to
+   * neutral `--accent` the instant the drag ends. Default `false`: every
+   * existing consumer keeps its neutral arc unconditionally.
+   */
+  tint?: boolean;
   className?: string;
 }
 
@@ -96,6 +104,7 @@ export function Dial({
   format,
   size = 116,
   disabled = false,
+  tint = false,
   className,
 }: DialProps) {
   const range = max - min || 1;
@@ -117,6 +126,10 @@ export function Dial({
   const rootRef = React.useRef<HTMLDivElement>(null);
   const draggingRef = React.useRef(false);
   const lastEmittedRef = React.useRef<number>(value);
+  // Mirrors draggingRef into render state for the `tint` arc/indicator
+  // color — only flips twice per gesture (start/end), so this doesn't
+  // reintroduce the per-frame re-render the ref was added to avoid.
+  const [dragging, setDragging] = React.useState(false);
 
   // Raw target fraction; the spring chases it for weighted inertia.
   const tMV = useMotionValue(valueToT(value));
@@ -167,6 +180,7 @@ export function Dial({
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
     draggingRef.current = true;
+    setDragging(true);
     const t = pointerToT(e.clientX, e.clientY);
     tMV.set(t);
     emit(t);
@@ -181,6 +195,7 @@ export function Dial({
 
   const endDrag = () => {
     draggingRef.current = false;
+    setDragging(false);
   };
 
   const nudge = React.useCallback(
@@ -249,6 +264,14 @@ export function Dial({
 
   const readout = format ? format(display) : String(Math.round(display));
 
+  // Loud only while live (§B) — same rule as Slider's fill/thumb: tint the
+  // arc/indicator to the device color while actively dragging, neutral
+  // --accent the rest of the time so an idle dial stays chassis-quiet.
+  const liveStroke =
+    tint && dragging
+      ? "hsl(var(--dev-hue) var(--dev-sat) var(--dev-light))"
+      : "var(--accent)";
+
   return (
     <div
       ref={rootRef}
@@ -293,11 +316,11 @@ export function Dial({
             strokeLinecap="round"
           />
         ))}
-        {/* accent progress arc */}
+        {/* progress arc — accent by default, device-tinted while dragging */}
         <motion.path
           d={ARC_PATH}
           fill="none"
-          stroke="var(--accent)"
+          stroke={liveStroke}
           strokeWidth={1.6}
           strokeLinecap="round"
           style={{ pathLength: tSpring }}
@@ -329,7 +352,10 @@ export function Dial({
         className="absolute inset-0"
         style={{ rotate: rotation }}
       >
-        <span className="absolute left-1/2 top-[8%] h-[9%] w-[2px] -translate-x-1/2 rounded-full bg-accent" />
+        <span
+          className="absolute left-1/2 top-[8%] h-[9%] w-[2px] -translate-x-1/2 rounded-full"
+          style={{ backgroundColor: liveStroke }}
+        />
       </motion.div>
 
       {/* center readout slot */}

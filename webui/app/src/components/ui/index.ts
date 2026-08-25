@@ -5,8 +5,8 @@ export { IconButton, type IconButtonProps } from "./icon-button";
 export { Switch, type SwitchProps } from "./switch";
 export { Slider, type SliderProps } from "./slider";
 export { Dial, type DialProps } from "./dial";
-export { Odometer, type OdometerProps } from "./odometer";
-export { Chip, type ChipProps } from "./chip";
+export { Odometer, type OdometerProps, type OdometerSize } from "./odometer";
+export { Chip, type ChipProps, type ChipTone } from "./chip";
 export {
   Tabs,
   TabsList,

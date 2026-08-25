@@ -93,8 +93,65 @@
 }
 
 /* ============================================================
+   Device bleed — Chassis/Signal card spill (V3_VISUAL_DIRECTION.md §C)
+   Opt-in via `Panel`'s `bleed` prop (see components/ui/panel.tsx).
+   Reads the --dev-* quartet registered in tokens.css; a card that never
+   sets that quartet on itself inherits the initial values (zero alpha,
+   warm hue) and this class renders as a no-op flat panel — the SAME
+   visual result as not having the class at all, which is what keeps
+   this purely additive for every existing, not-yet-opted-in call site.
+   ============================================================ */
+.dev-bleed {
+  background-color: color-mix(
+    in oklch,
+    hsl(var(--dev-hue) var(--dev-sat) var(--dev-light)) calc(var(--dev-alpha) * 14%),
+    var(--panel)
+  );
+  border-color: color-mix(
+    in oklch,
+    hsl(var(--dev-hue) var(--dev-sat) var(--dev-light)) calc(var(--dev-alpha) * 55%),
+    var(--hairline)
+  );
+  box-shadow: 0 0 var(--glow-radius) -60px
+    hsl(var(--dev-hue) var(--dev-sat) var(--dev-light) / calc(var(--dev-alpha) * 0.55));
+  transition:
+    background-color var(--dur-slow) var(--ease-out-soft),
+    border-color var(--dur-slow) var(--ease-out-soft),
+    box-shadow var(--dur-slow) var(--ease-out-soft),
+    --dev-hue var(--dur-slow) var(--ease-out-soft),
+    --dev-alpha var(--dur-base) var(--ease-out-soft);
+}
+
+:root[data-theme="light"] .dev-bleed,
+:root:not(.dark) .dev-bleed {
+  /* light theme starts near-white; the same mix ratio reads as a much
+     stronger tint against a bright background, so it's cut further here. */
+  background-color: color-mix(
+    in oklch,
+    hsl(var(--dev-hue) var(--dev-sat) var(--dev-light)) calc(var(--dev-alpha) * 8%),
+    var(--panel)
+  );
+}
+
+/* Slider thumb glow while actively dragging a `tint`-opted slider
+   (V3_VISUAL_DIRECTION.md §D) — compositor-only (box-shadow, no layout),
+   dark by default until both data attributes are true so an untinted or
+   idle thumb never picks up a stray shadow. */
+.slider-thumb[data-dragging="true"][data-tint="true"] {
+  box-shadow: 0 0 0 8px hsl(var(--dev-hue) var(--dev-sat) var(--dev-light) / 0.22);
+  transition: box-shadow var(--dur-fast) var(--ease-out-soft);
+}
+
+/* ============================================================
    Reduced motion — kill transforms & looping animation.
    JS springs degrade to opacity-only via MotionConfig + guards.
+   The rule above already zeroes every CSS `transition`, including
+   `.dev-bleed`'s and the --dev-hue/--dev-alpha property transitions —
+   so a reduced-motion viewer sees color changes land instantly rather
+   than mid-spring. The matching JS-side guard (motion/react springs,
+   incl. `useDeviceBleed`'s --dev-alpha spring and every primitive's
+   `whileTap`) lives per-component via `useReducedMotion()`, since a
+   CSS media query alone can't stop a `motion/react` spring.
    ============================================================ */
 @media (prefers-reduced-motion: reduce) {
   *,

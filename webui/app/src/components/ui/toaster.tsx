@@ -1,11 +1,12 @@
 "use client";
 
 import * as React from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { X } from "lucide-react";
 
 import { cn } from "@/lib/cn";
-import { springStandard } from "@/lib/motion";
+import { springCelebrate, springStandard } from "@/lib/motion";
+import type { DeviceHsl } from "@/lib/device-bleed";
 
 type ToastVariant = "ok" | "error" | "info";
 
@@ -14,6 +15,7 @@ interface ToastItem {
   title: string;
   description?: string;
   variant: ToastVariant;
+  deviceHsl?: DeviceHsl;
 }
 
 export interface ToastInput {
@@ -22,6 +24,16 @@ export interface ToastInput {
   variant?: ToastVariant;
   /** ms before auto-dismiss; default 4000 */
   duration?: number;
+  /**
+   * Marks this toast as reporting a specific device's live action —
+   * "scene confirmed" (V3_VISUAL_DIRECTION.md §D "Toasts" / §E) rather
+   * than a system message. When set, the accent bar uses this color
+   * instead of the fixed `variant` bar color and flares once with a
+   * `springCelebrate` brightness pulse on mount before settling to
+   * steady — the "this landed" tell. Omit for system/non-device toasts:
+   * they render exactly as today, unconditionally.
+   */
+  deviceHsl?: DeviceHsl;
 }
 
 interface ToastContextValue {
@@ -90,9 +102,50 @@ const BAR_CLASSES: Record<ToastVariant, string> = {
 };
 
 /**
+ * The toast's left-edge accent bar. Fixed `variant` color by default
+ * (today's behavior, unconditionally); when `deviceHsl` is set it fills
+ * from that color instead and, on mount, flares once — `filter:
+ * brightness()` spiking to 1.3× on `springCelebrate` before settling to
+ * 1× — the "cloud caught up" tell §E describes. Reduced motion: the bar
+ * still recolors (a color property, not motion) but skips the pulse,
+ * per §E's explicit reduced-motion carve-out for this exact moment.
+ */
+function ToastBar({
+  variant,
+  deviceHsl,
+}: {
+  variant: ToastVariant;
+  deviceHsl?: DeviceHsl;
+}) {
+  const reduced = useReducedMotion();
+
+  if (!deviceHsl) {
+    return (
+      <span
+        aria-hidden
+        className={cn("absolute bottom-0 left-0 top-0 w-[3px]", BAR_CLASSES[variant])}
+      />
+    );
+  }
+
+  const [hue, sat, light] = deviceHsl;
+  return (
+    <motion.span
+      aria-hidden
+      className="absolute bottom-0 left-0 top-0 w-[3px]"
+      style={{ backgroundColor: `hsl(${hue} ${sat}% ${light}%)` }}
+      initial={reduced ? false : { filter: "brightness(1.3)" }}
+      animate={{ filter: "brightness(1)" }}
+      transition={springCelebrate}
+    />
+  );
+}
+
+/**
  * Bottom-right toast stack. Panels slide up and settle on a standard
  * spring; each carries a left-edge status bar by variant (sage / ember /
- * accent). Flat chrome — no shadow; bars carry all the signal.
+ * accent), or the reporting device's own color for a device-sourced toast
+ * (see `ToastBar`). Flat chrome — no shadow; bars carry all the signal.
  */
 export function Toaster() {
   const ctx = React.useContext(ToastContext);
@@ -120,13 +173,7 @@ export function Toaster() {
             transition={springStandard}
             className="pointer-events-auto relative w-full overflow-hidden rounded-panel border border-hairline bg-raised"
           >
-            <span
-              aria-hidden
-              className={cn(
-                "absolute bottom-0 left-0 top-0 w-[3px]",
-                BAR_CLASSES[item.variant],
-              )}
-            />
+            <ToastBar variant={item.variant} deviceHsl={item.deviceHsl} />
             <div className="py-3 pl-4 pr-9">
               <p className="text-[13px] font-medium leading-snug text-hi">
                 {item.title}

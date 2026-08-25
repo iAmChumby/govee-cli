@@ -6,12 +6,26 @@ import { motion } from "motion/react";
 import { cn } from "@/lib/cn";
 import { springStandard } from "@/lib/motion";
 
+export type OdometerSize = "sm" | "lg";
+
+/** sm = today's behavior (size set entirely by the caller's `className`,
+    unchanged); lg = the instrument-cluster digit size from
+    V3_VISUAL_DIRECTION.md §F's type scale (20–22px, up from 10–11px) for
+    live readouts (brightness %, Kelvin, hex) that should read like what
+    the light is doing *right now*, not a footnote next to it. */
+const SIZE_CLASSES: Record<OdometerSize, string> = {
+  sm: "",
+  lg: "text-[21px]",
+};
+
 export interface OdometerProps {
   value: number;
   /** minimum digit count; grows automatically for larger magnitudes */
   pad?: number;
   /** static suffix rendered after the digits ("%", "ms", "K") */
   suffix?: string;
+  /** @default "sm" — pixel-identical to today; "lg" opts into §F's bump */
+  size?: OdometerSize;
   className?: string;
 }
 
@@ -24,6 +38,7 @@ export function Odometer({
   value,
   pad,
   suffix,
+  size = "sm",
   className,
 }: OdometerProps) {
   const negative = value < 0;
@@ -37,6 +52,7 @@ export function Odometer({
     <span
       className={cn(
         "inline-flex items-baseline font-mono tabular-nums leading-none",
+        SIZE_CLASSES[size],
         className,
       )}
     >

@@ -1,13 +1,13 @@
 "use client";
 
 import * as React from "react";
-import { motion, type HTMLMotionProps } from "motion/react";
+import { motion, useReducedMotion, type HTMLMotionProps } from "motion/react";
 
 import { cn } from "@/lib/cn";
-import { springStandard } from "@/lib/motion";
+import { springSnappy, springStandard } from "@/lib/motion";
 import { Spinner } from "@/components/ui/spinner";
 
-type ButtonVariant = "solid" | "ghost" | "danger";
+type ButtonVariant = "solid" | "ghost" | "danger" | "signal";
 type ButtonSize = "sm" | "md" | "lg";
 
 export interface ButtonProps
@@ -20,7 +20,15 @@ export interface ButtonProps
 }
 
 /* solid = accent fill (white in dark / ink in light) with inverse text;
-   both flip automatically through the token pair. */
+   both flip automatically through the token pair. `signal` is the one
+   SIGNAL-SPILL variant (V3_VISUAL_DIRECTION.md §D) — reserved for buttons
+   that commit a device-affecting action from inside an already-colored
+   context (paint studio's "apply," the stage's floating "paint N
+   segments" button); it inherits `var(--dev-hue)` as its fill instead of
+   `--accent`, so it only reads as colored where a card/stage above it has
+   actually set the --dev-* quartet — everywhere else it falls back to the
+   registered initial values (a flat, unsaturated fill), never introducing
+   color of its own. */
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   solid:
     "border-transparent bg-accent text-accent-contrast hover:bg-accent-press active:bg-accent-press",
@@ -28,6 +36,8 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
     "border-hairline bg-transparent text-mid hover:border-hairline-strong hover:text-hi hover:bg-accent-dim",
   danger:
     "border-transparent bg-ember text-ember-contrast hover:bg-ember-press active:bg-ember-press",
+  signal:
+    "border-transparent text-white [background-color:hsl(var(--dev-hue)_var(--dev-sat)_var(--dev-light))] hover:brightness-110 active:brightness-95",
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {
@@ -38,7 +48,12 @@ const SIZE_CLASSES: Record<ButtonSize, string> = {
 
 /**
  * Optical-bench button: uppercase Archivo micro-label, hairline or
- * solid accent fills, press scales to 0.97 on a standard spring.
+ * solid accent fills. Press-in rides `springSnappy` — crisper than a
+ * value settling, more resistance than a slider drag; release eases back
+ * out on `springStandard` so it doesn't feel twitchy
+ * (V3_VISUAL_DIRECTION.md §E). Guarded by `useReducedMotion()`: a
+ * reduced-motion user gets an instant disabled/enabled state change with
+ * no scale transform at all, closing the gap the design doc flagged.
  */
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   function Button(
@@ -53,12 +68,15 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     },
     ref,
   ) {
+    const reduced = useReducedMotion();
+    const canPress = !(disabled || busy) && !reduced;
+
     return (
       <motion.button
         ref={ref}
         type="button"
         disabled={busy || disabled}
-        whileTap={disabled || busy ? undefined : { scale: 0.97 }}
+        whileTap={canPress ? { scale: 0.97, transition: springSnappy } : undefined}
         transition={springStandard}
         aria-busy={busy || undefined}
         className={cn(
