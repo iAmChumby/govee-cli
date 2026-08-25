@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { AlertTriangle, CheckCircle2, RotateCcw, Trash2, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, MinusCircle, RotateCcw, Trash2, XCircle } from "lucide-react";
 
 import { Button, Chip, Panel } from "@/components/ui";
 import {
@@ -203,16 +203,31 @@ export function RoomSceneCard({
           >
             {lastRestore.results.map((step) => (
               <li key={step.ref} className="flex items-start gap-1.5 font-mono text-[10px] leading-snug">
-                {step.ok ? (
+                {/* A skip gets its own mark. The route reports it as ok:true —
+                    correctly, since nothing failed — but a green tick beside
+                    the word "skipped" tells the eye the device was restored
+                    when it deliberately wasn't, which is the one thing this
+                    whole feature is built not to do. */}
+                {step.skipped_reason ? (
+                  <MinusCircle size={11} strokeWidth={2} aria-hidden className="mt-px shrink-0 text-low" />
+                ) : step.ok ? (
                   <CheckCircle2 size={11} strokeWidth={2} aria-hidden className="mt-px shrink-0 text-sage" />
                 ) : (
                   <XCircle size={11} strokeWidth={2} aria-hidden className="mt-px shrink-0 text-ember" />
                 )}
-                <span className="truncate text-mid">{nameOf(step.ref)}</span>
+                {/* The name never truncates and the reason always may: on a
+                    phone the reason is long enough to squeeze every name down
+                    to one letter ("B… — skipped: mode was unknown when…"),
+                    which loses the only part identifying which light it is. */}
+                <span className="shrink-0 text-mid">{nameOf(step.ref)}</span>
                 {step.skipped_reason ? (
-                  <span className="truncate text-low">— skipped: {step.skipped_reason}</span>
+                  <span className="min-w-0 truncate text-low" title={step.skipped_reason}>
+                    — skipped: {step.skipped_reason}
+                  </span>
                 ) : step.error ? (
-                  <span className="truncate text-ember">— {step.error}</span>
+                  <span className="min-w-0 truncate text-ember" title={step.error}>
+                    — {step.error}
+                  </span>
                 ) : null}
               </li>
             ))}

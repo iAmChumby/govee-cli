@@ -24,6 +24,7 @@ import argparse
 import os
 import signal
 import pathlib
+import re
 import shutil
 import socket
 import subprocess
@@ -186,6 +187,73 @@ def _apply_a_scene(page) -> str | None:
     }""")
 
 
+def _rooms_flow(page, base: str, shots: pathlib.Path) -> list[str]:
+    """§10 T28 — capture a room scene, see the card, restore it, read the result.
+
+    Worth exercising end to end rather than trusting the build, because the
+    capture response is the one place a client/server contract mismatch would
+    surface: TypeScript casts responses rather than validating them, so a field
+    the route never sends is `undefined` at runtime and the compiler is silent.
+    A shape bug here reads as a blank card, not a type error.
+    """
+    out: list[str] = []
+    page.goto(base + "/rooms", wait_until="networkidle", timeout=45_000)
+    page.wait_for_timeout(600)
+
+    capture = page.get_by_role("button", name=re.compile("capture", re.I))
+    if capture.count() == 0:
+        return ["no capture control on /rooms"]
+    capture.first.click()
+    page.wait_for_timeout(500)
+
+    field = page.locator("input[type='text'], input:not([type])").first
+    if field.count() == 0:
+        return ["capture dialog has no name field"]
+    field.fill("Verify Scene")
+    page.screenshot(path=str(shots / "rooms-capture.png"), full_page=True)
+
+    submit = page.get_by_role("button", name=re.compile("^(capture|save)", re.I)).last
+    submit.click()
+    page.wait_for_timeout(1600)
+    page.screenshot(path=str(shots / "rooms-captured.png"), full_page=True)
+
+    # Every mock device has an empty ledger, so the capture is entirely
+    # unknown — and the dialog is supposed to say so BEFORE the user relies
+    # on it. A capture that reported nothing here would be the honesty bug.
+    after = page.evaluate("() => document.body.innerText")
+    if "unknown" not in after.lower():
+        out.append("capture result never mentions the unknown devices it captured")
+
+    for key in ("Escape",):
+        page.keyboard.press(key)
+    page.wait_for_timeout(700)
+    page.goto(base + "/rooms", wait_until="networkidle", timeout=45_000)
+    page.wait_for_timeout(800)
+    page.screenshot(path=str(shots / "rooms-list.png"), full_page=True)
+
+    if "Verify Scene" not in page.evaluate("() => document.body.innerText"):
+        out.append("the captured scene does not appear in the rooms list")
+        return out
+
+    restore = page.get_by_role("button", name=re.compile("restore", re.I))
+    if restore.count() == 0:
+        out.append("no restore control on a saved room scene")
+        return out
+    restore.first.click()
+    page.wait_for_timeout(2000)
+    page.screenshot(path=str(shots / "rooms-restored.png"), full_page=True)
+
+    # Every device in this scene was captured unknown, so every one of them
+    # must be SKIPPED with a reason rather than restored to a guess.
+    result = page.evaluate("() => document.body.innerText").lower()
+    if "skip" not in result and "unknown" not in result:
+        out.append(
+            "restoring an all-unknown scene reported no skips — it either "
+            "guessed at modes it never captured, or swallowed the reason"
+        )
+    return out
+
+
 def run_checks(shots: pathlib.Path, keep: bool) -> list[str]:
     from playwright.sync_api import sync_playwright
 
@@ -230,7 +298,8 @@ def run_checks(shots: pathlib.Path, keep: bool) -> list[str]:
             )
             page = ctx.new_page()
 
-            routes = [("dashboard", "/"), ("schedules", "/schedules"), ("settings", "/settings")]
+            routes = [("dashboard", "/"), ("schedules", "/schedules"),
+                      ("rooms", "/rooms"), ("settings", "/settings")]
             for name, path in routes:
                 page.on("console", note(f"{theme}:{name}"))
                 page.goto(base + path, wait_until="networkidle", timeout=45_000)
@@ -266,6 +335,35 @@ def run_checks(shots: pathlib.Path, keep: bool) -> list[str]:
                 page.screenshot(path=str(shots / f"{theme}-device.png"), full_page=True)
 
                 if theme == "dark":  # assert motion once; it is theme-independent
+                    # §10 T27. A clean mock has an empty ledger, so this device
+                    # reads "unknown" — which is exactly the state the chooser
+                    # exists for, and the state the older reset control can
+                    # never appear in. Check it here, before _apply_a_scene
+                    # below writes a mode and takes the device out of it.
+                    chooser = page.get_by_role(
+                        "button", name=re.compile("what's playing", re.I)
+                    )
+                    if chooser.count() == 0:
+                        failures.append(
+                            "no 'what's playing' chooser on a device reading unknown "
+                            "(T27's whole point — the reset control cannot render here)"
+                        )
+                    else:
+                        chooser.first.click()
+                        page.wait_for_timeout(700)
+                        page.screenshot(
+                            path=str(shots / "unknown-chooser.png"), full_page=True
+                        )
+                        # The copy is load-bearing: a user who believes this
+                        # commands the device will mis-set the ledger.
+                        text = page.evaluate("() => document.body.innerText")
+                        if "does not change" not in text and "sends nothing" not in text:
+                            failures.append(
+                                "the chooser does not say it leaves the light alone"
+                            )
+                        page.keyboard.press("Escape")
+                        page.wait_for_timeout(400)
+
                     # Put the device into a real motion mode first. On a clean
                     # mock the ledger is empty, so every device reads "unknown"
                     # and the stage correctly renders NO motion — asserting on
@@ -296,6 +394,9 @@ def run_checks(shots: pathlib.Path, keep: bool) -> list[str]:
                             page.wait_for_timeout(600)
                             page.screenshot(path=str(shots / f"tab-{tab}.png"), full_page=True)
                             break
+
+                if theme == "dark":
+                    failures.extend(_rooms_flow(page, base, shots))
 
             ctx.close()
         browser.close()
