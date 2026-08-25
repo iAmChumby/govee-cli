@@ -33,7 +33,7 @@ budget.
 ### 1. Sidecar
 
 ```bash
-cd ~/Projects/govee-cli
+cd ~/projects/govee-cli
 python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[webui]"
 python -m webui.api.main          # serves 127.0.0.1:6057
@@ -53,19 +53,25 @@ npm run start -- -p 6056 -H 127.0.0.1
 
 ### 3. Services + nginx
 
-`deploy/` ships systemd units and an nginx site block:
+`deploy/` ships two scripts. The app services are systemd **user** units, so
+only nginx needs root:
 
 ```bash
-sudo cp deploy/govee-webui-api.service deploy/govee-webui.service /etc/systemd/system/
-# adjust User=/WorkingDirectory= paths inside each unit first
-sudo systemctl daemon-reload
-sudo systemctl enable --now govee-webui-api govee-webui
-sudo cp deploy/nginx-govee.conf /etc/nginx/sites-available/govee.conf
-sudo ln -sf /etc/nginx/sites-available/govee.conf /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
+./deploy/install-services.sh        # no sudo: deps, build, user units, restart
+./deploy/install-nginx-govee.sh     # sudo: nginx site + reload, batched
 ```
 
-Then browse `https://pop-os:6056`.
+Re-run `install-services.sh` after any pull that touches `webui/`; the nginx
+one only when `deploy/nginx-govee.conf` changes. Both are idempotent and
+verify themselves.
+
+Then browse `https://100.121.176.1:6056` (or `https://pop-os:6056` on the
+tailnet). The cert is the shared self-signed `tailscale-proxy` cert, so expect
+the usual browser warning.
+
+nginx binds the Tailscale IP (`100.121.176.1:6056`) while Next.js binds
+`127.0.0.1:6056` — different addresses, no clash, and the console never
+reaches the LAN.
 
 ## Demo mode (no hardware, no config writes)
 

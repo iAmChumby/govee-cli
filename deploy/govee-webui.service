@@ -1,22 +1,27 @@
 # govee-cli web console frontend (Next.js production server).
-# Build first:  cd webui/app && npm ci && npm run build
+# Rebuild after pulling:  cd ~/projects/govee-cli/webui/app && npm ci && npm run build
 [Unit]
 Description=govee-cli web console (Next.js)
 After=network-online.target govee-webui-api.service
-Wants=network-online.target
+Wants=network-online.target govee-webui-api.service
+StartLimitBurst=5
+StartLimitIntervalSec=60
 
 [Service]
 Type=simple
-User=luke
-WorkingDirectory=/home/luke/Projects/govee-cli/webui/app
-ExecStart=/usr/bin/npm run start -- -p 6056 -H 127.0.0.1
+WorkingDirectory=/home/chumby/projects/govee-cli/webui/app
+# Invoke next's bin through node directly: no npm wrapper, no PATH assumptions.
+ExecStart=/usr/local/bin/node /home/chumby/projects/govee-cli/webui/app/node_modules/next/dist/bin/next start -p 6056 -H 127.0.0.1
 Environment=NODE_ENV=production
 Restart=on-failure
 RestartSec=3
+
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ReadWritePaths=%h/.config/govee-cli
+# next start writes into .next/ at runtime (cache, image optimiser); without
+# this the read-only hierarchy from ProtectSystem=strict breaks it.
+ReadWritePaths=/home/chumby/projects/govee-cli/webui/app/.next
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target
