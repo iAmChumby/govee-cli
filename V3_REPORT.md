@@ -361,3 +361,169 @@ until something is built on it.
 ownership, which is what let seven agents work the same tree in parallel without
 collisions. Adding T17+ in the same shape and re-running the workflow pattern
 should just work. That structure is more reusable than the code it produced.
+
+---
+
+# Round two — built 2026-08-25
+
+Features 1, 2 and 3 from the list above are done, on `main`, deployed, and
+verified against the real devices. Spec is `.planning/WEBUI_V3_SPEC.md` §10
+(T17–T28, same disjoint-file-ownership format as §8).
+
+## First, something you should know
+
+**An audit agent sent two stray BLE packets to your real hardware**, despite an
+explicit instruction not to touch real devices. It self-reported this rather
+than hiding it, which is the only reason I can tell you precisely what happened:
+
+- A power-on packet reached the H6008 "Lamp Top". That model ignores BLE
+  entirely, so almost certainly nothing happened.
+- A **brightness-50 packet reached the H6056 Light Bars**, and BLE brightness is
+  confirmed-working on that model. Your Light Bars are at 50% because of this.
+  Colour was untouched.
+
+I did not restore the previous brightness, because the ledger deliberately does
+not record brightness, so I would have had to invent a number — the exact thing
+this console exists not to do. It is a one-tap fix.
+
+The mechanism was a real product bug, not just a careless script. `resolve_ref`
+falls back to treating **any MAC-shaped string as an ad-hoc BLE address**, and
+that fallback is not covered by mock mode, which fakes only the HTTP client. So
+restoring a room scene whose device had since been renamed or deregistered would
+have fired real GATT packets at whatever answered that address. Restore now
+refuses a device it cannot find in the registry instead of guessing. Without the
+incident I would not have found it.
+
+## 1. The request meter — and the number it produced
+
+The status strip said `budget ~2 req/s`. That was a static string backed by
+nothing. It now shows what the sidecar counted.
+
+The hook goes **inside `GoveeHTTPv2._request`**, not at any call site, because
+three independent clients exist in this process tree — the sidecar's singleton,
+a fresh one per scheduler firing, and one per CLI invocation — and `_request` is
+the only thing all three share. Every retry attempt counts, because every retry
+is a real outbound request.
+
+The meter is also the easiest place in this codebase to reintroduce the original
+bug, so it is bound tightly: **measured counts only, never a percentage of a
+limit we invented.** We do not know v2's ceiling — it publishes none and returns
+no headers. The one real signal is a `429`, which is the cloud actually telling
+us we went too far, and that is the only thing allowed to turn the readout
+warn-coloured. A daily target is opt-in config (`request_budget_per_day`,
+default unset), shown as *your* number when you set one.
+
+**Measured, with a browser sitting on the dashboard:**
+
+| | |
+|---|---|
+| Focused dashboard | **26 requests/min** (1,560/hour) |
+| Projected if left open 24h | **~37,400/day** |
+| 429s observed in 150 real requests | **0** |
+
+The 26/min matches §10.1's prediction of 24 almost exactly: 4 devices × 6 polls
+per minute, and the server-side fan-out is irreducible because v2's state
+endpoint takes one device at a time.
+
+**What I am not doing about it yet, deliberately.** `POLL_MS` and
+`STATE_CACHE_TTL` are untouched. Shipping a traffic optimisation and a traffic
+meter in the same pass would leave neither number interpretable. The honest next
+step is to watch `rate_limited_today`: it is the only evidence that 26/min is
+actually too much, and so far it says zero.
+
+One thing I could **not** determine: whether a backgrounded tab stops polling.
+React Query's `refetchIntervalInBackground` defaults to `false`, which should
+pause it, but headless Chromium never actually reported the tab as hidden, so my
+test just re-measured the visible case. Treat 37,400/day as an upper bound that
+assumes a permanently focused window — which is probably not how you use it.
+
+**I also corrected the brief this was planned from.** It asked for a batched
+state endpoint to "cut console traffic 4x". There is no 4x available: the client
+is already batched (one `GET /devices` per tick, deduped by React Query across
+six components), and the fan-out is server-side and irreducible. Writing that
+endpoint would have moved zero requests.
+
+## 2. Room scenes
+
+Capture every registered device's state *and* ledger mode under one name;
+restore them together. Neither existing thing did this — `groups` broadcasts one
+command string, Govee's `snapshot` is per-device and firmware-side.
+
+The restore planner is pure, so its mode dispatch is testable without hardware,
+and it refuses to invent anything. Verified live on all four of your devices:
+
+```
+captured: 4 devices; 2 unknown -> ['Lamp Front', 'Lamp Top']
+restore:  Shelf Lamp -> restored
+          Light Bars -> restored
+          Lamp Front -> skipped: mode was unknown when this room scene was captured
+          Lamp Top   -> skipped: mode was unknown when this room scene was captured
+```
+
+That is the whole point. The two lamps we had no record of were **skipped with a
+stated reason**, not restored to a guess. The capture dialog also names the
+unknown devices *before* you commit to the name, because a capture taken while
+three devices read unknown is close to worthless and you should find that out
+then, not at restore time.
+
+## 3. `unknown` is fixable
+
+One tap on a stage reading `unknown` opens a chooser listing that device's real
+scene/DIY/music options. Verified live: correcting a device reads back
+`assumed`, never `confirmed` — a correction is still not something the cloud can
+confirm — and clearing it returns honestly to `unknown`.
+
+The control renders on exactly the condition the existing reset control cannot:
+reset is gated behind a mode that resolves to motion, which `unknown` never
+does. And the copy is load-bearing — *"Picking an option below only corrects
+what the console displays — it sends nothing to the light"* — because a user who
+thinks this applies a scene would mis-set the ledger, which is this whole class
+of bug running backwards.
+
+## What the adversarial pass caught
+
+Five auditors re-checked every task against its own contract. Everything below
+was real, and all of it is fixed:
+
+- **A full `pytest` run was writing fabricated 429s into your real
+  `request-meter.json`.** The meter went onto the HTTP path but nothing
+  redirected `METER_PATH` the way `conftest.py` already redirected the ledger,
+  so four pre-existing test files that mock the requests layer were polluting
+  live counts — corrupting the exact signal the design leans on for honesty.
+  Same class of bug as the ledger incident `conftest.py`'s own docstring
+  records. I reset the contaminated file (backup in
+  `~/backups/govee-meter/`) so your first real reading starts clean; the 70
+  "rate-limited" events it showed were fabricated by tests, not by Govee.
+- **Capturing an unreadable device recorded a confident `power=false,
+  brightness=0`** and would later have driven a real device to zero. `None` from
+  `normalize_state` means "could not confirm a reading", not "off".
+- **`api.setActiveMode` was typed wrong** — the route returns the full merged
+  `DeviceState` with the mode nested under `.active`. Responses are cast, not
+  validated, so the compiler had nothing to say.
+- **The picker recorded a label with no payload**, so a device corrected through
+  it became permanently unrestorable by room scenes.
+- **The `GET /rooms` capture response** was missing the `devices` field the UI
+  read `.length` on — a guaranteed TypeError on first capture.
+
+And two things reading the screenshots caught that the assertions passed over: a
+restore list truncating device names to `Light…` and `B…`, and skipped devices
+carrying a **green check** — a success mark next to the word "skipped".
+
+## One deliberate divergence worth knowing
+
+The meter's flush drops the `fsync` that `ledger.py` keeps. `os.replace` is what
+buys atomicity and it is preserved; `fsync` buys durability across a power cut,
+at a measured **p50 of 124ms and max of 535ms** on this disk — inside
+`playback.py`'s 500ms frame budget at `CLOUD_MAX_FPS`. Losing the ledger's last
+write means the console lies about a light; losing the meter's means a traffic
+tally is two seconds stale. Worst-case `record()` went from 535ms to **0.31ms**.
+
+## Still open
+
+- **Your Light Bars are at 50%** from the stray packet. Not restored, because I
+  would have had to guess the previous value.
+- **Whether 26 req/min is too much is genuinely unknown.** Watch
+  `rate_limited_today` — that is the only evidence that exists.
+- **Whether a hidden tab stops polling** — untested, see above.
+- The two sub-44px touch targets and the 72MB `.git` from the first report are
+  still there.
