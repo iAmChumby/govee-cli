@@ -409,3 +409,46 @@ def test_effects_library_play_stop(client: TestClient) -> None:
 
     unknown = client.post("/api/v1/effects/play", json={"device": BARS, "file": "nope"})
     assert unknown.status_code == 404
+
+
+def test_health_wake_ramp_armed_distinguishes_false_from_unknown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A weekend that will not fire and a weekend we cannot read are different.
+
+    The armed flag lives at wake_ramp_status.armed_date — a date when armed, null
+    when not — so a health field that read a nonexistent top-level "armed" key
+    reported null for every state, collapsing "definitely not armed" into
+    "unknown".
+    """
+    from webui.api import main as main_mod
+
+    async def fake_blocking(fn, *a, **kw):
+        return {
+            "crontab": {"readable": True, "error": None, "checked_at": "x",
+                        "source": "crontab", "stale_seconds": None},
+            "entries": [{
+                "kind": "wake-ramp",
+                "wake_ramp_status": {"armed_date": None, "weekdays_always": True,
+                                     "cron_installed": True, "today_will_run": True},
+            }],
+        }
+
+    monkeypatch.setattr(main_mod, "run_blocking", fake_blocking)
+    app = main_mod.create_app(main_mod.Settings(mock=False, scheduler_enabled=False, port=1))
+    with TestClient(app) as client:
+        external = client.get("/api/v1/health").json()["scheduler"]["external"]
+    assert external["wake_ramp_armed"] is False
+
+    async def unreadable(fn, *a, **kw):
+        return {
+            "crontab": {"readable": True, "error": None, "checked_at": "x",
+                        "source": "crontab", "stale_seconds": None},
+            "entries": [{"kind": "wake-ramp", "wake_ramp_status": None}],
+        }
+
+    monkeypatch.setattr(main_mod, "run_blocking", unreadable)
+    app = main_mod.create_app(main_mod.Settings(mock=False, scheduler_enabled=False, port=1))
+    with TestClient(app) as client:
+        external = client.get("/api/v1/health").json()["scheduler"]["external"]
+    assert external["wake_ramp_armed"] is None

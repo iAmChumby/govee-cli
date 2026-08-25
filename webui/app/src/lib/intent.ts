@@ -16,17 +16,29 @@
  * "syncing" pulse for as long as a commanded value is still unconfirmed.
  */
 
-import type { DeviceState, DeviceSummary, LightColor } from "@/lib/api";
+import type { ActiveMode, DeviceState, DeviceSummary, LightColor } from "@/lib/api";
 
 /** How long a commanded value outranks disagreeing server state. The Govee
  *  cloud routinely takes 2–6 s to reflect a write; 12 s bounds the lie if a
  *  command was silently dropped while still feeling responsive. */
 const HOLD_MS = 12_000;
 
-type IntentField = "power" | "brightness" | "color" | "color_temp_k";
+/** `active_mode` is the 5th, synthetic field (WEBUI_V3_SPEC.md §3/§8 T10):
+ *  it does not correspond 1:1 to a `DeviceState` key (the server field is
+ *  `active`, an object) — recording one lets a scene/DIY button show
+ *  "applying: sleep…" the instant it's clicked, before the sidecar's ledger
+ *  write lands and a poll confirms it. `reconcile` special-cases it below. */
+type IntentField = "power" | "brightness" | "color" | "color_temp_k" | "active_mode";
+
+/** The subset of `ActiveMode` a client can actually assert about its own
+ *  just-issued command — never a confidence/source/timestamp, since those
+ *  are server-computed facts (§3.4), not something the client commanded. */
+export type ActiveModeIntentValue = Pick<ActiveMode, "mode" | "label">;
+
+type IntentValue = boolean | number | LightColor | ActiveModeIntentValue | null;
 
 interface Intent {
-  value: boolean | number | LightColor | null;
+  value: IntentValue;
   at: number;
 }
 
@@ -59,6 +71,7 @@ export interface IntentPatch {
   brightness?: number;
   color?: LightColor | null;
   color_temp_k?: number | null;
+  active_mode?: ActiveModeIntentValue | null;
 }
 
 /** Record commanded values for a device. Each field gets a fresh timestamp —
@@ -72,7 +85,7 @@ export function recordIntent(ref: string, patch: IntentPatch): void {
   }
   for (const [field, value] of Object.entries(patch) as [
     IntentField,
-    boolean | number | LightColor | null,
+    IntentValue,
   ][]) {
     if (value === undefined) continue;
     entry.set(field, { value, at: now });
@@ -83,11 +96,20 @@ export function recordIntent(ref: string, patch: IntentPatch): void {
   notify();
 }
 
+function isLightColor(v: unknown): v is LightColor {
+  return typeof v === "object" && v !== null && "hex" in v;
+}
+
+function isActiveModeIntentValue(v: unknown): v is ActiveModeIntentValue {
+  return typeof v === "object" && v !== null && "mode" in v;
+}
+
 function sameValue(a: unknown, b: unknown): boolean {
-  if (typeof a === "object" && a !== null && typeof b === "object" && b !== null) {
-    const ca = a as LightColor;
-    const cb = b as LightColor;
-    return ca.hex.toUpperCase() === cb.hex.toUpperCase();
+  if (isLightColor(a) && isLightColor(b)) {
+    return a.hex.toUpperCase() === b.hex.toUpperCase();
+  }
+  if (isActiveModeIntentValue(a) && isActiveModeIntentValue(b)) {
+    return a.mode === b.mode && a.label === b.label;
   }
   return a === b;
 }
@@ -113,6 +135,27 @@ export function reconcile<S extends DeviceState | DeviceSummary>(
       confirmed.push(field);
       continue;
     }
+    if (field === "active_mode") {
+      // No 1:1 server key — `active_mode` asserts against `server.active`'s
+      // mode/label, and on divergence synthesizes a pending `ActiveMode`
+      // (confidence always "assumed": this is a client claim about its own
+      // just-issued command, never a server-verified fact — see §3.4).
+      const wanted = intent.value as ActiveModeIntentValue | null;
+      const live = server.active;
+      if (wanted === null || sameValue({ mode: live.mode, label: live.label }, wanted)) {
+        confirmed.push(field);
+        continue;
+      }
+      (merged as unknown as { active: ActiveMode }).active = {
+        mode: wanted.mode,
+        label: wanted.label,
+        confidence: "assumed",
+        source: "webui",
+        set_at: new Date(intent.at).toISOString(),
+        age_seconds: Math.floor((now - intent.at) / 1000),
+      };
+      continue;
+    }
     const serverValue = server[field as keyof S];
     if (sameValue(serverValue, intent.value)) {
       confirmed.push(field); // cloud caught up — stand down
@@ -134,6 +177,7 @@ export interface PendingView {
   brightness?: number;
   color?: LightColor | null;
   color_temp_k?: number | null;
+  active_mode?: ActiveModeIntentValue | null;
 }
 
 /** Snapshot of unconfirmed commanded values (for syncing indicators). */

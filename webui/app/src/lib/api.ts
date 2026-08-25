@@ -26,10 +26,48 @@ export interface Capabilities {
   segment_count_cloud: number;
   segment_count_ble: number;
   prefer_ble_effects: boolean;
+  /** 0 on a model with no addressable matrix (e.g. H6008) — the paint
+   *  studio tab does not appear in that case. */
+  matrix_rows: number;
+  matrix_cols: number;
+  /** True when the last column wraps to touch column 0 (H6022's drum). */
+  matrix_wrap_col: boolean;
+}
+
+/** WEBUI_V3_SPEC.md §3 — the active-mode ledger's read-side merge result.
+ *  Never a guess: `mode`/`confidence` are honest about what can and can't be
+ *  known from the cloud (scene/diy/music/snapshot/segments/effect can never
+ *  read back above "assumed" — see §3.4). `mode: "unknown"` must render as
+ *  unknown, never be treated as an implicit "basic". */
+export type ActiveModeKind =
+  | "off"
+  | "basic"
+  | "scene"
+  | "diy"
+  | "music"
+  | "snapshot"
+  | "segments"
+  | "effect"
+  | "unknown";
+
+export type ActiveModeConfidence = "confirmed" | "assumed" | "external" | "unknown";
+
+export type ActiveModeSource = "cli" | "webui" | "schedule" | "group" | null;
+
+export interface ActiveMode {
+  mode: ActiveModeKind;
+  label: string | null;
+  confidence: ActiveModeConfidence;
+  source: ActiveModeSource;
+  set_at: string | null;
+  age_seconds: number | null;
 }
 
 /** Normalised device state — the shape every state-bearing endpoint returns.
- *  Nullable fields are unknowns: BLE devices report no readable state. */
+ *  Nullable fields are unknowns: BLE devices report no readable state.
+ *  `active` is always present (never optional) — a device with no ledger
+ *  history still gets an honest `{mode: "unknown", ...}` object, not an
+ *  absent field a caller might mistake for "not implemented yet". */
 export interface DeviceState {
   ref: string;
   id: string;
@@ -42,6 +80,7 @@ export interface DeviceState {
   color: LightColor | null;
   color_temp_k: number | null;
   capabilities?: Capabilities;
+  active: ActiveMode;
 }
 
 export interface DeviceSummary {
@@ -55,13 +94,45 @@ export interface DeviceSummary {
   brightness: number | null;
   color: LightColor | null;
   color_temp_k: number | null;
+  active: ActiveMode;
+}
+
+/** WEBUI_V3_SPEC.md §6.5 — replaces the old flat `scheduler: boolean`.
+ *  `native` is this process's embedded APScheduler-less poll runner;
+ *  `external` summarises crontab-driven automation (wake-ramp and any other
+ *  govee-cli cron line) the native runner knows nothing about. */
+export interface SchedulerLastFire {
+  rule_id: string;
+  name: string;
+  at: string;
+  ok: boolean;
+  error?: string;
+}
+
+export interface SchedulerNativeHealth {
+  alive: boolean;
+  poll_seconds: number | null;
+  last_cycle_at: string | null;
+  last_fire: SchedulerLastFire | null;
+}
+
+export interface SchedulerExternalHealth {
+  crontab_readable: boolean;
+  error: string | null;
+  wake_ramp_armed: boolean | null;
+  entry_count: number;
+}
+
+export interface SchedulerHealth {
+  native: SchedulerNativeHealth;
+  external: SchedulerExternalHealth;
 }
 
 export interface Health {
   status: string;
   version: string;
   mock: boolean;
-  scheduler: boolean;
+  scheduler: SchedulerHealth;
 }
 
 export interface FirmwareScene {
@@ -124,6 +195,102 @@ export interface GroupRunResult {
   error?: string;
 }
 
+/* -------------------------------------------------- matrix paint studio §5 */
+
+export interface EffectKeyframe {
+  t: number;
+  /** 6-digit hex, no leading "#" — matches `scenes/*.json` on disk. */
+  color: string;
+}
+
+export interface EffectSegment {
+  id: number;
+  keyframes: EffectKeyframe[];
+}
+
+/** The full body of one `scenes/*.json` file — `GET /effects/{file}`.
+ *  Distinct from `EffectInfo` (list metadata: segment *count*, not the
+ *  keyframes themselves) — this is what the paint studio re-loads onto the
+ *  canvas for editing. `description` is optional: hand-authored scene files
+ *  may carry one, but `POST /effects` never writes it. */
+export interface EffectBody {
+  name: string;
+  description?: string;
+  segments: EffectSegment[];
+  loop: boolean;
+  fps: number;
+}
+
+export interface EffectCreateRequest {
+  device: string;
+  name: string;
+  segments: EffectSegment[];
+  loop?: boolean;
+  fps?: number;
+  force?: "ble" | "cloud";
+}
+
+/** §5.3 — the paint studio's honesty mechanism: the default segment→matrix
+ *  boundary guess is a hypothesis until a human confirms it against the lit
+ *  hardware. `calibrated: false` is the normal, expected state for a device
+ *  nobody has calibrated yet — never an error. */
+export interface SegmentCalibration {
+  calibrated: boolean;
+  boundaries: number[] | null;
+  permutation: number[] | null;
+  calibrated_at: string | null;
+}
+
+export interface SegmentCalibrationRequest {
+  boundaries: number[];
+  permutation: number[];
+}
+
+/* ------------------------------------------------------- schedule truth §6 */
+
+export type CrontabSource = "crontab" | "spool" | "snapshot" | "none";
+export type ScheduleConfidence = "exact" | "estimated" | "unknown";
+export type ExternalEntryKind = "wake-ramp" | "cron";
+
+/** `source` says which of three routes actually answered (live `crontab -l`,
+ *  the spool file, or a cached snapshot); `stale_seconds` is set only for
+ *  the snapshot route — a cached answer must never be presented as live. */
+export interface CrontabStatus {
+  readable: boolean;
+  error: string | null;
+  checked_at: string;
+  source: CrontabSource;
+  stale_seconds: number | null;
+}
+
+export interface WakeRampStatus {
+  armed_date: string | null;
+  weekdays_always: boolean | null;
+  cron_installed: boolean | null;
+  today_will_run: boolean | null;
+}
+
+export interface ExternalScheduleEntry {
+  id: string;
+  kind: ExternalEntryKind;
+  raw_line: string | null;
+  cron_expr: string | null;
+  command: string;
+  device_hint: string | null;
+  duration_minutes: number | null;
+  wake_ramp_status: WakeRampStatus | null;
+  next_fire: string | null;
+  next_fire_confidence: ScheduleConfidence;
+  today_occurrences: string[];
+  today_occurrences_truncated: boolean;
+  parse_error: string | null;
+}
+
+export interface ExternalSchedule {
+  crontab: CrontabStatus;
+  entries: ExternalScheduleEntry[];
+}
+
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
@@ -162,6 +329,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(response.status, code, message);
   }
 
+  // 204 No Content (DELETE /active-mode, PUT /segment-calibration) carries no
+  // body — calling .json() on it throws a SyntaxError on an empty string.
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
   return (await response.json()) as T;
 }
 
@@ -171,6 +344,10 @@ function post<T>(path: string, body?: unknown): Promise<T> {
 
 function put<T>(path: string, body: unknown): Promise<T> {
   return request<T>(path, { method: "PUT", body: JSON.stringify(body) });
+}
+
+function del<T>(path: string): Promise<T> {
+  return request<T>(path, { method: "DELETE" });
 }
 
 /* ---------------------------------------------------------------- queries */
@@ -328,4 +505,31 @@ export const api = {
 
   playingEffects: () =>
     request<PlayingEffect[]>("/effects/playing"),
+
+  /** §3.6 — the manual "that is not what I see" reset. Clears the ledger
+   *  entry entirely (not set to "unknown" — an absent key IS unknown). */
+  deleteActiveMode: (ref: string) =>
+    del<void>(`/devices/${encodeURIComponent(ref)}/active-mode`),
+
+  getEffect: (file: string) =>
+    request<EffectBody>(`/effects/${encodeURIComponent(file)}`),
+
+  createEffect: (body: EffectCreateRequest) =>
+    post<EffectInfo>("/effects", body),
+
+  getSegmentCalibration: (ref: string) =>
+    request<SegmentCalibration>(
+      `/devices/${encodeURIComponent(ref)}/segment-calibration`,
+    ),
+
+  putSegmentCalibration: (ref: string, body: SegmentCalibrationRequest) =>
+    put<void>(`/devices/${encodeURIComponent(ref)}/segment-calibration`, body),
+
+  externalSchedules: () => request<ExternalSchedule>("/schedules/external"),
+
+  armWakeRamp: () =>
+    post<ExternalScheduleEntry>("/schedules/external/wake-ramp/arm"),
+
+  disarmWakeRamp: () =>
+    post<ExternalScheduleEntry>("/schedules/external/wake-ramp/disarm"),
 };

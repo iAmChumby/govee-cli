@@ -24,7 +24,15 @@ import {
   type QueryKey,
 } from "@tanstack/react-query";
 
-import { api, ApiError, type DeviceState, type DeviceSummary } from "@/lib/api";
+import {
+  api,
+  ApiError,
+  type DeviceState,
+  type DeviceSummary,
+  type EffectCreateRequest,
+  type ExternalSchedule,
+  type SegmentCalibrationRequest,
+} from "@/lib/api";
 import {
   isPending,
   recordIntent,
@@ -434,4 +442,149 @@ export function hexToRgb(hex: string): [number, number, number] {
     parseInt(v.slice(2, 4), 16),
     parseInt(v.slice(4, 6), 16),
   ];
+}
+
+/* -------------------------------------------------- T10 — v3 endpoint hooks */
+
+/**
+ * The manual "that is not what I see" reset (§3.6) — clears the ledger entry
+ * server-side. Returns 204/no body, so there is no optimistic state to apply
+ * (the honest next state is "unknown," decided by the server's own merge
+ * rules, not guessed here); invalidates so the next read reflects it.
+ */
+export function useDeleteActiveMode() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (ref: string) => enqueueWrite(ref, () => api.deleteActiveMode(ref)),
+    onSuccess: (_data, ref) => {
+      for (const key of deviceKeys(ref)) {
+        void queryClient.invalidateQueries({ queryKey: key });
+      }
+      toast({ variant: "info", title: "Active mode reset", description: ref });
+    },
+    onError: (err) => {
+      toast({ variant: "error", title: "Reset failed", description: errMessage(err) });
+    },
+  }).mutateAsync;
+}
+
+/**
+ * Save a studio-authored effect as a real, playable `scenes/*.json` file.
+ * Fire-and-forget: T13's "Save as effect" does zero device I/O, so there is
+ * nothing to optimistically preview — only the library list changes.
+ */
+export function useCreateEffect() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (body: EffectCreateRequest) => api.createEffect(body),
+    onSuccess: (effect) => {
+      void queryClient.invalidateQueries({ queryKey: ["effects"] });
+      toast({
+        variant: "ok",
+        title: "Effect saved",
+        description: `${effect.name} · ${effect.file}.json`,
+      });
+    },
+    onError: (err) => {
+      toast({ variant: "error", title: "Save effect failed", description: errMessage(err) });
+    },
+  }).mutateAsync;
+}
+
+/**
+ * §5.3's honesty mechanism, bundled: the persisted calibration (`calibrated:
+ * false` is the normal, expected state — never an error) plus `save`, the
+ * PUT that records a completed calibration-wizard run. Query fields
+ * (`data`/`isLoading`/`error`/…) are spread directly onto the return value
+ * alongside `save`, so callers destructure both in one place:
+ * `const { data, save } = useSegmentCalibration(ref)`.
+ */
+export function useSegmentCalibration(ref: string | null) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const query = useQuery({
+    queryKey: ["segment-calibration", ref],
+    queryFn: () => api.getSegmentCalibration(ref as string),
+    enabled: ref !== null,
+    staleTime: 60_000,
+  });
+
+  const save = useMutation({
+    mutationFn: (body: SegmentCalibrationRequest) =>
+      api.putSegmentCalibration(ref as string, body),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["segment-calibration", ref] });
+      toast({ variant: "ok", title: "Calibration saved" });
+    },
+    onError: (err) => {
+      toast({ variant: "error", title: "Calibration save failed", description: errMessage(err) });
+    },
+  }).mutateAsync;
+
+  return { ...query, save };
+}
+
+/**
+ * §6.2/§6.6 — crontab-discovered automation (wake-ramp + any other
+ * govee-cli cron line). Polled coarser than device state (the endpoint
+ * shells out up to twice and is itself cached 30-60s server-side); a
+ * `crontab.readable === false` payload is a normal, first-class response
+ * here, not a query error — the panel/timeline own rendering that honestly.
+ */
+export function useExternalSchedules() {
+  return useQuery({
+    queryKey: ["schedules-external"],
+    queryFn: api.externalSchedules,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+  });
+}
+
+function useWakeRampAction(action: "arm" | "disarm") {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const fn = action === "arm" ? api.armWakeRamp : api.disarmWakeRamp;
+
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: (entry) => {
+      // Optimistic-by-fresh-fetch: the response IS the freshly re-read entry
+      // (§6.2 — arm state is always re-read live, never cached client-side
+      // across the action), so splice it straight into the cached list.
+      queryClient.setQueryData<ExternalSchedule>(["schedules-external"], (old) =>
+        old
+          ? {
+              ...old,
+              entries: old.entries.map((e) => (e.id === entry.id ? entry : e)),
+            }
+          : old,
+      );
+      void queryClient.invalidateQueries({ queryKey: ["schedules-external"] });
+      void queryClient.invalidateQueries({ queryKey: ["health"] });
+      toast({
+        variant: "ok",
+        title: action === "arm" ? "Wake-ramp armed" : "Wake-ramp disarmed",
+      });
+    },
+    onError: (err) => {
+      toast({
+        variant: "error",
+        title: action === "arm" ? "Arm failed" : "Disarm failed",
+        description: errMessage(err),
+      });
+    },
+  }).mutateAsync;
+}
+
+export function useWakeRampArm() {
+  return useWakeRampAction("arm");
+}
+
+export function useWakeRampDisarm() {
+  return useWakeRampAction("disarm");
 }

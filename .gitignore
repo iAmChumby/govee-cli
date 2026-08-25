@@ -21,3 +21,6 @@ next-env.d.ts
 
 # Reference photos / phone screenshots dropped in for a working session.
 images/
+
+# Screenshots from scripts/verify_ui.py.
+.verify-ui/

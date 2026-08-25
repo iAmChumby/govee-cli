@@ -79,10 +79,18 @@ async def _scheduler_health(app: FastAPI) -> dict[str, Any]:
         payload = await run_blocking(external_schedule.build_external_schedule)
         entries = payload["entries"]
         wake_ramp = next((e for e in entries if e.get("kind") == "wake-ramp"), None)
+        # Armed state lives at wake_ramp_status.armed_date — a date string when
+        # armed, null when not. Distinguish "not armed" (False) from "the script
+        # could not be read" (None): a weekend that will not fire and a weekend
+        # whose state is unknown are not the same answer.
+        status = wake_ramp.get("wake_ramp_status") if wake_ramp else None
+        armed: bool | None = None
+        if status is not None:
+            armed = status.get("armed_date") is not None
         external: dict[str, Any] = {
             "crontab_readable": payload["crontab"]["readable"],
             "error": payload["crontab"]["error"],
-            "wake_ramp_armed": wake_ramp.get("armed") if wake_ramp else None,
+            "wake_ramp_armed": armed,
             "entry_count": len(entries),
         }
     except Exception as e:  # never let a crontab hiccup fail the health probe
