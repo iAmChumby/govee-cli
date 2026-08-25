@@ -72,7 +72,17 @@ export function TabsList({
 }: React.ComponentProps<typeof TabsPrimitive.List>) {
   return (
     <TabsPrimitive.List
-      className={cn("flex items-end gap-5 border-b border-hairline", className)}
+      // Scrolls rather than wraps. At 390px the device console's six tabs
+      // ("Paint Studio" among them) do not fit, and a wrapping row broke the
+      // label across two lines while clipping the last tab's text — a control
+      // that looks like a rendering bug. Horizontal scroll keeps every label
+      // whole and reachable; `scrollbar-none` hides the bar on desktop where
+      // the row usually fits anyway.
+      className={cn(
+        "flex items-end gap-5 overflow-x-auto scrollbar-none border-b border-hairline",
+        "[&>*]:shrink-0",
+        className,
+      )}
       {...rest}
     />
   );

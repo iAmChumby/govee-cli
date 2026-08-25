@@ -50,6 +50,7 @@ export interface CanvasGridProps {
   disabled?: boolean;
   ariaLabel?: string;
   className?: string;
+  style?: React.CSSProperties;
 }
 
 const MOVE_PX = 6;
@@ -78,6 +79,7 @@ export function CanvasGrid({
   disabled = false,
   ariaLabel = "Paint canvas",
   className,
+  style,
 }: CanvasGridProps) {
   const gridRef = React.useRef<HTMLDivElement>(null);
   const gestureRef = React.useRef<GestureState | null>(null);
@@ -108,7 +110,20 @@ export function CanvasGrid({
     if (disabled) return;
     const hit = hitFromPoint(e.clientX, e.clientY);
     if (!hit) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
+    try {
+      // Capture keeps a drag tracked once the finger/cursor leaves the grid
+      // bounds — a nice-to-have, not a requirement for the gesture itself
+      // to register. Some environments can reject this (observed: a
+      // NotFoundError for a pointer id the browser doesn't consider
+      // active), and an uncaught throw here would abort the handler before
+      // the gesture state below is ever armed, silently dropping the whole
+      // stroke/tap with no visible feedback — worth guarding on the studio's
+      // primary drawing surface even though it can't happen with a real,
+      // organically-generated pointerdown.
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      // continue — the gesture still works without capture
+    }
 
     const g: GestureState = {
       pointerId: e.pointerId,
@@ -188,6 +203,7 @@ export function CanvasGrid({
         className,
       )}
       style={{
+        ...style,
         gridTemplateColumns: `repeat(${geometry.cols}, minmax(0, 1fr))`,
         gridTemplateRows: `repeat(${geometry.rows}, minmax(0, 1fr))`,
       }}

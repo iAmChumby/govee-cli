@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import signal
 import pathlib
 import shutil
 import socket
@@ -39,6 +40,12 @@ APP = REPO / "webui" / "app"
 # this must never be mistaken for — or interfere with — the live console.
 API_PORT = 6157
 WEB_PORT = 6156
+
+# Next compiles `rewrites` into the routes manifest at BUILD time, so pointing
+# the app at the scratch sidecar means building with GOVEE_WEBUI_API set — and
+# building into a separate dist dir so this never overwrites the .next that
+# govee-webui.service is serving.
+DIST_DIR = ".next-verify"
 
 IPHONE = {"width": 390, "height": 844}
 
@@ -86,10 +93,27 @@ def start_stack(log_dir: pathlib.Path) -> list[subprocess.Popen[bytes]]:
         # Fixture latency off: this asserts on rendered output, not spinners.
         "GOVEE_WEBUI_MOCK_LATENCY": "0-0",
     }
+    build_env = {
+        **os.environ,
+        "GOVEE_WEBUI_API": f"http://127.0.0.1:{API_PORT}",
+        "GOVEE_WEBUI_DIST_DIR": DIST_DIR,
+    }
+    print("  building against the scratch sidecar (rewrites are baked in)...")
+    build = subprocess.run(
+        ["npm", "run", "build"], cwd=APP, env=build_env,
+        capture_output=True, text=True, timeout=900,
+    )
+    if build.returncode != 0:
+        raise Failure("next build failed:\n" + build.stdout[-3000:] + build.stderr[-2000:])
+
     api_log = (log_dir / "sidecar.log").open("wb")
+    # start_new_session so each server becomes its own process group leader:
+    # `npm run start` execs a child next-server, and terminating npm alone
+    # orphans it holding the port, which makes the next run fail to start.
     api = subprocess.Popen(
         [str(REPO / ".venv" / "bin" / "python"), "-m", "webui.api.main"],
         cwd=REPO, env=env, stdout=api_log, stderr=subprocess.STDOUT,
+        start_new_session=True,
     )
     _wait_for(f"http://127.0.0.1:{API_PORT}/api/v1/health")
 
@@ -97,11 +121,28 @@ def start_stack(log_dir: pathlib.Path) -> list[subprocess.Popen[bytes]]:
     web = subprocess.Popen(
         ["npm", "run", "start", "--", "-p", str(WEB_PORT), "-H", "127.0.0.1"],
         cwd=APP,
-        env={**env, "GOVEE_WEBUI_API": f"http://127.0.0.1:{API_PORT}"},
+        env={**env, "GOVEE_WEBUI_API": f"http://127.0.0.1:{API_PORT}",
+             "GOVEE_WEBUI_DIST_DIR": DIST_DIR},
         stdout=web_log, stderr=subprocess.STDOUT,
+        start_new_session=True,
     )
     _wait_for(f"http://127.0.0.1:{WEB_PORT}/")
     return [api, web]
+
+
+def _terminate_group(proc: subprocess.Popen[bytes]) -> None:
+    """Kill the whole process group, not just the launcher."""
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+    except (ProcessLookupError, PermissionError):
+        proc.terminate()
+    try:
+        proc.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            proc.kill()
 
 
 def canvas_is_animating(page, selector: str = "canvas") -> tuple[bool, str]:
@@ -128,6 +169,23 @@ def canvas_is_animating(page, selector: str = "canvas") -> tuple[bool, str]:
     return True, f"pixels changed ({len(first)} -> {len(second)} bytes of data URL)"
 
 
+def _apply_a_scene(page) -> str | None:
+    """Apply the first DIY scene the device offers, through the app's own API."""
+    return page.evaluate("""async () => {
+      const path = location.pathname.split('/');
+      const ref = decodeURIComponent(path[path.length - 1]);
+      const list = await (await fetch(`/api/v1/devices/${encodeURIComponent(ref)}/diy`)).json();
+      const first = (list.diy || list.scenes || [])[0];
+      if (!first) return null;
+      const r = await fetch(`/api/v1/devices/${encodeURIComponent(ref)}/diy`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: first.name }),
+      });
+      return r.ok ? first.name : null;
+    }""")
+
+
 def run_checks(shots: pathlib.Path, keep: bool) -> list[str]:
     from playwright.sync_api import sync_playwright
 
@@ -147,6 +205,22 @@ def run_checks(shots: pathlib.Path, keep: bool) -> list[str]:
     base = f"http://127.0.0.1:{WEB_PORT}"
 
     with sync_playwright() as p:
+        # Assert the browser is talking to the mock, not production. Without
+        # this the whole run can silently exercise the real sidecar and the
+        # real devices' state.
+        guard = p.chromium.launch()
+        gpage = guard.new_context().new_page()
+        gpage.goto(base + "/", wait_until="domcontentloaded", timeout=45_000)
+        is_mock = gpage.evaluate(
+            "async () => (await (await fetch('/api/v1/health')).json()).mock"
+        )
+        guard.close()
+        if is_mock is not True:
+            return [
+                "the app is NOT talking to the mock sidecar (health.mock is "
+                f"{is_mock!r}) — refusing to run against production data"
+            ]
+
         browser = p.chromium.launch()
         for theme in ("dark", "light"):
             ctx = browser.new_context(
@@ -179,9 +253,12 @@ def run_checks(shots: pathlib.Path, keep: bool) -> list[str]:
             # The device console, and the motion assertion that is the point of
             # this whole script.
             page.goto(base + "/", wait_until="networkidle", timeout=45_000)
-            link = page.locator("a[href^='/device/']").first
+            # Several device links exist (nav drawer, plates). Take the first
+            # one a person could actually tap; a hidden nav entry is not a
+            # meaningful test of the dashboard.
+            link = page.locator("a[href^='/device/']:visible").first
             if link.count() == 0:
-                failures.append(f"{theme}: no device link on the dashboard")
+                failures.append(f"{theme}: no visible device link on the dashboard")
             else:
                 link.click()
                 page.wait_for_load_state("networkidle", timeout=45_000)
@@ -189,6 +266,23 @@ def run_checks(shots: pathlib.Path, keep: bool) -> list[str]:
                 page.screenshot(path=str(shots / f"{theme}-device.png"), full_page=True)
 
                 if theme == "dark":  # assert motion once; it is theme-independent
+                    # Put the device into a real motion mode first. On a clean
+                    # mock the ledger is empty, so every device reads "unknown"
+                    # and the stage correctly renders NO motion — asserting on
+                    # that state would test the wrong thing (and an earlier
+                    # version of this script only appeared to pass because it
+                    # was accidentally driving the production sidecar, whose
+                    # lamp really was mid-scene).
+                    applied = _apply_a_scene(page)
+                    if applied is None:
+                        failures.append("could not put the mock device into a scene")
+                    else:
+                        print(f"  applied: {applied}")
+                        page.reload(wait_until="networkidle", timeout=45_000)
+                        page.wait_for_timeout(1200)
+                        page.screenshot(
+                            path=str(shots / "device-motion.png"), full_page=True
+                        )
                     ok, detail = canvas_is_animating(page)
                     if not ok:
                         failures.append(f"motion engine: {detail}")
@@ -235,11 +329,7 @@ def main() -> int:
         return 2
     finally:
         for proc in procs:
-            proc.terminate()
-            try:
-                proc.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                proc.kill()
+            _terminate_group(proc)
 
     if failures:
         print(f"\n{len(failures)} PROBLEM(S):")

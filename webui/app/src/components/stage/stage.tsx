@@ -10,10 +10,12 @@ import {
   useTransform,
   type MotionValue,
 } from "motion/react";
+import { RotateCcw } from "lucide-react";
 
 import { cn } from "@/lib/cn";
 import { springStandard } from "@/lib/motion";
 import type { DeviceState, DeviceSummary } from "@/lib/api";
+import { useDeleteActiveMode } from "@/lib/queries";
 import { Button } from "@/components/ui/button";
 import {
   clamp,
@@ -26,6 +28,14 @@ import {
   WARM_HSL,
   type Hsl,
 } from "./color";
+import { MotionCanvas } from "@/lib/motion-engine/MotionCanvas";
+import { classifyActiveMode } from "@/lib/motion-engine/classify";
+import { buildGeometry } from "@/lib/motion-engine/geometry";
+import type {
+  ActiveMode as MotionActiveMode,
+  ActiveModeKind as MotionActiveModeKind,
+  MotionSpec,
+} from "@/lib/motion-engine/types";
 
 /* ==================================================================
    DeviceStage — the optical bench centerpiece (WEBUI_SPEC §5.4).
@@ -76,6 +86,15 @@ export interface DeviceStageProps {
   onPaintSegments?: (segments: number[], hex?: string, brightness?: number) => void;
   /** full = device console centerpiece; mini = console plate preview */
   variant?: "full" | "mini";
+  /**
+   * Real per-cell paint data for the H6022's `MatrixLattice` (row-major,
+   * length `matrix_rows * matrix_cols`) — WEBUI_V3_SPEC.md §5's paint
+   * studio is the intended future producer. Omit (or pass `null`) to keep
+   * the lattice's existing decorative hairline-only rendering; this task
+   * only makes `MatrixLattice` *capable* of taking real data, it does not
+   * wire a producer.
+   */
+  matrixCells?: readonly string[] | null;
   className?: string;
 }
 
@@ -98,7 +117,21 @@ function brightnessGlow(brightness: number | null): number {
   return 0.25 + 0.75 * (clamp(brightness ?? 50, 1, 100) / 100);
 }
 
-/** The single color the whole instrument is emitting right now. */
+/** Neutral, near-desaturated chassis tone used for Halo/EmissionLayers/core
+ *  whenever the §4.3 motion texture layer is mounted. Without this, the
+ *  instrument's own glow keeps rendering `activeHsl` — a guess sourced from
+ *  possibly-stale `color`/`color_temp_k` — underneath the texture layer,
+ *  which is exactly the dishonest "confident guess" §4.3 exists to remove.
+ *  The chassis still breathes with `glow`/`warm` (power/brightness are real
+ *  reads); only the *hue* claim is dropped in favor of the classified
+ *  `MotionSpec` drawn on top. */
+const NEUTRAL_CHASSIS_HSL: Hsl = [0, 0, 22];
+
+/** The single color the whole instrument is emitting right now — the
+ *  `basic`/`off`/`unknown`/no-active fallback. Used verbatim for those
+ *  cases (zero regression, WEBUI_V3_SPEC.md §4.3's hard requirement); for
+ *  every other `active.mode` the texture layer below takes over instead of
+ *  guessing a static color from possibly-stale `color`/`color_temp_k`. */
 function useActiveHsl(state: DeviceState | DeviceSummary): Hsl {
   return React.useMemo<Hsl>(() => {
     if (state.color) return rgbToHsl(state.color.rgb);
@@ -107,6 +140,131 @@ function useActiveHsl(state: DeviceState | DeviceSummary): Hsl {
     }
     return WARM_HSL;
   }, [state.color, state.color_temp_k]);
+}
+
+/* --------------------------------------------------------- active mode texture
+   WEBUI_V3_SPEC.md §4.3 — the direct fix for "the GUI doesn't match what I
+   see": once the ledger (§3) knows a device is running a scene/DIY/music
+   mode/segment paint/effect (not just a plain color the cloud can verify),
+   rendering a guessed flat HSL is dishonest — the cloud always reads back
+   empty for those instances, so a solid-color render would silently claim
+   certainty that doesn't exist. `off`/`basic`/`unknown` (and a defensively
+   handled missing `active` field) are the one path required to render
+   byte-for-byte identical to pre-T12 stage.tsx — `unknown` is included
+   deliberately: it means "no record at all," and motion there would
+   fabricate the exact kind of claim this ledger exists to avoid. */
+
+interface MotionModeMeta {
+  /** motion-engine's own classification input (types.ts `ActiveModeKind`) */
+  kind: MotionActiveModeKind;
+  /** human phrase for the caption, e.g. "sleep — DIY scene" */
+  label: string;
+}
+
+/** Maps the ledger's `active.mode` (api.ts) to the motion engine's own
+ *  classification kind (motion-engine/types.ts) per §4.4's mapping
+ *  comment. Returns `null` for `off`/`basic`/`unknown` (and anything else
+ *  unrecognized) — the signal to keep rendering the existing solid path. */
+function motionModeMetaFor(mode: DeviceState["active"]["mode"] | undefined): MotionModeMeta | null {
+  switch (mode) {
+    case "scene":
+      return { kind: "firmware_scene", label: "scene" };
+    case "diy":
+      return { kind: "diy_scene", label: "DIY scene" };
+    case "music":
+      return { kind: "music_mode", label: "music mode" };
+    case "snapshot":
+      return { kind: "solid", label: "snapshot" };
+    case "segments":
+      return { kind: "segment_paint", label: "segments" };
+    case "effect":
+      return { kind: "effect", label: "effect" };
+    default:
+      return null; // off | basic | unknown | undefined
+  }
+}
+
+/** api.ts's `ActiveModeSource` ("cli"|"webui"|"schedule"|"group"|null) onto
+ *  motion-engine's own `ActiveMode.source` ("ui"|"schedule"|"cli"|"group"|
+ *  "unknown") — the two were named independently, this is the one place
+ *  they need reconciling. */
+function motionSourceFor(source: DeviceState["active"]["source"]): MotionActiveMode["source"] {
+  if (source === "webui") return "ui";
+  return source ?? "unknown";
+}
+
+/** Builds the motion engine's own `ActiveMode` input from the ledger's
+ *  merged `active` field plus the live-read color/temp as the fallback
+ *  palette source for kinds (`solid`, and — via `classifySegmentPaint` —
+ *  `segment_paint`) that render off a single color rather than a name. */
+function buildMotionActiveMode(
+  state: DeviceState | DeviceSummary,
+  active: DeviceState["active"],
+  kind: MotionActiveModeKind,
+): MotionActiveMode {
+  return {
+    kind,
+    name: active.label ?? undefined,
+    color: state.color ? { r: state.color.rgb[0], g: state.color.rgb[1], b: state.color.rgb[2] } : null,
+    colorTempK: state.color_temp_k ?? null,
+    confidence: active.confidence,
+    ageSeconds: active.age_seconds,
+    source: motionSourceFor(active.source),
+  };
+}
+
+/** "3h ago" / "45s ago" — coarse, matches the caption's own low-precision
+ *  register (this is a "how stale is this claim" cue, not a stopwatch). */
+function formatAgeShort(seconds: number | null): string | null {
+  if (seconds === null) return null;
+  const s = Math.max(0, Math.round(seconds));
+  if (s < 60) return `${s}s ago`;
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.round(h / 24);
+  return `${d}d ago`;
+}
+
+/** e.g. `"sleep — DIY scene, assumed, 3h ago"` — the exact form
+ *  §4.3 specifies. Confidence is always spelled out verbatim (never
+ *  softened, never omitted) so "assumed"/"external"/"unknown" can never
+ *  be mistaken for "confirmed" at a glance. */
+function activeModeCaption(active: DeviceState["active"], kindLabel: string): string {
+  const head = active.label ? `${active.label} — ${kindLabel}` : kindLabel;
+  const age = formatAgeShort(active.age_seconds);
+  return [head, active.confidence, age].filter((part): part is string => Boolean(part)).join(", ");
+}
+
+/**
+ * The "that is not what I see" reset (§3.6/§4.3): clears the ledger entry
+ * for this device via `DELETE /devices/{ref}/active-mode` (T10's
+ * `useDeleteActiveMode`), which drops `active.mode` back to `unknown` on
+ * the next read — the honest "we don't know anymore" state, not a guess at
+ * what's actually running.
+ */
+function ActiveModeReset({ deviceRef }: { deviceRef: string }) {
+  const deleteActiveMode = useDeleteActiveMode();
+  const [busy, setBusy] = React.useState(false);
+
+  const handleReset = React.useCallback(() => {
+    setBusy(true);
+    void deleteActiveMode(deviceRef).finally(() => setBusy(false));
+  }, [deleteActiveMode, deviceRef]);
+
+  return (
+    <button
+      type="button"
+      aria-label="Not what I see — reset active mode"
+      title="Not what I see — reset"
+      onClick={handleReset}
+      disabled={busy}
+      className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-low outline-none transition-colors duration-150 hover:text-hi active:scale-95 disabled:opacity-40"
+    >
+      <RotateCcw aria-hidden className="h-3.5 w-3.5" />
+    </button>
+  );
 }
 
 /** Spring-driven 0..1 emission for the whole instrument. */
@@ -448,9 +606,27 @@ const MATRIX_ROWS = 11;
  * lines sit on a cosine projection so edge columns compress like a wrapped
  * cylinder, row lines are even (horizontal rings). Opacity rides the glow —
  * the lattice is barely there when off.
+ *
+ * Promoted (WEBUI_V3_SPEC.md §2/§5.5) to *optionally* accept real per-cell
+ * paint data via `cells` — row-major, length `MATRIX_ROWS * MATRIX_COLS`,
+ * matching the same `index = row*12 + col` convention CLAUDE.md documents
+ * for the real hardware. When `cells` is omitted (or the wrong length),
+ * the component renders exactly its pre-existing decorative hairline-only
+ * form — this task only makes it *capable* of real data; the paint studio
+ * (§5) is the intended future producer and does not consume this yet.
  */
-function MatrixLattice({ glow, mini }: { glow: MotionValue<number>; mini: boolean }) {
+function MatrixLattice({
+  glow,
+  mini,
+  cells,
+}: {
+  glow: MotionValue<number>;
+  mini: boolean;
+  /** real row-major per-cell CSS colors, or omit for decorative-only */
+  cells?: readonly string[] | null;
+}) {
   const opacity = useTransform(glow, (g) => (mini ? 0.05 : 0.07) + 0.16 * g);
+  const cellOpacity = useTransform(glow, (g) => 0.35 + 0.55 * g);
   const colXs = React.useMemo(
     () =>
       Array.from(
@@ -463,38 +639,64 @@ function MatrixLattice({ glow, mini }: { glow: MotionValue<number>; mini: boolea
     () => Array.from({ length: MATRIX_ROWS - 1 }, (_, i) => ((i + 1) / MATRIX_ROWS) * 100),
     [],
   );
+  const colBounds = React.useMemo(() => [0, ...colXs, 100], [colXs]);
+  const rowBounds = React.useMemo(() => [0, ...rowYs, 100], [rowYs]);
+  const hasCells = cells != null && cells.length === MATRIX_ROWS * MATRIX_COLS;
+
   return (
     <motion.svg
       aria-hidden
       className="absolute inset-0 h-full w-full"
       viewBox="0 0 100 100"
       preserveAspectRatio="none"
-      style={{ opacity }}
     >
-      {colXs.map((x) => (
-        <line
-          key={`col-${x}`}
-          x1={x}
-          y1={0}
-          x2={x}
-          y2={100}
-          stroke="rgb(0 0 0 / 0.55)"
-          strokeWidth={1}
-          vectorEffect="non-scaling-stroke"
-        />
-      ))}
-      {rowYs.map((y) => (
-        <line
-          key={`row-${y}`}
-          x1={0}
-          y1={y}
-          x2={100}
-          y2={y}
-          stroke="rgb(0 0 0 / 0.55)"
-          strokeWidth={1}
-          vectorEffect="non-scaling-stroke"
-        />
-      ))}
+      {hasCells ? (
+        <motion.g style={{ opacity: cellOpacity }}>
+          {Array.from({ length: MATRIX_ROWS }, (_, row) =>
+            Array.from({ length: MATRIX_COLS }, (_, col) => {
+              const index = row * MATRIX_COLS + col;
+              const x = colBounds[col]!;
+              const y = rowBounds[row]!;
+              return (
+                <rect
+                  key={`cell-${index}`}
+                  x={x}
+                  y={y}
+                  width={colBounds[col + 1]! - x}
+                  height={rowBounds[row + 1]! - y}
+                  fill={cells![index]}
+                />
+              );
+            }),
+          )}
+        </motion.g>
+      ) : null}
+      <motion.g style={{ opacity }}>
+        {colXs.map((x) => (
+          <line
+            key={`col-${x}`}
+            x1={x}
+            y1={0}
+            x2={x}
+            y2={100}
+            stroke="rgb(0 0 0 / 0.55)"
+            strokeWidth={1}
+            vectorEffect="non-scaling-stroke"
+          />
+        ))}
+        {rowYs.map((y) => (
+          <line
+            key={`row-${y}`}
+            x1={0}
+            y1={y}
+            x2={100}
+            y2={y}
+            stroke="rgb(0 0 0 / 0.55)"
+            strokeWidth={1}
+            vectorEffect="non-scaling-stroke"
+          />
+        ))}
+      </motion.g>
     </motion.svg>
   );
 }
@@ -549,7 +751,8 @@ function MatrixLampStage({
   isSelected,
   onToggle,
   mini,
-}: InstrumentProps & { segmentCount: number }) {
+  matrixCells,
+}: InstrumentProps & { segmentCount: number; matrixCells?: readonly string[] | null }) {
   const coreOpacity = useCoreOpacity(e.glow);
   const rail = interactive && !mini;
 
@@ -639,7 +842,7 @@ function MatrixLampStage({
         />
 
         {/* the led matrix showing through the weave */}
-        <MatrixLattice glow={e.glow} mini={mini} />
+        <MatrixLattice glow={e.glow} mini={mini} cells={matrixCells} />
       </div>
 
       {/* base foot */}
@@ -762,6 +965,7 @@ export function DeviceStage({
   onSelectionChange,
   onPaintSegments,
   variant = "full",
+  matrixCells,
   className,
 }: DeviceStageProps) {
   const isControlled = selected !== undefined;
@@ -774,16 +978,29 @@ export function DeviceStage({
   const warmth = useWarmth(state.power === true);
   const warm = useTransform([glow, warmth], ([g, w]: number[]) => g * w);
 
+  // §4.3: check active.mode FIRST, before building the instrument's own
+  // emission colors — a non-basic/non-off/non-unknown mode must not let
+  // `activeHsl` (a guess from possibly-stale `color`/`color_temp_k`) drive
+  // Halo/EmissionLayers/core. `active` is typed as required on both
+  // DeviceState/DeviceSummary, but read through a local `| undefined`
+  // binding anyway (no cast) so a defensively-missing field at runtime
+  // falls through to `motionMeta === null` — the same "keep today's
+  // rendering" path as basic/off/unknown, per the regression guard.
+  const active: DeviceState["active"] | undefined = state.active;
+  const motionMeta = motionModeMetaFor(active?.mode);
+  const hasMotionTexture = motionMeta !== null;
+  const chassisHsl = hasMotionTexture ? NEUTRAL_CHASSIS_HSL : activeHsl;
+
   const factor = brightnessGlow(state.brightness);
   const e: Emission = React.useMemo(
     () => ({
       glow,
       warm,
-      lit: hslCss(emissionHsl(activeHsl, factor)),
-      haloHsl: glowHsl(activeHsl),
-      core: hslCss(withLightness(activeHsl, Math.min(activeHsl[2] + 30, 96))),
+      lit: hslCss(emissionHsl(chassisHsl, factor)),
+      haloHsl: glowHsl(chassisHsl),
+      core: hslCss(withLightness(chassisHsl, Math.min(chassisHsl[2] + 30, 96))),
     }),
-    [glow, warm, activeHsl, factor],
+    [glow, warm, chassisHsl, factor],
   );
 
   const zones = zoneCountFor(state);
@@ -814,6 +1031,13 @@ export function DeviceStage({
   const showApplyBar =
     !isControlled && interactive && onPaintSegments !== undefined && sel.length > 0;
 
+  // `active`/`motionMeta` are computed above (before `e`) so the chassis
+  // emission colors can be neutralized in the same pass; reused here for
+  // the texture layer + caption.
+  const motionSpec: MotionSpec | null =
+    motionMeta && active ? classifyActiveMode(buildMotionActiveMode(state, active, motionMeta.kind), state.model ?? "") : null;
+  const motionGeometry = motionMeta ? buildGeometry(state.model, mini ? "mini" : "full") : null;
+
   return (
     <div
       role="group"
@@ -826,10 +1050,59 @@ export function DeviceStage({
       {zones !== null && state.model === "H6056" && zones === 6 ? (
         <BarsStage {...instrumentProps} />
       ) : zones !== null && state.model === "H6022" ? (
-        <MatrixLampStage {...instrumentProps} segmentCount={zones} />
+        <MatrixLampStage {...instrumentProps} segmentCount={zones} matrixCells={matrixCells} />
       ) : (
         <OrbStage e={e} socket={hasSocket(state.model)} mini={mini} />
       )}
+
+      {/* §4.3 texture layer: a non-basic/non-off/non-unknown active.mode
+          replaces the guessed flat color with the motion engine's real
+          classification. One canvas per DeviceStage (§4.1's "one 2D
+          context per stage"), screen-blended over the existing halo/lit
+          layers rather than DOM-swapped into each instrument's own nested
+          markup — MotionCanvas stays blank (transparent) whenever the
+          driver's plate concurrency cap is hit, at which point the
+          untouched layers beneath it are exactly today's fallback
+          rendering, satisfying §4.1's "fall back to the existing cheap
+          CSS Breath/Halo loop" without any extra branching here. */}
+      {motionMeta && motionSpec && motionGeometry ? (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          // Edge softening lives in the geometry's clip paths, not here — the
+          // engine draws into the instrument's silhouette, so the wrapper needs
+          // no mask of its own.
+          style={{ mixBlendMode: "screen" }}
+        >
+          <MotionCanvas
+            geometry={motionGeometry}
+            spec={motionSpec}
+            variant={mini ? "mini" : "full"}
+            className="h-full w-full"
+          />
+        </span>
+      ) : null}
+
+      {/* honest label/confidence/age caption + manual reset (§3.6/§4.3) —
+          never rendered on the basic/off/unknown/no-active path, so that
+          path stays byte-for-byte identical to pre-T12 output. */}
+      {motionMeta && active ? (
+        <div className="pointer-events-none absolute inset-x-2 top-2 flex items-start justify-between gap-2">
+          <span
+            className={cn(
+              "truncate rounded-chip border border-hairline bg-bg/80 px-1.5 py-0.5 font-mono leading-none tracking-micro text-low",
+              mini ? "text-[7px]" : "text-[9px]",
+            )}
+          >
+            {activeModeCaption(active, motionMeta.label)}
+          </span>
+          {!mini ? (
+            <span className="pointer-events-auto">
+              <ActiveModeReset deviceRef={state.ref} />
+            </span>
+          ) : null}
+        </div>
+      ) : null}
 
       {/* floating apply affordance for standalone (uncontrolled) paint mode */}
       <AnimatePresence>

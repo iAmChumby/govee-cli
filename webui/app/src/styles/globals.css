@@ -163,3 +163,15 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Hide the scrollbar on rows that scroll horizontally by design (the device
+   console's tab rail, the plate's channel-strip dock). The row still scrolls
+   and still shows its own overflow affordances — this only removes the bar,
+   which on desktop reads as a rendering artefact under a one-line control. */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

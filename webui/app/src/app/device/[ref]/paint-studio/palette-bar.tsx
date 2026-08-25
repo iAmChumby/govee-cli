@@ -27,6 +27,13 @@ const TOOLS: { id: ToolId; label: string; Icon: typeof Paintbrush }[] = [
   { id: "eyedropper", label: "Eyedropper (tap a cell)", Icon: Pipette },
 ];
 
+/** `IconButton`'s largest preset ("md") is 36px, short of the 44px minimum
+ *  this row's own doc comment promises — a shared component out of this
+ *  file's ownership, so the target is grown here via inline style (which
+ *  wins over the component's own fixed `h-9 w-9` utility classes) rather
+ *  than by editing `components/ui/icon-button.tsx`. */
+const TOUCH_TARGET: React.CSSProperties = { minWidth: 44, minHeight: 44 };
+
 const SYMMETRY_OPTIONS: { id: SymmetryAxis; label: string }[] = [
   { id: "none", label: "off" },
   { id: "col", label: "left-right" },
@@ -78,6 +85,7 @@ export function PaletteBar({
               tooltip={label}
               aria-pressed={tool === id}
               onClick={() => onToolChange(id)}
+              style={TOUCH_TARGET}
               className={cn(tool === id && "border-hairline-strong bg-accent-dim text-hi")}
             >
               <Icon size={15} strokeWidth={1.6} aria-hidden />
@@ -87,13 +95,13 @@ export function PaletteBar({
 
         <span aria-hidden className="mx-0.5 h-6 w-px bg-hairline" />
 
-        <IconButton label="Undo" tooltip="Undo (Ctrl/Cmd+Z)" disabled={!canUndo} onClick={onUndo}>
+        <IconButton label="Undo" tooltip="Undo (Ctrl/Cmd+Z)" disabled={!canUndo} onClick={onUndo} style={TOUCH_TARGET}>
           <Undo2 size={15} strokeWidth={1.6} aria-hidden />
         </IconButton>
-        <IconButton label="Redo" tooltip="Redo (Ctrl/Cmd+Shift+Z)" disabled={!canRedo} onClick={onRedo}>
+        <IconButton label="Redo" tooltip="Redo (Ctrl/Cmd+Shift+Z)" disabled={!canRedo} onClick={onRedo} style={TOUCH_TARGET}>
           <Redo2 size={15} strokeWidth={1.6} aria-hidden />
         </IconButton>
-        <IconButton label="Clear canvas" tooltip="Clear canvas" onClick={onClear}>
+        <IconButton label="Clear canvas" tooltip="Clear canvas" onClick={onClear} style={TOUCH_TARGET}>
           <Trash2 size={15} strokeWidth={1.6} aria-hidden />
         </IconButton>
       </div>
@@ -109,7 +117,7 @@ export function PaletteBar({
               aria-pressed={symmetry === opt.id}
               onClick={() => onSymmetryChange(opt.id)}
               className={cn(
-                "h-7 cursor-pointer rounded-btn border px-2.5 font-mono text-[10px] uppercase tracking-[0.06em] transition-colors duration-150",
+                "h-11 cursor-pointer rounded-btn border px-2.5 font-mono text-[10px] uppercase tracking-[0.06em] transition-colors duration-150",
                 symmetry === opt.id
                   ? "border-hairline-strong bg-accent-dim text-hi"
                   : "border-hairline text-mid hover:border-hairline-strong hover:text-hi",

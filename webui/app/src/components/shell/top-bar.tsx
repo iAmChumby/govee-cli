@@ -3,11 +3,11 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { CalendarClock, Settings, Terminal } from "lucide-react";
 
 import { Chip, ThemeToggle } from "@/components/ui";
-import { fadeUp } from "@/lib/motion";
+import { fadeUp, springSnappy } from "@/lib/motion";
 import { cn } from "@/lib/cn";
 
 /** Path segment → readable crumb ("device" stays, refs decode). */
@@ -33,6 +33,7 @@ const NAV_ITEMS = [
  */
 export function TopBar() {
   const pathname = usePathname();
+  const reduced = useReducedMotion();
   const crumbs = React.useMemo(() => {
     if (pathname === "/") return [];
     return pathname.split("/").filter(Boolean).map(crumbLabel);
@@ -74,23 +75,32 @@ export function TopBar() {
         ))}
       </span>
 
-      {/* icon nav (mobile — the side rail is hidden below md) */}
+      {/* icon nav (mobile — the side rail is hidden below md). Chassis per
+          §G — the chip/typography/color tokens are exactly what they were;
+          the one change is springSnappy press-in physics on the one
+          interactive chrome in the bar (§D "Top bar"), guarded by
+          useReducedMotion() the way every other primitive's whileTap is. */}
       <nav aria-label="Primary" className="flex items-center gap-1 md:hidden">
         {NAV_ITEMS.map((item) => {
           const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
           return (
-            <Link
+            <motion.span
               key={item.href}
-              href={item.href}
-              aria-current={active ? "page" : undefined}
-              aria-label={item.label}
-              className={cn(
-                "flex h-9 w-9 items-center justify-center rounded-btn transition-colors duration-150",
-                active ? "bg-accent-dim text-hi" : "text-mid hover:bg-accent-dim hover:text-hi",
-              )}
+              className="inline-flex"
+              whileTap={reduced ? undefined : { scale: 0.9, transition: springSnappy }}
             >
-              <item.icon size={16} strokeWidth={1.5} aria-hidden />
-            </Link>
+              <Link
+                href={item.href}
+                aria-current={active ? "page" : undefined}
+                aria-label={item.label}
+                className={cn(
+                  "flex h-9 w-9 items-center justify-center rounded-btn transition-colors duration-150",
+                  active ? "bg-accent-dim text-hi" : "text-mid hover:bg-accent-dim hover:text-hi",
+                )}
+              >
+                <item.icon size={16} strokeWidth={1.5} aria-hidden />
+              </Link>
+            </motion.span>
           );
         })}
       </nav>

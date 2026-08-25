@@ -8,12 +8,14 @@ import { Plus, Trash2 } from "lucide-react";
 import { Button, Chip, Panel, SectionLabel, Skeleton, Switch } from "@/components/ui";
 import { useToast } from "@/components/ui/toaster";
 import { ApiError, api, type DeviceSummary, type ScheduleRule } from "@/lib/api";
-import { useDevices, useSchedules } from "@/lib/queries";
+import { useDevices, useExternalSchedules, useSchedules } from "@/lib/queries";
 import { cn } from "@/lib/cn";
 import { panelIn, staggerParent } from "@/lib/motion";
 
 import { AddRuleDialog } from "./add-rule-dialog";
+import { ExternalAutomationPanel } from "./external-panel";
 import { formatNextFire, nextFireDateTime } from "./next-fire";
+import { ScheduleTimeline } from "./timeline";
 
 /* ==================================================================
    Schedules — rule list with enable toggles, add-rule sheet and
@@ -80,7 +82,15 @@ function DeleteRuleButton({ onConfirm, label }: { onConfirm: () => void; label: 
 
 /* ------------------------------------------------------------------ row */
 
-function RuleRow({ rule, devices }: { rule: ScheduleRule; devices: DeviceSummary[] }) {
+function RuleRow({
+  rule,
+  devices,
+  highlighted,
+}: {
+  rule: ScheduleRule;
+  devices: DeviceSummary[];
+  highlighted?: boolean;
+}) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const now = useNow();
@@ -144,9 +154,11 @@ function RuleRow({ rule, devices }: { rule: ScheduleRule; devices: DeviceSummary
 
   return (
     <li
+      id={`rule-${rule.id}`}
       className={cn(
-        "flex flex-wrap items-center gap-x-3 gap-y-2 py-3 first:pt-0 last:pb-0",
+        "flex flex-wrap items-center gap-x-3 gap-y-2 rounded-card py-3 px-2 -mx-2 transition-colors duration-500 first:pt-0 last:pb-0",
         !rule.enabled && "opacity-55",
+        highlighted && "bg-accent-dim",
       )}
     >
       <Switch
@@ -189,10 +201,24 @@ function RuleRow({ rule, devices }: { rule: ScheduleRule; devices: DeviceSummary
 export default function SchedulesPage() {
   const schedules = useSchedules();
   const devices = useDevices();
+  const external = useExternalSchedules();
   const [addOpen, setAddOpen] = React.useState(false);
+  const [highlightId, setHighlightId] = React.useState<string | null>(null);
 
   const rules = schedules.data ?? [];
   const enabledCount = rules.filter((r) => r.enabled).length;
+
+  // Timeline markers are the only "edit a rule" entry point that isn't the
+  // list itself — this codebase has no rule-editor dialog (only create),
+  // so "select" scrolls to and briefly highlights the matching row in the
+  // Native Rules panel below rather than opening a modal that doesn't exist.
+  const handleSelectRule = React.useCallback((ruleId: string) => {
+    setHighlightId(ruleId);
+    document
+      .getElementById(`rule-${ruleId}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.setTimeout(() => setHighlightId((cur) => (cur === ruleId ? null : cur)), 1600);
+  }, []);
 
   return (
     <>
@@ -233,9 +259,23 @@ export default function SchedulesPage() {
               </motion.section>
             ) : null}
 
+            {/* 24h timeline — native rules + external automation, §6.4 */}
+            <motion.section variants={panelIn}>
+              <SectionLabel index={1} title="today" />
+              <Panel className="mt-3 p-5">
+                <ScheduleTimeline
+                  rules={rules}
+                  external={external.data}
+                  externalLoading={external.isLoading}
+                  devices={devices.data ?? []}
+                  onSelectRule={handleSelectRule}
+                />
+              </Panel>
+            </motion.section>
+
             {/* rule list */}
             <motion.section variants={panelIn}>
-              <SectionLabel index={1} title="rules" />
+              <SectionLabel index={2} title="native rules" />
               <Panel className="mt-3 p-5">
                 {schedules.isLoading ? (
                   <div className="space-y-3">
@@ -256,12 +296,20 @@ export default function SchedulesPage() {
                 ) : (
                   <ul className="divide-y divide-hairline">
                     {rules.map((rule) => (
-                      <RuleRow key={rule.id} rule={rule} devices={devices.data ?? []} />
+                      <RuleRow
+                        key={rule.id}
+                        rule={rule}
+                        devices={devices.data ?? []}
+                        highlighted={highlightId === rule.id}
+                      />
                     ))}
                   </ul>
                 )}
               </Panel>
             </motion.section>
+
+            {/* external automation — crontab-discovered, read-only, §6.3 */}
+            <ExternalAutomationPanel />
           </motion.div>
         </main>
 

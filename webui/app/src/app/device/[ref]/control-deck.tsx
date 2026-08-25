@@ -20,7 +20,7 @@ import {
   TabsTrigger,
 } from "@/components/ui";
 import { panelIn } from "@/lib/motion";
-import { SegmentsPanel } from "./segments-panel";
+import { PaintStudioPanel } from "./paint-studio/paint-studio-panel";
 import { HexField, NativeColorInput, SwatchRow } from "./color-picker";
 import { useTrailingCommit } from "./use-trailing-commit";
 import {
@@ -48,6 +48,10 @@ export function ControlDeck({ refId, state }: ControlDeckProps) {
   const caps = state.capabilities;
   const name = state.name ?? state.ref;
   const pending = usePendingState(refId);
+  // Matrix Paint Studio (§5) replaces the old segment-select-then-apply
+  // rail entirely for any model with an addressable matrix; a model
+  // without one (H6008, matrix_rows=0) gets no segments/paint tab at all.
+  const hasMatrix = (caps?.matrix_rows ?? 0) > 0;
 
   return (
     <motion.section variants={panelIn} className="flex min-w-0 flex-col gap-5">
@@ -66,7 +70,7 @@ export function ControlDeck({ refId, state }: ControlDeckProps) {
         <Tabs defaultValue="light">
           <TabsList className="-mx-1 overflow-x-auto px-1 sm:flex-wrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <TabsTrigger value="light">Light</TabsTrigger>
-            {caps?.segments ? <TabsTrigger value="segments">Segments</TabsTrigger> : null}
+            {hasMatrix ? <TabsTrigger value="paint-studio">Paint Studio</TabsTrigger> : null}
             {caps?.scenes ? <TabsTrigger value="scenes">Scenes</TabsTrigger> : null}
             {caps?.diy ? <TabsTrigger value="diy">DIY</TabsTrigger> : null}
             {caps?.diy ? <TabsTrigger value="snapshots">Snapshots</TabsTrigger> : null}
@@ -81,9 +85,9 @@ export function ControlDeck({ refId, state }: ControlDeckProps) {
             <LightTab refId={refId} state={state} />
           </TabsContent>
 
-          {caps?.segments ? (
-            <TabsContent value="segments">
-              <SegmentsPanel refId={refId} state={state} />
+          {hasMatrix ? (
+            <TabsContent value="paint-studio">
+              <PaintStudioPanel refId={refId} state={state} />
             </TabsContent>
           ) : null}
 

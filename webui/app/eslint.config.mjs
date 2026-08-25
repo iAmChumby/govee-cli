@@ -12,7 +12,9 @@ const compat = new FlatCompat({
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
-    ignores: ["node_modules/**", ".next/**", "out/**", "next-env.d.ts"],
+    // .next-verify is scripts/verify_ui.py's throwaway build, kept out of
+    // .next so it cannot clobber the deployed one.
+    ignores: ["node_modules/**", ".next/**", ".next-verify/**", "out/**", "next-env.d.ts"],
   },
 ];
 

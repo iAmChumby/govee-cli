@@ -26,6 +26,13 @@ export function totalLeds(geometry: Geometry): number {
   return geometry.rows * geometry.cols;
 }
 
+/** CSS `aspect-ratio` value for this geometry's canvas — the H6022's
+ *  11×12 drum and the H6056's 2×48 bars need genuinely different shapes,
+ *  so this must never be a hardcoded constant shared across models. */
+export function aspectRatioCss(geometry: Geometry): string {
+  return `${geometry.cols} / ${geometry.rows}`;
+}
+
 /** `led(row, col) = row * cols + col` — the confirmed H6022 formula
  *  (CLAUDE.md), generalized to any rows×cols geometry. */
 export function ledIndex(geometry: Geometry, row: number, col: number): number {
@@ -241,6 +248,23 @@ export function applyMotion(
     }
   }
   return out;
+}
+
+/** Every motion frame (0..frameCount-1), unshifted canvas passed straight
+ *  through for `static` (frameCount is 1 there). Shared by the live
+ *  estimate in `motion-controls.tsx` and the real export in
+ *  `export-dialog.tsx` so "how many requests will this cost" and "what
+ *  actually gets written" can never silently diverge. */
+export function renderFrames(
+  canvas: Uint8ClampedArray,
+  geometry: Geometry,
+  motion: Motion,
+  exportFps: number,
+): Uint8ClampedArray[] {
+  const count = frameCountFor(motion, exportFps);
+  const frames: Uint8ClampedArray[] = [];
+  for (let f = 0; f < count; f += 1) frames.push(applyMotion(canvas, geometry, motion, f, exportFps));
+  return frames;
 }
 
 /* ---------------------------------------------------- §5.6 effect emission */
