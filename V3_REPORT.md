@@ -124,7 +124,7 @@ schedules".
 
 `wake-ramp` itself gained a `status --json` flag. Plain `wake-ramp status` output
 is byte-identical to before — I diffed it — and `run`/`arm`/`disarm` are
-untouched. It's backed up at `/tmp/wake-ramp.orig.bak`.
+untouched. Backed up at `~/backups/wake-ramp/wake-ramp.pre-json-2026-08-25`.
 
 ## 5. The look
 
@@ -214,7 +214,150 @@ Things I chose not to do, rather than things I missed:
 - `.planning/WEBUI_V3_SPEC.md` is the full implementation contract (16 tasks,
   disjoint file ownership) if you want to see how it was broken up.
 
-Dogfood it for a day. The thing I'd most want your eyes on is whether the
-`assumed` vs `confirmed` distinction on the stage caption actually reads as
-useful, or whether it's noise — that's the one design call I couldn't verify
-without you.
+- Two touch targets are under the 44px minimum and I knowingly left them:
+  `groups-section.tsx`'s 24px broadcast swatches, and `icon-button.tsx`'s `md`
+  size topping out at 36px — the paint studio works around the second with an
+  inline style rather than fixing the primitive. Fixing `icon-button` clears it
+  everywhere at once.
+- The repo is 72MB of `.git` and will stay that way. `venv/` is untracked now
+  but its 1,255 files are still in history; only a rewrite would shrink it.
+- The pre-change `wake-ramp` backup was in `/tmp` (cleared on reboot, and
+  `~/.local/bin` is not under version control). Moved to
+  `~/backups/wake-ramp/wake-ramp.pre-json-2026-08-25` and verified it still
+  behaves identically to the current script.
+
+Dogfood it for a day. The design call I'd most want your eyes on is the
+**celebration bursts** — they're rationed to two moments and were tuned blind.
+If any one thing turns out to be irritating on day two, my money is there. The
+`assumed`/`confirmed` caption is the runner-up.
+
+---
+
+# Addendum — the API budget, measured
+
+Written after the fact, because I made a claim in this report's first draft that
+turned out to be half wrong and the correction matters for how the console
+should behave.
+
+## What I got wrong
+
+I wrote that "Govee's documented daily ceiling is 10,000, so a foreground tab
+could exhaust it in about seven hours." The 10,000 is real — but it is **v1's**,
+and the console runs entirely on **v2**. I applied one API's published limit to a
+different API without evidence.
+
+## What is actually true, measured on your account
+
+**v1** (`developer-api.govee.com`) reports both windows on every response:
+
+```
+API-RateLimit-Limit: 10        <- per minute, account-wide
+X-RateLimit-Limit:  10000      <- per day
+X-RateLimit-Remaining: 9998
+X-RateLimit-Reset:  <24h out>
+```
+
+**v2** (`openapi.api.govee.com`) — which every one of your four devices uses —
+returns **no rate-limit headers at all**. `Date`, `Content-Type`,
+`Transfer-Encoding`, `Connection`. That is the entire response header set.
+
+And the two are metered separately. Three v2 calls made between two v1 reads
+moved v1's daily counter by exactly 1 — the v1 request itself. So v1's headers
+cannot be used as a proxy for v2 consumption, and there is no way to ask v2 how
+much budget is left.
+<!-- verified by direct request 2026-08-25 -->
+
+## What that means practically
+
+v2's ceiling is undocumented and invisible. Everything this repo knows about it
+is scar tissue rather than documentation:
+
+- it 429s under bursts, which is why `wake-ramp` sleeps 3s between calls with 5
+  retries, and why cloud effect playback is capped at 2fps
+- the "~2 req/s" in the status strip is folklore from those observations, not a
+  published figure
+
+The console at 4 devices per 10s is roughly 0.4 req/s sustained, comfortably
+under the burst threshold — so 429s from polling alone are unlikely. The real
+unknown is the daily total, and Govee gives no feedback until commands start
+failing.
+
+Note also that one client poll fans out to **four** upstream calls (one per
+device). A single batched state endpoint would cut console traffic 4x and is
+probably worth doing regardless.
+
+---
+
+# What to build next
+
+Ranked. The first three are one afternoon together and make each other worth
+having.
+
+## 1. A real request-budget meter
+
+Now that we know v2 tells you nothing, the sidecar should count for itself — it
+makes every single v2 call, so it already sits at the only chokepoint. Replace
+the hardcoded "budget ~2 req/s" label with measured requests-today and
+requests-per-minute, plus a warning band as consumption climbs.
+
+This turns an invisible budget into a visible one and gives a real number to set
+the poll interval from. It also supersedes the advice in this report's first
+draft, which amounted to "wait for the failure."
+
+## 2. Room scenes — capture and restore all four devices at once
+
+The obvious gap and the cheapest win. The "sleep mode" spans the shelf lamp, the
+bars and both floor lamps, and restoring it means touching four devices. The
+ledger now records what each device is doing, so a room scene is close to free:
+read state + ledger for every device, store the tuple, replay it.
+
+Nothing existing does this. `groups` broadcasts *one command string* to several
+devices; Govee's own `snapshot` is per-device and firmware-side. Neither captures
+"these four devices, each in a different mode."
+
+It is also the only proposal here that pays off daily.
+
+## 3. Make `unknown` fixable
+
+Set a scene from the Govee app and the console honestly says `unknown` — with
+nothing you can do about it. One tap on the stage, pick what is actually
+playing, ledger updated. Turns a dead end into a two-second correction, and it
+is a prerequisite for room scenes being trustworthy: capturing a room while
+three devices read `unknown` is useless.
+
+## 4. Mirror a playing effect literally
+
+Finishes a known gap. While a keyframe effect plays the stage renders a generic
+breathe, because `DeviceState` does not carry the keyframes. Wiring the real ones
+tightens the studio loop: draw, play, watch the browser show the real thing,
+iterate. Mostly plumbing.
+
+## 5. The H6022's encrypted BLE protocol
+
+The ambitious one. A published implementation exists
+(`dvdavd/govee-h6022-ble`): AES-128-ECB + RC4 under a session key from an `0xe7`
+handshake. Porting it gives the **full 12x11 matrix at real frame rate** instead
+of 15 interpolated segments at 2 requests/second — the difference between the
+paint studio being honest about what it cannot do and actually being better than
+the Govee app. The canvas, tools, motion and export are already built against the
+real geometry; only the transport is the bottleneck.
+
+Real risk: it is a crypto + handshake port against hardware that is awkward to
+bisect, and the repo's placeholder `0x33` protocol cannot talk to it at all.
+Timebox a spike to "complete a handshake and set one pixel" before committing.
+BLE is unrelated to the LAN-control bug that makes the H6022 unresponsive, so
+that warning does not apply here.
+
+## What I would not build
+
+More visual polish. v3 has enough motion and enough loudness; more would start
+costing legibility rather than buying delight. And nothing new should land on top
+of the parts you have not lived with yet — cutting a bad design call is cheap
+until something is built on it.
+
+## Reusable structure
+
+`.planning/WEBUI_V3_SPEC.md` §8 is a task format with strict disjoint file
+ownership, which is what let seven agents work the same tree in parallel without
+collisions. Adding T17+ in the same shape and re-running the workflow pattern
+should just work. That structure is more reusable than the code it produced.
