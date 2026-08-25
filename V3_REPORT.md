@@ -378,13 +378,21 @@ than hiding it, which is the only reason I can tell you precisely what happened:
 
 - A power-on packet reached the H6008 "Lamp Top". That model ignores BLE
   entirely, so almost certainly nothing happened.
-- A **brightness-50 packet reached the H6056 Light Bars**, and BLE brightness is
-  confirmed-working on that model. Your Light Bars are at 50% because of this.
-  Colour was untouched.
+- A **brightness-50 packet reached the H6056 Light Bars**, where BLE brightness
+  is confirmed-working.
 
-I did not restore the previous brightness, because the ledger deliberately does
-not record brightness, so I would have had to invent a number — the exact thing
-this console exists not to do. It is a one-tap fix.
+**Nothing visibly changed, and I initially said otherwise.** My first read of
+this was that the Light Bars were sitting at 50% because of the stray packet.
+They were not: `wake-ramp` drives that exact device to a hard ceiling of
+`MAX_PCT=50` every weekday morning, finishing at 07:00, and the ledger shows the
+only write after that was a colour change at 07:52. The packet landed around
+09:30 and set the brightness to the value it already held. Checking what
+wake-ramp actually targets is what showed this — worth doing before reporting an
+impact, which I did in the wrong order.
+
+So the damage was zero. The discipline failure was not, which is why it is
+written up here anyway: the same packet aimed at a device mid-scene, or at
+night, would have been a real intrusion.
 
 The mechanism was a real product bug, not just a careless script. `resolve_ref`
 falls back to treating **any MAC-shaped string as an ad-hoc BLE address**, and
@@ -520,8 +528,6 @@ tally is two seconds stale. Worst-case `record()` went from 535ms to **0.31ms**.
 
 ## Still open
 
-- **Your Light Bars are at 50%** from the stray packet. Not restored, because I
-  would have had to guess the previous value.
 - **Whether 26 req/min is too much is genuinely unknown.** Watch
   `rate_limited_today` — that is the only evidence that exists.
 - **Whether a hidden tab stops polling** — untested, see above.
