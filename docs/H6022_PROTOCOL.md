@@ -164,6 +164,25 @@ Each `capability` object has the shape `{"type": ..., "instance": ..., "value": 
 - **15 addressable zones**, indices 0-14. All 15 accepted (HTTP 200).
 - Index 15 rejected: code 400 `"Parameter value out of range"`.
 - Visually confirmed on hardware: setting segments 0-6 red and 7-14 blue produced two distinct color zones on the physical lamp. Per-segment addressing genuinely works — it is not collapsed to a single whole-lamp color under the hood.
+- **The 15 segments are an API template, not the lamp's geometry.** The developer-docs schema hardcodes `elementRange 0-14` / `size.max 15` for every device; govee2mqtt logs show the platform advertising the same generic `segment_rgb=Some(0..15)` for the H6022. 15 divides neither the matrix's 11 rows, 12 columns, nor 132 leds — the firmware interpolates the 15 elements onto the matrix by some undocumented rule (precedent: the H61E0's 15 elements interpolate across its 20 physical segments, per govee2mqtt#105). No public source maps them. Pinning the mapping requires a hardware probe: light one segment, black the rest, photograph.
+
+---
+
+## Matrix Topology
+
+The shade hides a **132-led cylindrical matrix: 12 columns around the drum × 11 rows tall**. Confirmed by three independent implementations:
+
+| Source | Evidence |
+|---|---|
+| [dvdavd/govee-lan-ha](https://github.com/dvdavd/govee-lan-ha) | "LED indices run from 0 to 131, with `row = index // 12` and `col = index % 12`"; its scene-card editor hardcodes `MATRIX_WIDTH = 12; MATRIX_HEIGHT = 11` |
+| [dvdavd/govee-h6022-ble](https://github.com/dvdavd/govee-h6022-ble) | Same constants in `js/govee-matrix.js`; `SCENE_LED_COUNT = 132` parses Govee's own firmware scene params |
+| [OpenRGB c81f869](https://github.com/CalcProgrammer1/OpenRGB/commit/c81f8699f1dcb01a4282b1302f6fdf0e5d379d0e) | Registers H6022 as `{ led_count: 132, matrix_row_len: 12 }` |
+
+- **Logical canvas**: `index = row * 12 + col`, row-major, 0-131. This is the address space of the firmware's matrix-scene format *and* (strong indirect evidence) the Govee app's draw grid — the app's DIY output produces `0x41` params whose indices max out at exactly 131.
+- **Wrap**: col 0 touches col 11 around the cylinder — the user-facing draw grid supports horizontal and vertical movement across the wrap.
+- **Physical winding** (OpenRGB, single source, unverified elsewhere): one continuous strip snaking upward, 12 leds per revolution, serpentine — hardware row 0 is the bottom ring, alternating direction per row. The `0x41` scene command addresses the *logical* canvas and the firmware maps it onto the strip, so drawing code uses row-major top-down regardless.
+- **Full-resolution frames** ride a `0x41` matrix-scene param (background RGB + opacity, up to 3 layers, per-layer direction/rate/level/z-order, per-group led indices) over LAN `ptReal` UDP or BLE. LAN is off the table (see hazard above). **H6022 BLE is a new encrypted generation**: same 20-byte XOR-checksummed frame shape, but every frame is AES-128-ECB + RC4 encrypted under a session key obtained via a `0xe7` handshake (static key ASCII `"MakingLifeSmarte"`). The repo's placeholder 0x33 protocol cannot talk to it. Sources: dvdavd/govee-h6022-ble `js/govee-crypto.js` / `js/govee-ble.js`, AlgoClaw/Govee decoded docs.
+- **Cloud v2 cannot send matrix frames.** `diyScene` takes a bare saved-scene int only; there is no custom-frame capability. Cloud paths for this lamp: the 15 interpolated segments, firmware scenes, music, and toggles.
 
 ---
 
@@ -220,5 +239,5 @@ The binding constraint appears to be the documented per-account daily request bu
 
 ---
 
-*Verified against live hardware: 2026-08-14.*
+*Verified against live hardware: 2026-08-14. Matrix topology researched 2026-08-24 (dvdavd/govee-lan-ha, dvdavd/govee-h6022-ble, OpenRGB c81f869, AlgoClaw/Govee).*
 *Device: Shelf Lamp, H6022, `50:CE:E8:6E:80:C6:50:3F`.*

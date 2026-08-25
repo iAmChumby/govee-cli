@@ -76,6 +76,7 @@ function DeviceConsoleContent({ ref }: { ref: string }) {
               <DeviceStage state={state.data} className="h-[320px] sm:h-[380px] lg:h-[480px]" />
               <p className="mt-3 px-1 font-mono text-[10px] leading-relaxed text-low">
                 {state.data.id}
+                {state.data.model === "H6022" ? " · 132-led 12×11 wrapped matrix" : ""}
                 {state.data.capabilities?.segments
                   ? ` · ${state.data.capabilities.segment_count_cloud} cloud segments`
                   : ""}

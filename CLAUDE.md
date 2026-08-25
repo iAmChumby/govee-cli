@@ -151,11 +151,20 @@ command file.
 - **Working**: power, brightness, color, temp (2700–6500K), 15-segment color, 94 firmware
   scenes, DIY scenes, firmware music mode, cloud-driven keyframe effects.
 - **Segments**: 0–14 addressable; index 15 → 400 `Parameter value out of range`.
-  Two-tone painting confirmed on the physical lamp.
+  Two-tone painting confirmed on the physical lamp. **These 15 are an API
+  template, not the lamp's geometry** — the firmware interpolates them onto
+  the matrix by an undocumented rule.
+- **It is a matrix, not a strip**: 132 leds as 12 columns wrapped around the
+  drum × 11 rows (`index = row*12 + col`, col 0 touches col 11). Confirmed by
+  dvdavd/govee-lan-ha, dvdavd/govee-h6022-ble and OpenRGB. The Govee app's
+  draw grid is this canvas. Cloud v2 cannot send matrix frames — full-res
+  drawing needs LAN (blocked, see below) or the encrypted BLE protocol.
 - **`segmentedBrightness` is not supported** → 400 `devices not support this instance`.
   (Useful signal: the API really does distinguish supported instances, so a 200 elsewhere means something.)
-- **BLE**: no published protocol for this SKU anywhere. The 0x33 protocol is *not* confirmed
-  to apply. Would need an original nRF52840 capture.
+- **BLE**: a published encrypted protocol exists (dvdavd/govee-h6022-ble) —
+  20-byte XOR frames like the classic models but AES-128-ECB + RC4 under a
+  session key from a `0xe7` handshake. The repo's placeholder 0x33 protocol
+  cannot talk to it. Implementing it means porting the crypto + handshake.
 - **Do NOT enable LAN Control** for this lamp — an open upstream bug
   (wez/govee2mqtt#518) reports it makes the H6022 unresponsive even to its own
   buttons until LAN Control is turned back off.

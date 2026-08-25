@@ -11,10 +11,12 @@ import { DeviceStage } from "@/components/stage/stage";
 import { HexField, SwatchRow, normalizeHex } from "./color-picker";
 
 /* ==================================================================
-   Segments panel — paint mode. Select zones on the interactive stage,
-   pick a paint color (defaults to the device's current color), then
-   apply through the sidecar's segments endpoint.
-   ================================================================== */
+    Segments panel — paint mode. Select cloud segments on the stage's
+    address rail (the matrix lamp itself is display-only — cloud v2
+    only exposes the coarse 0-14 segment space), pick a paint color
+    (defaults to the device's current color), then apply through the
+    sidecar's segments endpoint.
+    ================================================================== */
 
 interface SegmentsPanelProps {
   refId: string;
@@ -57,13 +59,13 @@ export function SegmentsPanel({ refId, state }: SegmentsPanelProps) {
 
   return (
     <div className="space-y-5 pt-5">
-      {/* interactive stage — selection is owned here */}
+      {/* interactive stage — matrix display + segment address rail */}
       <DeviceStage
         state={state}
         interactive
         selected={selected}
         onSelectionChange={setSelected}
-        className="h-[300px]"
+        className="h-[340px]"
       />
 
       {/* palette */}

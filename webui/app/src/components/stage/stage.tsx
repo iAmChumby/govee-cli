@@ -33,11 +33,13 @@ import {
    Per-model faithful rendering driven entirely by live state:
 
      H6056  two vertical light bars — continuous glowing diffuser
-            tubes on machined bases (zones 0-2 left, 3-5 right as
-            invisible paint bands over each tube)
-     H6022  table lamp — a fabric shade that glows from within:
-            continuous cylindrical gradient, inner core, weave
-            texture; the 15 zones are soft paint bands, never boxes
+             tubes on machined bases (zones 0-2 left, 3-5 right as
+             invisible paint bands over each tube)
+     H6022  table lamp — a fabric shade hiding a 132-led matrix:
+             12 columns wrapped around the drum × 11 rows. The
+             lattice shows through as the led grid. Cloud v2 only
+             exposes 15 coarse segments over it, so paint mode
+             addresses a linear 0-14 rail — never matrix cells
      H6008  single orb bulb with layered halo and socket collar
      other  generic orb
 
@@ -428,24 +430,134 @@ function BarsStage(props: InstrumentProps) {
 
 /* ------------------------------------------------------------- H6022 lamp */
 
-const RULER_TICKS = [0, 7, 14];
+/* ----------------------------------------------------------- H6022 matrix */
 
-function LampStage({
-  zoneCount,
+/**
+ * Hardware truth: the H6022's shade hides a 132-led matrix — 12 columns
+ * wrapped around the drum × 11 rows tall (index = row*12 + col, col 0
+ * touching col 11). Cloud v2 exposes only 15 coarse segments over it —
+ * an API template the firmware interpolates onto the matrix, physical
+ * mapping unverified — so paint mode addresses the linear 0-14 rail,
+ * never individual cells.
+ */
+const MATRIX_COLS = 12;
+const MATRIX_ROWS = 11;
+
+/**
+ * The led grid showing through the fabric. One SVG of hairlines: column
+ * lines sit on a cosine projection so edge columns compress like a wrapped
+ * cylinder, row lines are even (horizontal rings). Opacity rides the glow —
+ * the lattice is barely there when off.
+ */
+function MatrixLattice({ glow, mini }: { glow: MotionValue<number>; mini: boolean }) {
+  const opacity = useTransform(glow, (g) => (mini ? 0.05 : 0.07) + 0.16 * g);
+  const colXs = React.useMemo(
+    () =>
+      Array.from(
+        { length: MATRIX_COLS - 1 },
+        (_, i) => 50 - 50 * Math.cos((Math.PI * (i + 1)) / MATRIX_COLS),
+      ),
+    [],
+  );
+  const rowYs = React.useMemo(
+    () => Array.from({ length: MATRIX_ROWS - 1 }, (_, i) => ((i + 1) / MATRIX_ROWS) * 100),
+    [],
+  );
+  return (
+    <motion.svg
+      aria-hidden
+      className="absolute inset-0 h-full w-full"
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+      style={{ opacity }}
+    >
+      {colXs.map((x) => (
+        <line
+          key={`col-${x}`}
+          x1={x}
+          y1={0}
+          x2={x}
+          y2={100}
+          stroke="rgb(0 0 0 / 0.55)"
+          strokeWidth={1}
+          vectorEffect="non-scaling-stroke"
+        />
+      ))}
+      {rowYs.map((y) => (
+        <line
+          key={`row-${y}`}
+          x1={0}
+          y1={y}
+          x2={100}
+          y2={y}
+          stroke="rgb(0 0 0 / 0.55)"
+          strokeWidth={1}
+          vectorEffect="non-scaling-stroke"
+        />
+      ))}
+    </motion.svg>
+  );
+}
+
+/**
+ * The cloud's linear segment address space (0-14) as an interactive rail.
+ * This is what the API accepts — the firmware interpolates these onto the
+ * matrix, so the rail deliberately sits beside the lamp, not on it.
+ */
+function SegmentRail({
+  count,
+  isSelected,
+  onToggle,
+}: {
+  count: number;
+  isSelected: (index: number) => boolean;
+  onToggle: (index: number) => void;
+}) {
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <div className="flex items-end gap-[3px]">
+        {Array.from({ length: count }, (_, i) => (
+          <button
+            key={i}
+            type="button"
+            aria-pressed={isSelected(i)}
+            aria-label={`Segment ${i}`}
+            onClick={() => onToggle(i)}
+            className="relative h-[22px] w-[15px] cursor-pointer rounded-[4px] border border-hairline bg-white/[0.03] outline-none transition-colors duration-150 hover:border-hairline-strong hover:bg-white/[0.06]"
+          >
+            <motion.span
+              aria-hidden
+              initial={false}
+              animate={{ opacity: isSelected(i) ? 1 : 0, scale: isSelected(i) ? 1 : 0.6 }}
+              transition={springStandard}
+              className="absolute inset-[2px] rounded-[3px] bg-accent"
+            />
+          </button>
+        ))}
+      </div>
+      <span className="font-mono text-[9px] leading-none tracking-micro text-low">
+        cloud segments 0–{count - 1} · firmware-interpolated
+      </span>
+    </div>
+  );
+}
+
+function MatrixLampStage({
   e,
+  segmentCount,
   interactive,
   isSelected,
   onToggle,
   mini,
-}: InstrumentProps & { zoneCount: number }) {
-  const indices = Array.from({ length: zoneCount }, (_, i) => i);
+}: InstrumentProps & { segmentCount: number }) {
   const coreOpacity = useCoreOpacity(e.glow);
+  const rail = interactive && !mini;
 
   return (
     <div
       className={cn(
         "relative flex h-full flex-col items-center justify-end",
-        mini ? "pb-4" : "pb-14",
+        mini ? "pb-4" : rail ? "pb-5" : "pb-14",
       )}
     >
       <Breath>
@@ -472,21 +584,6 @@ function LampStage({
           }
         />
       </Breath>
-
-      {/* mono ruler — zone 0 at the bottom, matching paint indices */}
-      {!mini ? (
-        <div
-          aria-hidden
-          className="absolute bottom-14 left-[16%] top-10 hidden flex-col justify-between items-end sm:flex"
-        >
-          {[...RULER_TICKS].reverse().map((t) => (
-            <span key={t} className="flex items-center gap-1.5">
-              <span className="font-mono text-[9px] leading-none text-low">{t}</span>
-              <span className="h-px w-2 bg-hairline-strong" />
-            </span>
-          ))}
-        </div>
-      ) : null}
 
       {/* shade: a fabric cylinder glowing from within */}
       <div
@@ -541,19 +638,8 @@ function LampStage({
           }}
         />
 
-        {/* paint bands over the shade — reversed so zone 0 sits at the bottom */}
-        <span aria-hidden className="absolute inset-0 flex flex-col-reverse">
-          {indices.map((i) => (
-            <ZoneBand
-              key={i}
-              index={i}
-              interactive={interactive}
-              selected={isSelected(i)}
-              onToggle={onToggle}
-              className="flex-1"
-            />
-          ))}
-        </span>
+        {/* the led matrix showing through the weave */}
+        <MatrixLattice glow={e.glow} mini={mini} />
       </div>
 
       {/* base foot */}
@@ -563,6 +649,13 @@ function LampStage({
           mini ? "h-[6px] w-[76px]" : "h-[12px] w-[152px]",
         )}
       />
+
+      {/* cloud segment rail — the only addressable surface over cloud v2 */}
+      {rail ? (
+        <div className="mt-3">
+          <SegmentRail count={segmentCount} isSelected={isSelected} onToggle={onToggle} />
+        </div>
+      ) : null}
 
       {/* floor pool of light */}
       <Halo
@@ -730,12 +823,10 @@ export function DeviceStage({
         className,
       )}
     >
-      {zones !== null ? (
-        zones === 6 && state.model === "H6056" ? (
-          <BarsStage {...instrumentProps} />
-        ) : (
-          <LampStage {...instrumentProps} zoneCount={zones} />
-        )
+      {zones !== null && state.model === "H6056" && zones === 6 ? (
+        <BarsStage {...instrumentProps} />
+      ) : zones !== null && state.model === "H6022" ? (
+        <MatrixLampStage {...instrumentProps} segmentCount={zones} />
       ) : (
         <OrbStage e={e} socket={hasSocket(state.model)} mini={mini} />
       )}
