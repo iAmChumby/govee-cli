@@ -14,6 +14,11 @@ dependencies = [
     "apscheduler>=3.10.0",
     "pydantic>=2.0.0",
     "structlog>=24.0.0",
+    # http.py / http_v2.py talk to the Govee cloud with requests. It was an
+    # undeclared transitive dependency until 2026-08-25 — present in every dev
+    # venv, absent on a clean CI runner, which is why `import govee_cli` failed
+    # there for months while the CLI worked fine locally.
+    "requests>=2.31.0",
 ]
 
 [project.optional-dependencies]
@@ -24,6 +29,9 @@ dev = [
     "pytest-cov>=4.1.0",
     "mypy>=1.5.0",
     "ruff>=0.1.0",
+    "types-requests>=2.31.0",
+    # starlette's TestClient (tests/test_webui_api.py) needs this.
+    "httpx2>=2.0.0",
 ]
 webui = [
     "fastapi>=0.115.0",

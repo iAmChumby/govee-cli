@@ -1,2 +1,0 @@
-[console_scripts]
-govee-cli = govee_cli.cli:main

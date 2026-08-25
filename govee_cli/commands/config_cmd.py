@@ -2,12 +2,13 @@
 
 import asyncio
 import json
+from typing import Any
 
 import click
 
 from govee_cli.config import (
-    _validate_device_id,
     GoveeConfig,
+    _validate_device_id,
     _validate_device_name,
     _validate_mac,
     _validate_model,
@@ -285,12 +286,12 @@ def _print_devices(cfg: GoveeConfig) -> None:
             # Resolve MACs to names where possible
             names = []
             for m in macs:
-                dev = cfg.devices.get(m)
-                names.append(dev.name if dev and dev.name else m)
+                member = cfg.devices.get(m)
+                names.append(member.name if member and member.name else m)
             click.echo(f"  {group_name}: {', '.join(names)}")
 
 
-def _replace_none(obj):
+def _replace_none(obj: Any) -> Any:
     """Recursively replace None with '(not set)' and empty dicts with '(none)'."""
     if obj is None:
         return "(not set)"
@@ -307,7 +308,7 @@ def _replace_none(obj):
 
 def _print_config(cfg: GoveeConfig) -> None:
     """Print a human-readable config."""
-    output = {
+    output: dict[str, Any] = {
         "default_mac": cfg.default_mac,
         "default_adapter": cfg.default_adapter,
         "default_timeout": cfg.default_timeout,

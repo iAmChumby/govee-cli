@@ -14,3 +14,10 @@ build/
 *.btsnoop
 *.pcap
 *.pcapng
+venv/
+node_modules/
+.next/
+next-env.d.ts
+
+# Reference photos / phone screenshots dropped in for a working session.
+images/

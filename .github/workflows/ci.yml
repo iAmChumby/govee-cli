@@ -10,34 +10,57 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
+      # The webui extra is not optional for the test suite: tests/test_webui_api.py
+      # imports fastapi. Installing only [dev] makes that module fail collection,
+      # which takes the whole run down.
       - name: Install dependencies
-        run: |
-          pip install -e ".[dev]"
+        run: pip install -e ".[dev,webui]"
 
       - name: Run tests
-        run: pytest --cov=govee_cli --cov-report=term-missing
+        run: pytest --cov=govee_cli --cov=webui --cov-report=term-missing
 
       - name: Type check
-        run: mypy govee_cli
+        run: mypy govee_cli webui
 
       - name: Lint
-        run: ruff check govee_cli
+        run: ruff check govee_cli webui
 
   scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
       - name: Install package
         run: pip install -e .
       - name: Smoke test — help
         run: python -m govee_cli --help
+
+  webui:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: webui/app
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: webui/app/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build

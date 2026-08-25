@@ -217,14 +217,18 @@ def run(name: str, command: tuple[str, ...], adapter: str) -> None:
             from govee_cli.commands._common import Target
 
             ble_mac = Target(mac, model, transport, cfg).ble_mac
-            parsed = _parse_inline_command(cmd_str, device_model=model)
-            if parsed is None:
+            maybe_parsed = _parse_inline_command(cmd_str, device_model=model)
+            if maybe_parsed is None:
                 results.append((mac, False, f"Unknown command: {cmd_str}"))
                 continue
+            parsed: Command = maybe_parsed
 
-            async def run_ble() -> None:
-                async with GoveeBLE(ble_mac, adapter=adapter) as client:
-                    await client.execute(parsed)
+            # Bind the loop variables as defaults: the closure is invoked in
+            # this iteration today, but B023 is right that a later refactor
+            # deferring the call would silently run against the last device.
+            async def run_ble(addr: str = ble_mac, command: Command = parsed) -> None:
+                async with GoveeBLE(addr, adapter=adapter) as client:
+                    await client.execute(command)
 
             asyncio.run(run_ble())
             results.append((mac, True, "ok"))
