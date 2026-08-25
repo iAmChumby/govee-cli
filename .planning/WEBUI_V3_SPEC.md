@@ -2213,3 +2213,423 @@ decision explicitly rejects fabricating a decay/confidence mechanism to paper ov
 — but they must be spot-checked against the real Shelf Lamp and Light Bars during T03's
 implementation, and any model found to violate the assumption gets a per-model override
 noted in `govee_cli/ledger.py` rather than a silent global behavior change.
+
+---
+
+# 10. Round two — measured budget, room scenes, and a fixable `unknown`
+
+Added 2026-08-25, after v3 shipped. Same §8 rules apply: no two tasks own the same
+file, `depends_on` names the tasks whose *contracts* a task needs (contracts are
+fully specified here, so a dependent task does not have to wait for its dependency's
+code to exist), and a task is not done if it turns any §9.1 gate red.
+
+## 10.1 One correction to the brief before any code gets written
+
+The task list this round was drafted around "one client poll fans out to four
+upstream calls; a batched state endpoint would cut console traffic 4x." **That is
+not what the code does, and the 4x is not available.**
+
+- The client is *already* batched. `useDevices()` (`queries.ts:88`) issues exactly
+  one `GET /api/v1/devices` per 10s tick, and React Query dedupes it across the six
+  components that call it. There is no per-device client poll anywhere.
+- The fan-out is **server-side and irreducible**. `list_devices`
+  (`routers/devices.py:46`) loops over the registry calling `read_state()` per
+  device, because Govee v2 has no batch state endpoint: `POST /device/state` takes a
+  single `{sku, device}` (`http_v2.py:224`), and `GET /user/devices` returns
+  capabilities with **no state values** (`http_v2.py:185`). Four registered devices
+  means four upstream calls, and no endpoint we could write changes that.
+
+So there is no batching win to take. What is actually available:
+
+1. **Measure first.** 4 devices x 6 polls/min = 24 upstream req/min while the
+   console is open — ~34,500/day if it were open continuously. Whether that matters
+   is unknown, because v2 publishes no limit and returns no rate-limit headers. The
+   meter exists to replace that guess with a number.
+2. `STATE_CACHE_TTL` is 2.5s against a 10s poll (`deps.py:34`), so the cache never
+   absorbs the poll itself — it only absorbs bursts. Whether to raise it is a
+   decision to make **from meter data, not from this paragraph.**
+3. React Query's `refetchIntervalInBackground` defaults to `false`, so intervals
+   may already pause on an unfocused window. **Verify with the meter; do not
+   assume, and do not "fix" it before measuring.**
+
+The tuning above is deliberately **not** in the task list. Build the instrument,
+read it, then decide. Shipping a traffic optimisation and a traffic meter in the
+same pass would leave us unable to tell which number came from where.
+
+## 10.2 The honesty rule applied to a budget meter
+
+The meter is the exact place where it would be easiest to reintroduce the bug this
+whole console was built to kill. **We do not know v2's rate limit.** Rendering
+"34% of budget" against an invented denominator is the same sin as rendering
+"2700K" for a lamp running a blue scene.
+
+Binding rules for T17-T26:
+
+- The meter reports **measured counts only**: requests today, requests in the last
+  minute, requests in the last hour. Never a percentage of a limit we invented.
+- The one limit that is real is **evidence of throttling**: a `429` is the cloud
+  telling us we went too far. `rate_limited_today > 0` is the *only* condition that
+  may raise a warning tone.
+- v1 and v2 are **metered separately** (verified live — see `V3_REPORT.md`'s
+  addendum) and must be counted in separate buckets. Never summed into one number.
+- A soft daily target is **opt-in**: `request_budget_per_day` in config, default
+  `None`. When unset the UI shows counts and no band at all. When the user sets one,
+  the percentage shown is explicitly against *their* number, labelled as such.
+- Every retry is a real outbound request and **counts separately**. `_request`'s
+  retry loop (`http_v2.py:134-181`) issues a fresh `requests.request` per attempt.
+
+## 10.3 The transport chokepoint, and what a naive hook would miss
+
+`GoveeHTTPv2._request` (`http_v2.py:134`) is the single funnel for every v2 call —
+`control()` and all fifteen `set_*` wrappers route through it, and it is the only
+place `requests.request` is called. `GoveeHTTP` (v1, `http.py`) is the same for the
+H6183.
+
+But hooking only the sidecar's shared client would undercount, because three
+independent construction sites exist in this process tree:
+
+- `deps.get_client()` (`deps.py:287`) — the sidecar's process-lifetime singleton.
+- `SchedulerDaemon._execute_rule` (`commands/daemon.py:296`) — builds a **fresh**
+  `GoveeHTTPv2()` per firing, not the singleton.
+- `_common.v2_client()` (`commands/_common.py:96`) — every CLI invocation.
+
+Therefore the meter hooks **inside `_request` itself**, at the class, not at any
+call site. That is the only point all three paths share.
+
+`playback.py:325`'s cloud loop is the highest-volume caller (one
+`set_segment_color` per changed-colour group per frame, FPS-capped at
+`CLOUD_MAX_FPS`). The meter must not make that loop slower — hence the buffered
+flush in T17 rather than a lock-and-write per request.
+
+---
+
+**T17 — Request meter core**
+Files: `govee_cli/request_meter.py` (NEW), `tests/test_request_meter.py` (NEW),
+`govee_cli/config.py` (MODIFIED), `tests/test_config.py` (MODIFIED)
+Depends on: none
+Done when: the module persists counts at
+`~/.config/govee-cli/request-meter.json` (module-level `METER_PATH` /
+`METER_LOCK_PATH`, overridable exactly as `ledger.LEDGER_PATH` is) using the **same
+write algorithm as `ledger.py:130-158`** — separate `.lock` file, blocking
+`fcntl.flock(LOCK_EX)`, read-modify-write, `.tmp` sibling + `flush` + `fsync` +
+`os.replace`, and the same **never-raise** contract (log a WARNING, swallow).
+Document shape:
+```json
+{"version": 1,
+ "days":    {"2026-08-25": {"v2": 1234, "v1": 12, "rate_limited": 0, "errors": 3}},
+ "minutes": {"2026-08-25T14:03": {"v2": 5, "v1": 0}}}
+```
+Retention on every flush: `days` keeps 30 entries, `minutes` keeps 180 (3h). Keys
+are **local** time (the user reads this against their own day), `minutes` to
+minute resolution. Public API:
+- `record(api: Literal["v1","v2"], *, status: int | None, rate_limited: bool = False, error: bool = False) -> None`
+  — never raises, safe to call from any thread.
+- `snapshot() -> MeterSnapshot` — flushes the buffer first, then reads.
+- `reset() -> None` — for tests.
+- `@dataclass(frozen=True) MeterSnapshot`: `day: str`, `v2_today: int`,
+  `v1_today: int`, `rate_limited_today: int`, `errors_today: int`,
+  `v2_last_minute: int`, `v2_last_hour: int`, `minutes: list[tuple[str, int]]`
+  (the last 60 minute-buckets, oldest first, zero-filled for gaps — a sparkline
+  with holes in it would misreport a quiet period as missing data).
+Buffering: `record()` accumulates in a module-level dict under a `threading.Lock`
+and flushes to disk when `time.monotonic() - _last_flush >= FLUSH_INTERVAL` (2.0s)
+**or** `_buffered >= FLUSH_MAX` (20), whichever comes first. `_last_flush` starts
+at `0.0` so the first `record()` in a short-lived process flushes immediately, and
+an `atexit` hook flushes the remainder — together these mean a one-shot CLI command
+is never lost. Flush merges by **adding** to the on-disk counts, never overwriting,
+so the CLI, sidecar and scheduler writing concurrently sum correctly.
+Verify: `pytest tests/test_request_meter.py -v` covers — counts land in the right
+day and minute bucket; v1 and v2 stay in separate keys and are never summed;
+`rate_limited` and `error` increment independently of the api counter; two
+concurrent writer processes each recording N requests produce exactly 2N on disk
+(the merge-by-addition property — this is the test that would catch a
+last-writer-wins regression); retention prunes to 30 days / 180 minutes; a missing,
+empty, and corrupt-JSON file all yield a zeroed snapshot without raising; a
+simulated `OSError` on the meter directory is swallowed; `snapshot()` zero-fills
+gaps in `minutes`; `atexit` flush delivers a sub-`FLUSH_INTERVAL` count.
+`mypy govee_cli/request_meter.py` clean.
+This task also owns the config key the meter's opt-in band reads:
+`GoveeConfig` gains `request_budget_per_day: int | None = None`, loaded and saved
+alongside `default_brightness` in the existing style, dropped from the saved JSON
+when `None` like the other optional keys. No `CONFIG_VERSION` bump — an added
+optional key is backward compatible, and `tests/test_config.py` gains a case proving
+a v2 config file written before this change still loads with the field as `None`.
+
+**T18 — Meter instrumentation at the two transport chokepoints**
+Files: `govee_cli/http_v2.py` (MODIFIED), `govee_cli/http.py` (MODIFIED),
+`tests/test_request_meter_wiring.py` (NEW)
+Depends on: T17
+Done when: `GoveeHTTPv2._request` calls `request_meter.record("v2", ...)` **once per
+`requests.request` attempt**, inside the retry loop — a 4-attempt call records 4
+requests, per §10.2. `rate_limited=True` on a 429; `error=True` on a
+`RequestException` or a >=500. `GoveeHTTP`'s equivalent does the same with
+`"v1"`. The meter import must not create a circular import (`request_meter` imports
+nothing from `http*`). A meter failure must never turn a successful API call into an
+error — the never-raise contract carries the weight here, but the call site must
+also not be inside the `try` that classifies HTTP errors.
+Additionally: annotate the JSON payload dicts in `http.py:74` and `http_v2.py:145`
+so mypy passes **both** with `types-requests` installed and with only `requests`
+2.34+'s inline types. Today the two disagree and the build is green only because CI
+happens to install the stub; that is a latent break, and this task owns both files.
+Verify: `pytest tests/test_request_meter_wiring.py -v` — a mocked 200 records one
+v2 request; a mocked 429-then-200 records **two** with `rate_limited_today == 1`; a
+v1 call lands only in the v1 bucket; a meter that raises internally does not break
+the API call (monkeypatch `record` to raise, assert the call still returns).
+`pytest tests/` stays green. `mypy govee_cli` clean **with and without**
+`types-requests` installed — state in the commit message that both were checked.
+
+**T19 — Room-scene store and restore planner**
+Files: `govee_cli/room_scenes.py` (NEW), `tests/test_room_scenes.py` (NEW)
+Depends on: none
+Done when: room scenes persist at `~/.config/govee-cli/room-scenes.json` — a **new
+file, not `config.json`**, so no `CONFIG_VERSION` bump and `groups` is untouched
+(they are different things: `groups` broadcasts one command string, a room scene
+restores four devices to four different modes). Same flock/atomic-replace/never-raise
+write algorithm as `ledger.py`. Document shape:
+```json
+{"version": 1,
+ "scenes": {"Sleep": {"created_at": "2026-08-25T22:10:00Z",
+                      "devices": [{"device_id": "...", "model": "H6022",
+                                   "power": true, "brightness": 30,
+                                   "color": [12,8,40], "color_temp_k": null,
+                                   "mode": "diy", "label": "sleep",
+                                   "payload": {...}}]}}}
+```
+`mode`/`label`/`payload` are copied verbatim from `ledger.read_one()`; the basic
+fields come from live device state. Public API:
+- `save_scene(name: str, devices: list[CapturedDevice]) -> None` (replaces by name)
+- `list_scenes() -> dict[str, RoomScene]`, `read_scene(name) -> RoomScene | None`,
+  `delete_scene(name) -> bool`
+- `plan_restore(scene: RoomScene) -> list[RestoreStep]` — **pure, no I/O**, which is
+  what makes this testable without a device. Per device, in order: `power` first,
+  then the mode-specific step, then `brightness` last (brightness after the mode
+  step, because a scene write resets brightness on these models).
+`RestoreStep` carries `device_id`, `model`, `kind`, `args`, and `skipped_reason:
+str | None`. The mode dispatch is the honest part and is specified exactly:
+| captured `mode` | restore |
+|---|---|
+| `off` | power off, nothing else |
+| `basic` | power on, then colour **or** temp (never both — they are mutually exclusive), then brightness |
+| `scene` / `diy` / `music` / `snapshot` | power on, apply by **label**, then brightness |
+| `segments` | power on, replay `payload`'s per-segment colours, then brightness |
+| `effect` | **skipped**, `skipped_reason="effects are live playback, not a device state"` |
+| `unknown` | **skipped**, `skipped_reason="mode was unknown when this room scene was captured"` |
+The last two rows are the point. A room scene must never invent a mode for a device
+whose mode we did not know — that is precisely the bug the ledger exists to prevent,
+one abstraction up. `unknown` at capture time stays `unknown` at restore time, and
+the caller is told which devices were skipped and why.
+Verify: `pytest tests/test_room_scenes.py -v` — round-trip save/read/list/delete;
+replacing by name; corrupt/missing file yields `{}` without raising; `plan_restore`
+emits power-before-mode-before-brightness ordering for every mode; `basic` never
+emits both colour and temp; `effect` and `unknown` produce a step with the exact
+`skipped_reason` and **no** device call; a scene captured with four devices where
+two were `unknown` plans two real restores and two skips. `mypy govee_cli/room_scenes.py`.
+
+**T20 — Sidecar request schemas**
+Files: `webui/api/schemas.py` (MODIFIED)
+Depends on: none
+Done when: three pydantic request models are added in the file's existing style —
+`ActiveModeSetRequest{mode: str, label: str | None = None, payload: dict | None = None}`
+(`mode` constrained to the `ledger.Mode` vocabulary), `RoomSceneCaptureRequest{name:
+str (min_length=1)}`, `RoomSceneRestoreRequest{}` (empty body placeholder, present so
+the route signature does not change shape later). No other file changes.
+Verify: `mypy webui/api`; `ruff check webui`; `pytest tests/` stays green.
+
+**T21 — Meter route**
+Files: `webui/api/routers/meter.py` (NEW), `tests/test_meter_api.py` (NEW)
+Depends on: T17
+Done when: `GET /meter` returns
+`{day, v2_today, v1_today, rate_limited_today, errors_today, v2_last_minute,
+v2_last_hour, minutes: [[iso_minute, count], ...], budget_per_day: int | null}`
+where `budget_per_day` is the **opt-in** `request_budget_per_day` config value,
+`null` when unset (§10.2). The route is cheap and takes no lock beyond
+`snapshot()`'s own; it makes **zero** upstream Govee calls and must be safe to poll
+at 15s. Blocking file I/O goes through `run_blocking`, per this codebase's rule
+about keeping blocking I/O off the event loop.
+Verify: `pytest tests/test_meter_api.py` — the route returns a zeroed
+snapshot on a fresh meter; after seeding counts it returns them; `budget_per_day` is
+`null` when config omits it and the integer when set; **the route itself adds zero
+to the v2 counter** (call it twice, assert `v2_today` is unchanged — a meter that
+counts its own reads is worse than no meter). `mypy webui/api`.
+
+**T22 — Room scenes route**
+Files: `webui/api/routers/rooms.py` (NEW), `tests/test_rooms_api.py` (NEW)
+Depends on: T19, T20
+Done when:
+- `GET /rooms` -> `{scenes: [{name, created_at, device_count, unknown_count}]}`
+- `POST /rooms` (body `RoomSceneCaptureRequest`) captures **every registered
+  device**: live state via the same `read_state` -> `apply_echo` ->
+  `normalize_state` -> `overlay_active_mode` chain the device routes use, plus
+  `ledger.read_one()` for mode/label/payload. Returns the saved scene **and**
+  `{"unknown": [ref, ...]}` naming the devices whose mode was `unknown` at capture,
+  so the UI can tell the user their capture is incomplete before they rely on it.
+- `DELETE /rooms/{name}` -> 204, 404 via `not_found()` when absent.
+- `POST /rooms/{name}/restore` runs `plan_restore()` and executes each step,
+  **writing `ledger.record_mode(..., source="webui")` per device after each step
+  that actually succeeded**. This is mandatory and is the trap recon flagged:
+  `groups.py`'s broadcast path deliberately skips ledger writes for
+  scene/diy/music, so a room-scene restore that leaned on it would leave every
+  restored device reading `unknown`. Returns
+  `{name, ok, results: [{ref, ok, skipped_reason?, error?}]}`; one failing device
+  must not abort the rest.
+- Skipped steps are reported, never silently dropped, and never faked as success.
+Verify: `pytest tests/test_rooms_api.py` (mock mode) — capture writes a scene
+containing one entry per registered device; capturing a device with no ledger entry
+records `mode="unknown"` and names it in the response's `unknown` list; restore
+replays power/mode/brightness in order per device; **restore writes a ledger entry
+per restored device** (assert `ledger.read_one()` afterwards); a device whose
+captured mode was `effect` or `unknown` is skipped with its `skipped_reason`
+surfaced and no client call made for it; a mid-list device failure still restores
+the others and reports `ok: false` for only that one. `mypy webui/api`.
+
+**T23 — Active-mode correction route ("make `unknown` fixable")**
+Files: `webui/api/routers/devices.py` (MODIFIED), `tests/test_active_mode_set.py` (NEW)
+Depends on: T20
+Done when: `PUT /devices/{ref}/active-mode` (body `ActiveModeSetRequest`) calls
+`ledger.record_mode(device_id, mode, label, payload, source="webui")` and returns
+the freshly merged `active` block, so the client can render the corrected state
+without a second round trip.
+**This route sends no device command.** It corrects our record of reality; it does
+not change the light. That distinction has to survive into the UI copy (T27) — a
+control that silently commanded the device would make the ledger lie in the other
+direction. It must also make **zero** upstream Govee calls beyond the state read it
+needs for the merge.
+The existing `DELETE .../active-mode` stays exactly as it is. A `mode` outside the
+`ledger.Mode` vocabulary is a 422 from pydantic, not a silent coercion.
+Verify: `pytest tests/test_active_mode_set.py` — PUT with
+`mode="diy", label="sleep"` makes a subsequent `GET /devices/{ref}/state` report
+`active.mode == "diy"`, `active.label == "sleep"`, `active.confidence == "assumed"`
+(rule 3 caps it there — a corrected entry is still not confirmable); PUT
+`mode="basic"` with a payload matching live state reads back `confirmed`; an invalid
+mode is 422; **no control call reaches the mock client** (assert on the mock's call
+log — this is the test that proves the route does not touch the light).
+`mypy webui/api`.
+
+**T24 — Sidecar wiring and mock isolation**
+Files: `webui/api/main.py` (MODIFIED), `webui/api/mock.py` (MODIFIED)
+Depends on: T21, T22, T23
+Done when: `main.py` mounts `meter.router` and `rooms.router` alongside the existing
+routers under the same `/api/v1` prefix. `mock.py`'s `install()` redirects
+`request_meter.METER_PATH`/`METER_LOCK_PATH` **and** `room_scenes`' paths into the
+seeded temp dir, exactly as it already does for the ledger — for the same reason,
+which the module's own comment should state: a verification run or a test that wrote
+to the real files would corrupt the counts and the scenes the running console
+displays.
+Verify: `pytest tests/` full suite green; a `GOVEE_WEBUI_MOCK=1` sidecar
+serves `GET /api/v1/meter` and `GET /api/v1/rooms`; **after a full mock run, the real
+`~/.config/govee-cli/request-meter.json` and `room-scenes.json` are byte-identical
+to before** (capture a checksum before and after — this is the concrete regression
+the redirect exists to prevent). `mypy webui/api`.
+
+**T25 — Client bindings for all three features**
+Files: `webui/app/src/lib/api.ts` (MODIFIED), `webui/app/src/lib/queries.ts` (MODIFIED)
+Depends on: contracts in T21, T22, T23 (not their implementations — the shapes above
+are the contract)
+Done when: `api.ts` gains hand-written TS interfaces mirroring the three response
+shapes exactly (`MeterSnapshot`, `RoomSceneSummary`, `RoomSceneRestoreResult`) plus
+`api.meter()`, `api.rooms()`, `api.captureRoom(name)`, `api.deleteRoom(name)`,
+`api.restoreRoom(name)`, `api.setActiveMode(ref, body)`. `queries.ts` gains
+`useMeter()` (`refetchInterval` 15s — it costs one loopback call and zero Govee
+calls), `useRooms()`, `useCaptureRoom()`, `useDeleteRoom()`, `useRestoreRoom()`,
+`useSetActiveMode()`. Mutations that change device state (`restoreRoom`) go through
+the existing `enqueueWrite` per-ref serialisation and invalidate `["devices"]`;
+`useSetActiveMode` invalidates `["devices"]` and `["device", ref]` but must **not**
+record an optimistic intent, because no device write happened.
+Do **not** change `POLL_MS` or any existing interval in this task. §10.1 says
+measure first, and a polling change landing in the same pass as the meter would make
+the meter's first readings uninterpretable.
+Verify: `npm run typecheck`, `npm run lint`, `npm test` all green; no existing hook's
+interval or query key changed (`git diff` on `queries.ts` shows additions only).
+
+**T26 — Budget meter in the status strip**
+Files: `webui/app/src/lib/budget.ts` (NEW), `webui/app/src/lib/budget.test.ts` (NEW),
+`webui/app/src/components/shell/status-strip.tsx` (MODIFIED)
+Depends on: T25
+Done when: the hardcoded `budget ~2 req/s` span (`status-strip.tsx:171`) is replaced
+by measured numbers.
+**Tier: CHASSIS**, with **one SIGNAL-SPILL exception**, mirroring the precedent the
+strip already sets with its active-mode Chip (V3_VISUAL_DIRECTION §D, "Status strip
+— CHASSIS, with one SIGNAL-SPILL accent"). Concretely: neutral mono text reusing the
+existing `Odometer` primitive for the rolling count, no motion, no device hue — and
+the **only** coloured state is `Chip tone="warn"` when `rate_limited_today > 0`,
+because a 429 is the one piece of evidence we actually have (§10.2). No band, no
+percentage, and no colour when the user has not set `request_budget_per_day`.
+`budget.ts` holds the pure formatting/threshold logic — which tier applies, what
+text to show for each state — because `vitest.config.ts` is node-environment with no
+jsdom and the project's convention (its own docblock) is to test logic separately
+from components rather than introduce RTL for one meter.
+Verify: `npm test` covers `budget.ts` in the existing `node:assert/strict` + `test()`
+style used by `classify.test.ts` — counts render with no band when `budget_per_day`
+is null; a percentage appears only when it is set and is explicitly against that
+number; `rate_limited_today > 0` is the **only** input that produces the warn tone
+(assert that a high count alone does not); mock mode still hides the whole readout,
+as the current code does. `npm run typecheck && npm run lint && npm run build`.
+
+**T27 — The unknown-mode chooser on the stage**
+Files: `webui/app/src/components/stage/mode-picker.tsx` (NEW),
+`webui/app/src/components/stage/stage.tsx` (MODIFIED)
+Depends on: T25
+Done when: when `active.mode === "unknown"` the stage renders a tap target that
+opens a picker listing the device's **real** scene / DIY / music options (from the
+existing `useScenes` / `useDiyScenes` / `useMusicModes` hooks and their endpoints)
+plus `basic` and `off`, and choosing one calls `useSetActiveMode()`.
+Two things are load-bearing:
+- The trigger renders on a condition **opposite** to the existing `ActiveModeReset`.
+  That control is gated behind `motionMeta && active` (`stage.tsx:1089`) and
+  `motionModeMetaFor` returns null for `off`/`basic`/`unknown` — so the reset button
+  is never visible in exactly the state this task addresses. This is a new render
+  branch, not a relaxed prop.
+- **The copy must say it does not change the light.** The button is "Tell the
+  console what's playing", not "Set scene", and the picker carries a one-line note
+  that it corrects the record without commanding the device. A user who thinks this
+  applies a scene will mis-set the ledger, which is the honesty bug inverted.
+**Tier: CONTROL-RESPONSE** for the press physics; the trigger itself stays
+**CHASSIS**-toned — a dashed neutral outline, no device hue. Claiming a colour for a
+mode we do not know would be a fabricated SIGNAL, which §B forbids.
+The label written to the ledger must come from the device's real option list so it
+round-trips through the motion classifier and actually animates afterwards.
+Verify: `npm run typecheck && npm run lint && npm test && npm run build`. Do **not**
+edit `scripts/verify_ui.py` — T27 and T28 would collide on it; the orchestrator
+extends that harness in the verification phase and judges the screenshots there.
+`npm run typecheck && npm run lint && npm test && npm run build`.
+
+**T28 — Room scenes UI**
+Files: `webui/app/src/app/rooms/page.tsx` (NEW),
+`webui/app/src/components/rooms/room-scene-card.tsx` (NEW),
+`webui/app/src/components/rooms/capture-room-dialog.tsx` (NEW),
+`webui/app/src/components/shell/top-bar.tsx` (MODIFIED — one nav entry; there is no `nav.tsx`, the nav lives here)
+Depends on: T25
+Done when: a Rooms page lists saved room scenes, each card offering restore and
+delete, with a capture flow that names the scene. The capture dialog **shows the
+`unknown` list returned by `POST /rooms` before the user commits to the name** — a
+capture taken while three devices read `unknown` is close to worthless, and the user
+should learn that at capture time, not at restore time. Restore reports per-device
+results including `skipped_reason`, surfaced in the UI rather than swallowed.
+**Tier: card surface is SIGNAL-SPILL** — each card bleeds the aggregate palette of
+the devices it captured, which is legitimate because that colour is derived from
+real captured data rather than invented. Capture/restore buttons are
+CONTROL-RESPONSE. Nav entry is CHASSIS.
+Verify: `npm run typecheck && npm run lint && npm test && npm run build`, plus a
+manual mock-mode pass. Do **not** edit `scripts/verify_ui.py` — T27 and T28 would
+collide on it; the orchestrator extends that harness in the verification phase. `npm run typecheck && npm run lint && npm test &&
+npm run build`.
+
+## 10.4 Verification additions for this round
+
+§9.1's gates apply unchanged. Additionally, **after** T17-T28 are green and
+deployed, and before this round is called done:
+
+1. **Read the meter against the real console.** Leave the console open on the
+   dashboard for a measured interval and record `v2_today` before and after.
+   That number, not this document, decides whether `POLL_MS` /
+   `STATE_CACHE_TTL` / `refetchIntervalInBackground` need to change. Write the
+   measured figure into `V3_REPORT.md`. If it turns out the console draws far less
+   than §10.1's arithmetic predicts, say so plainly — that arithmetic is an upper
+   bound assuming a permanently focused window, and it may well be wrong.
+2. **Capture and restore one real room scene** across all four devices, with at
+   least one device deliberately left `unknown`, and confirm the skip is reported
+   rather than guessed at.
+3. **Correct one real `unknown`** via T27's chooser and confirm the stage animates
+   afterwards and the ledger entry reads `assumed`, not `confirmed`.
+4. Device commands are subject to the standing rule: check the time first. These
+   lights are in a bedroom.
