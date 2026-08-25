@@ -19,6 +19,7 @@ os.environ.setdefault("GOVEE_WEBUI_MOCK", "1")
 os.environ.setdefault("GOVEE_WEBUI_MOCK_LATENCY", "0-0")
 os.environ.setdefault("GOVEE_WEBUI_SCHEDULER", "0")
 
+from govee_cli import ledger  # noqa: E402
 from webui.api.main import create_app  # noqa: E402
 from webui.api.mock import uninstall as uninstall_mock  # noqa: E402
 
@@ -147,3 +148,25 @@ def test_existing_delete_active_mode_route_is_unchanged(client: TestClient) -> N
     assert resp.status_code == 204
     state = client.get(f"/api/v1/devices/{LAMP}/state").json()
     assert state["active"]["mode"] == "unknown"
+
+
+def test_basic_correction_snapshots_live_colour_so_it_can_be_disproved(
+    client: TestClient,
+) -> None:
+    """A user-asserted "basic" must record what the cloud currently reports.
+
+    With no payload, `_basic_confidence` reads "nothing to diverge from" and
+    returns confirmed forever, so the correction could never notice the light
+    being changed from the Govee app afterwards. The snapshot is what lets the
+    same entry later read "external" instead.
+    """
+    resp = client.put(f"/api/v1/devices/{LAMP}/active-mode", json={"mode": "basic"})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["active"]["confidence"] == "confirmed"
+
+    state = client.get(f"/api/v1/devices/{LAMP}/state").json()
+    entry = ledger.read_one(state["id"])
+    assert entry is not None and entry.mode == "basic"
+    # An empty payload is exactly the failure this test exists to catch.
+    assert entry.payload, "a basic correction recorded nothing to check against"
+    assert ("color_rgb" in entry.payload) or ("color_temp_k" in entry.payload)

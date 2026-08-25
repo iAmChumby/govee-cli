@@ -157,11 +157,36 @@ async def set_active_mode(
     """
     cfg = await run_blocking(get_config)
     target = resolve_ref(cfg, ref)
-    await run_blocking(
-        ledger.record_mode, target.device_id, body.mode, body.label, body.payload, "webui"
-    )
     raw = await read_state(request, target)
     state = apply_echo(request, target, normalize_state(target, raw))
+
+    payload = body.payload
+    if body.mode == "basic" and not payload:
+        # Snapshot the colour the cloud currently reports, so this correction
+        # can later be *dis*proved.
+        #
+        # `_basic_confidence` reads an empty payload as "nothing to diverge
+        # from, confirmed by default", which is right for a bare power-on we
+        # issued ourselves — we set nothing else, so there is nothing to check.
+        # It is wrong for a correction, where the claim is the user's, not
+        # ours: with no payload the entry would read "confirmed" forever and
+        # could never notice the light being changed from the Govee app
+        # afterwards. Recording the live colour means it still reads
+        # "confirmed" now and flips to "external" the moment reality moves,
+        # which is the whole point of computing confidence at read time.
+        #
+        # Colour and temp are mutually exclusive on these models, and the
+        # cloud reports both honestly, so whichever one is live is the right
+        # thing to store.
+        live_rgb = (state.get("color") or {}).get("rgb")
+        if live_rgb:
+            payload = {"color_rgb": list(live_rgb)}
+        elif state.get("color_temp_k"):
+            payload = {"color_temp_k": state["color_temp_k"]}
+
+    await run_blocking(
+        ledger.record_mode, target.device_id, body.mode, body.label, payload, "webui"
+    )
     return overlay_active_mode(target, state)
 
 

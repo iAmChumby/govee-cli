@@ -12,10 +12,11 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+import requests
 
 from govee_cli import request_meter
 from govee_cli.http import GoveeHTTP
-from govee_cli.http_v2 import GoveeHTTPv2
+from govee_cli.http_v2 import GoveeHTTPv2, GoveeV2Error
 
 SKU = "H6022"
 DEVICE = "50:CE:E8:6E:80:C6:50:3F"
@@ -50,8 +51,11 @@ class FakeResponse:
         self._payload = payload or {}
 
     def raise_for_status(self) -> None:
+        # requests raises HTTPError here, so the fake must too: a bare
+        # Exception would let a test pass while the real client propagated
+        # something the caller never catches.
         if self.status_code >= 400:
-            raise Exception(f"HTTP {self.status_code}")
+            raise requests.HTTPError(f"HTTP {self.status_code}")
 
     def json(self) -> dict[str, Any]:
         return self._payload
@@ -110,7 +114,10 @@ class TestV2Wiring:
             side_effect=requests_module.ConnectionError("dns failed"),
         ):
             with patch("govee_cli.http_v2.time.sleep"):
-                with pytest.raises(Exception):
+                # The concrete type matters: a blind `Exception` here would
+                # also pass if the meter wiring itself raised, which is the
+                # one thing these tests are meant to rule out.
+                with pytest.raises(GoveeV2Error):
                     client.turn_on(SKU, DEVICE)
         snap = request_meter.snapshot()
         assert snap.v2_today == 1
@@ -146,7 +153,7 @@ class TestV1Wiring:
             lambda *a, **kw: FakeResponse(status_code=429),
         )
         client = GoveeHTTP(api_key="test-key")
-        with pytest.raises(Exception):
+        with pytest.raises(requests.HTTPError):
             client.get_devices()
         snap = request_meter.snapshot()
         assert snap.v1_today == 1
