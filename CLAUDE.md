@@ -95,6 +95,66 @@ command file.
 - `BLEDevice.rssi` and `.metadata` are removed — RSSI/ManufacturerData now live in `device.details['props']`
 - `start_notify` callback signature changed to `(char: BleakGATTCharacteristic, data: bytearray) → None`
 
+## The web console (`webui/`)
+
+A FastAPI sidecar (`webui/api/`, loopback :6057) plus a Next.js app
+(`webui/app/`, :6056), both systemd **user** units. `./deploy/install-services.sh`
+rebuilds and restarts them; nginx is separate and needs sudo.
+
+```bash
+cd webui/app && npm run typecheck && npm run lint && npm test && npm run build
+python3 scripts/verify_ui.py          # headless browser pass, mock stack, screenshots
+```
+
+### The one rule: never claim what the device cannot tell you
+
+`/device/state` returns `""` for `lightScene`, `diyScene`, `musicMode`,
+`segmentedColorRgb` and `snapshot` on **every** model, **always** — while still
+reporting a stale `colorTemperatureK` from before the scene started. That is a
+permanent property of the API. A lamp visibly running a blue/magenta blob morph
+reports "2700K", and a console that trusted it drew flat warm white.
+
+`govee_cli/ledger.py` is the fix: a durable local record of what *we* last
+commanded, at `~/.config/govee-cli/active-mode.json`, written by every mutating
+path in both the CLI and the sidecar. Confidence is computed at read time, never
+stored. **When the ledger has no entry the answer is `unknown`** — the UI renders
+no scene, no motion and no guess. Preserve that. Adding a plausible fallback
+would recreate the exact bug the module exists to prevent.
+
+- Ledger writes happen only after the device command actually succeeded, and a
+  ledger failure must never turn a successful light command into an error.
+- `mock.py`'s `install()` and `tests/conftest.py` both redirect the ledger path.
+  A test that writes to the real file changes what the running console displays.
+
+### Schedules are two things
+
+`schedule.json` is the console's own rules. It is usually empty. The automation
+that actually drives the bedroom is a **crontab** line running
+`~/.local/bin/wake-ramp` at 06:30 on weekdays, which the console surfaces
+read-only via `webui/api/external_schedule.py`.
+
+Reading that crontab from the sidecar is not straightforward: `/usr/bin/crontab`
+is setgid, and in a systemd *user* unit any sandboxing directive implicitly
+enables `NoNewPrivileges`, which strips the setgid — setting
+`NoNewPrivileges=false` does **not** win it back. Hence the fallback chain
+`crontab -l` → the spool file → a snapshot written by
+`govee-crontab-snapshot.timer`, with the answering route and its staleness
+reported to the UI. An unreadable crontab is an error state, never "no
+schedules".
+
+**Do not break `wake-ramp`.** It is a live script that wakes Luke up. Back it up
+before editing, never run `wake-ramp run` while testing, and diff `wake-ramp
+status` against a pre-change capture.
+
+### Geometry
+
+`ModelSpec` carries `matrix_rows`/`matrix_cols`/`matrix_wrap_col` (H6022 = 11x12
+wrapped, H6056 = 2x48, H6008 = none). The paint studio draws on that canvas and
+downsamples to the 15 segments cloud v2 actually exposes, showing both — the lamp
+cannot render what you drew, and the UI says so rather than implying otherwise.
+
+---
+
 ## Device Notes (H6056)
 
 - **Static MAC**: `D0:C9:07:FE:B6:F0` (use for config)
