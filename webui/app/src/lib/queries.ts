@@ -27,6 +27,7 @@ import {
 import {
   api,
   ApiError,
+  type ActiveModeSetRequest,
   type DeviceState,
   type DeviceSummary,
   type EffectCreateRequest,
@@ -587,4 +588,140 @@ export function useWakeRampArm() {
 
 export function useWakeRampDisarm() {
   return useWakeRampAction("disarm");
+}
+
+/* --------------------------------- T25 — meter, room scenes, active-mode correction §10 */
+
+/**
+ * §10.2 — the route is loopback-cheap (zero upstream Govee calls) so 15s is
+ * fine even though device state polls at POLL_MS; measured counts only, no
+ * invented denominator. Do not fold this into POLL_MS — §10.1 says measure
+ * first, and changing an existing interval in the same pass that ships the
+ * meter would make its first readings uninterpretable.
+ */
+export function useMeter() {
+  return useQuery({
+    queryKey: ["meter"],
+    queryFn: api.meter,
+    refetchInterval: 15_000,
+  });
+}
+
+export function useRooms() {
+  return useQuery({
+    queryKey: ["rooms"],
+    queryFn: api.rooms,
+  });
+}
+
+/**
+ * Capture does zero device writes (it only reads current state + the
+ * ledger), so there is nothing to optimistically preview — only the
+ * `unknown` list in the response, which the capture dialog (T28) surfaces
+ * before the user commits to a name.
+ */
+export function useCaptureRoom() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (name: string) => api.captureRoom(name),
+    onSuccess: (result) => {
+      void queryClient.invalidateQueries({ queryKey: ["rooms"] });
+      const incomplete = result.unknown.length > 0;
+      toast({
+        variant: incomplete ? "info" : "ok",
+        title: `Room scene "${result.name}" saved`,
+        description: incomplete
+          ? `${result.unknown.length} device${result.unknown.length === 1 ? "" : "s"} unknown: ${result.unknown.join(", ")}`
+          : `${result.devices.length} device${result.devices.length === 1 ? "" : "s"} captured`,
+      });
+    },
+    onError: (err) => {
+      toast({ variant: "error", title: "Room capture failed", description: errMessage(err) });
+    },
+  }).mutateAsync;
+}
+
+export function useDeleteRoom() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (name: string) => api.deleteRoom(name),
+    onSuccess: (_data, name) => {
+      void queryClient.invalidateQueries({ queryKey: ["rooms"] });
+      toast({ variant: "info", title: "Room scene deleted", description: name });
+    },
+    onError: (err) => {
+      toast({ variant: "error", title: "Delete failed", description: errMessage(err) });
+    },
+  }).mutateAsync;
+}
+
+/**
+ * Restore commands every captured device — real cloud/BLE writes, unlike
+ * capture — so it goes through the same `enqueueWrite` serialisation as a
+ * single-device mutation. `enqueueWrite`'s key is just a map key, not
+ * necessarily a device ref; keying by scene name here stops a double-clicked
+ * restore on the same scene from racing itself. Each restored device is
+ * invalidated individually (from the response's per-device `results`, not
+ * guessed), plus `["devices"]` for the list/plates.
+ */
+export function useRestoreRoom() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: (name: string) =>
+      enqueueWrite(`room:${name}`, () => api.restoreRoom(name)),
+    onSuccess: (result) => {
+      void queryClient.invalidateQueries({ queryKey: ["devices"] });
+      for (const step of result.results) {
+        void queryClient.invalidateQueries({ queryKey: ["device", step.ref] });
+      }
+      const failed = result.results.filter((r) => !r.ok && !r.skipped_reason);
+      const skipped = result.results.filter((r) => r.skipped_reason);
+      if (result.ok) {
+        toast({
+          variant: "ok",
+          title: `Room scene "${result.name}" restored`,
+          description: skipped.length > 0 ? `${skipped.length} skipped` : undefined,
+        });
+      } else {
+        toast({
+          variant: "error",
+          title: `Room scene "${result.name}" partially failed`,
+          description: failed.map((r) => `${r.ref}: ${r.error}`).join(" · "),
+        });
+      }
+    },
+    onError: (err) => {
+      toast({ variant: "error", title: "Room restore failed", description: errMessage(err) });
+    },
+  }).mutateAsync;
+}
+
+/**
+ * §10 T23/T27 — corrects the ledger's record of what is playing; the route
+ * makes zero device commands. No `recordIntent` call here: recording one
+ * would claim a write happened, which is the honesty bug inverted (T27's
+ * copy has to say the same thing to the user).
+ */
+export function useSetActiveMode() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: ({ ref, vars }: { ref: string; vars: ActiveModeSetRequest }) =>
+      api.setActiveMode(ref, vars),
+    onSuccess: (_active, { ref }) => {
+      void queryClient.invalidateQueries({ queryKey: ["devices"] });
+      void queryClient.invalidateQueries({ queryKey: ["device", ref] });
+      toast({ variant: "ok", title: "Active mode corrected" });
+    },
+    onError: (err) => {
+      toast({ variant: "error", title: "Correction failed", description: errMessage(err) });
+    },
+  }).mutateAsync;
 }

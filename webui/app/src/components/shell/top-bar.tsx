@@ -4,7 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, useReducedMotion } from "motion/react";
-import { CalendarClock, Settings, Terminal } from "lucide-react";
+import { CalendarClock, Settings, Sofa, Terminal } from "lucide-react";
 
 import { Chip, ThemeToggle } from "@/components/ui";
 import { fadeUp, springSnappy } from "@/lib/motion";
@@ -21,6 +21,7 @@ function crumbLabel(segment: string): string {
 
 const NAV_ITEMS = [
   { href: "/", label: "Console", icon: Terminal },
+  { href: "/rooms", label: "Rooms", icon: Sofa },
   { href: "/schedules", label: "Schedules", icon: CalendarClock },
   { href: "/settings", label: "Settings", icon: Settings },
 ] as const;

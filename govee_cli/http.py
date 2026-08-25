@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from typing import Any
 
 import requests
+
+from govee_cli import request_meter
 
 _CONFIG_PATH = os.path.expanduser("~/.config/govee-cli/config.json")
 
@@ -38,9 +41,32 @@ class GoveeHTTP:
             "Content-Type": "application/json",
         }
 
+    @staticmethod
+    def _meter(*, status: int | None, rate_limited: bool = False, error: bool = False) -> None:
+        """Record one v1 request attempt, defensively. v1 has no retry loop —
+        every call site here is exactly one attempt, unlike v2's — so this fires
+        once per method call, right after the response arrives (or the network
+        failure is caught) and before raise_for_status() can turn a 4xx/5xx into
+        an exception. Wrapped in its own try/except so a meter bug — even one
+        that breaks request_meter.record's own never-raise contract — can never
+        turn a successful cloud call into a client-visible error."""
+        try:
+            request_meter.record("v1", status=status, rate_limited=rate_limited, error=error)
+        except Exception:
+            pass
+
     def get_devices(self) -> list[HTTPDevice]:
         """Fetch all devices from the Govee API."""
-        resp = requests.get(f"{GOVEE_API_BASE}/devices", headers=self.headers, timeout=10)
+        try:
+            resp = requests.get(f"{GOVEE_API_BASE}/devices", headers=self.headers, timeout=10)
+        except requests.RequestException:
+            self._meter(status=None, error=True)
+            raise
+        self._meter(
+            status=resp.status_code,
+            rate_limited=resp.status_code == 429,
+            error=resp.status_code >= 500,
+        )
         resp.raise_for_status()
         data = resp.json()
         devices = []
@@ -63,16 +89,25 @@ class GoveeHTTP:
             command: Command name (turn, brightness, color, colorTemperature)
             value: Command value (int for brightness, "on"/"off" for turn, dict for color)
         """
-        payload = {
+        payload: dict[str, Any] = {
             "device": device_id,
             "model": model,
             "cmd": {"name": command, "value": value},
         }
-        resp = requests.put(
-            f"{GOVEE_API_BASE}/devices/control",
-            headers=self.headers,
-            json=payload,
-            timeout=10,
+        try:
+            resp = requests.put(
+                f"{GOVEE_API_BASE}/devices/control",
+                headers=self.headers,
+                json=payload,
+                timeout=10,
+            )
+        except requests.RequestException:
+            self._meter(status=None, error=True)
+            raise
+        self._meter(
+            status=resp.status_code,
+            rate_limited=resp.status_code == 429,
+            error=resp.status_code >= 500,
         )
         resp.raise_for_status()
         result = resp.json()
@@ -84,11 +119,20 @@ class GoveeHTTP:
 
         Returns a dict with keys: powerState, brightness, colorTem, color (dict with r/g/b).
         """
-        resp = requests.get(
-            f"{GOVEE_API_BASE}/devices/state",
-            headers=self.headers,
-            params={"device": device_id, "model": model},
-            timeout=10,
+        try:
+            resp = requests.get(
+                f"{GOVEE_API_BASE}/devices/state",
+                headers=self.headers,
+                params={"device": device_id, "model": model},
+                timeout=10,
+            )
+        except requests.RequestException:
+            self._meter(status=None, error=True)
+            raise
+        self._meter(
+            status=resp.status_code,
+            rate_limited=resp.status_code == 429,
+            error=resp.status_code >= 500,
         )
         if resp.status_code == 404:
             raise GoveeHTTPError(f"Device {device_id} not found or offline")

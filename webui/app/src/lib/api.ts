@@ -291,6 +291,87 @@ export interface ExternalSchedule {
   entries: ExternalScheduleEntry[];
 }
 
+/* ------------------------------------------------ request meter + rooms §10 */
+
+/** WEBUI_V3_SPEC.md §10.2 — measured counts only, never a percentage of a
+ *  limit we invented. `budget_per_day` is `null` whenever the user has not
+ *  opted into `request_budget_per_day`; a percentage may only be shown
+ *  against that number, and only when it is set. `minutes` is always 60
+ *  entries, oldest first, zero-filled for gaps — no holes to misread as a
+ *  quiet period that wasn't actually quiet. */
+export interface MeterSnapshot {
+  day: string;
+  v2_today: number;
+  v1_today: number;
+  rate_limited_today: number;
+  errors_today: number;
+  v2_last_minute: number;
+  v2_last_hour: number;
+  minutes: [string, number][];
+  budget_per_day: number | null;
+}
+
+/** §10 T19 — one captured device inside a room scene, verbatim from
+ *  `ledger.read_one()` plus the live basics. `mode`/`label`/`payload` are
+ *  never invented here — see `ActiveModeKind`'s `"unknown"` case. */
+export interface CapturedDevice {
+  device_id: string;
+  model: string | null;
+  power: boolean;
+  brightness: number | null;
+  color: [number, number, number] | null;
+  color_temp_k: number | null;
+  mode: ActiveModeKind;
+  label: string | null;
+  payload: Record<string, unknown> | null;
+}
+
+/** `GET /rooms` list item. Carries the full capture, not just counts: room
+ *  scenes are a local file, so the devices cost nothing extra to send, and a
+ *  card can only tint itself from the palette it actually captured if it has
+ *  that palette on hand. */
+export interface RoomSceneSummary {
+  name: string;
+  created_at: string;
+  device_count: number;
+  unknown_count: number;
+  devices: CapturedDevice[];
+}
+
+/** `POST /rooms` response — the saved scene plus the devices whose mode was
+ *  `"unknown"` at capture time (§10, T22), so the capture UI can tell the
+ *  user their capture is incomplete before they rely on it. */
+export interface RoomSceneCaptureResult extends RoomSceneSummary {
+  /** Refs whose mode was `"unknown"` at capture time. A capture taken while
+   *  devices read unknown is close to worthless, and the user should learn
+   *  that here rather than at restore time. */
+  unknown: string[];
+}
+
+export interface RoomSceneRestoreStepResult {
+  ref: string;
+  ok: boolean;
+  skipped_reason?: string;
+  error?: string;
+}
+
+/** `POST /rooms/{name}/restore` response. One failing or skipped device
+ *  never aborts the rest — `ok` is the aggregate, `results` is per-device. */
+export interface RoomSceneRestoreResult {
+  name: string;
+  ok: boolean;
+  results: RoomSceneRestoreStepResult[];
+}
+
+/** `PUT /devices/{ref}/active-mode` body (§10 T23) — corrects the ledger's
+ *  record of what is playing. `mode` is constrained server-side to
+ *  `ActiveModeKind`; this route sends no device command. */
+export interface ActiveModeSetRequest {
+  mode: ActiveModeKind;
+  label?: string | null;
+  payload?: Record<string, unknown> | null;
+}
+
 export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
@@ -532,4 +613,28 @@ export const api = {
 
   disarmWakeRamp: () =>
     post<ExternalScheduleEntry>("/schedules/external/wake-ramp/disarm"),
+
+  meter: () => request<MeterSnapshot>("/meter"),
+
+  rooms: () =>
+    request<{ scenes: RoomSceneSummary[] }>("/rooms").then((r) => r.scenes),
+
+  captureRoom: (name: string) =>
+    post<RoomSceneCaptureResult>("/rooms", { name }),
+
+  deleteRoom: (name: string) => del<void>(`/rooms/${encodeURIComponent(name)}`),
+
+  restoreRoom: (name: string) =>
+    post<RoomSceneRestoreResult>(`/rooms/${encodeURIComponent(name)}/restore`),
+
+  /** §10 T23 — corrects the record, never the light. The route actually
+   *  returns the full merged device state (`overlay_active_mode`'s
+   *  `{...state, active}`, same shape as `GET /devices/{ref}`) rather than
+   *  a bare `ActiveMode` — verified against the live route in mock mode:
+   *  a `PUT` response includes `capabilities` and every basic field, not
+   *  just `active`. Typing this as `ActiveMode` would make `.mode` read
+   *  `undefined` off the real payload (the mode lives at `.active.mode`)
+   *  for any future caller that used the return value directly. */
+  setActiveMode: (ref: string, body: ActiveModeSetRequest) =>
+    put<DeviceState>(`/devices/${encodeURIComponent(ref)}/active-mode`, body),
 };

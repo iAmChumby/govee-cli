@@ -223,3 +223,41 @@ class TestSegmentCalibration:
 
         cfg = load_config()
         assert cfg.devices["6D:19:DD:6E:86:46:44:0C"].segment_calibration is None
+
+
+class TestRequestBudgetPerDay:
+    """WEBUI_V3_SPEC.md §10.2 — the request meter's opt-in soft budget."""
+
+    def test_defaults_to_none(self, config_path):
+        cfg = load_config()
+        assert cfg.request_budget_per_day is None
+
+    def test_save_and_load_round_trip(self, config_path):
+        cfg = GoveeConfig(default_mac="AA:BB:CC:DD:EE:FF", request_budget_per_day=5000)
+        save_config(cfg)
+        loaded = load_config()
+        assert loaded.request_budget_per_day == 5000
+
+    def test_unset_omits_key_from_disk(self, config_path):
+        cfg = GoveeConfig(default_mac="AA:BB:CC:DD:EE:FF")
+        save_config(cfg)
+        with open(config_path) as f:
+            data = json.load(f)
+        assert "request_budget_per_day" not in data
+
+    def test_pre_existing_v2_config_without_key_loads_as_none(self, config_path):
+        """A config.json written before this field existed — no CONFIG_VERSION bump
+        accompanied this change, so this is the exact shape of a config saved by
+        yesterday's code. It must keep loading, with the field defaulting to None."""
+        raw = {
+            "version": CONFIG_VERSION,
+            "default_mac": "6D:19:DD:6E:86:46:44:0C",
+            "devices": {
+                "6D:19:DD:6E:86:46:44:0C": {"model": "H6056", "name": "Light Bars"},
+            },
+        }
+        with open(config_path, "w") as f:
+            json.dump(raw, f)
+
+        cfg = load_config()
+        assert cfg.request_budget_per_day is None

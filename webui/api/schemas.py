@@ -12,6 +12,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, field_validator
 
 from govee_cli.commands._common import parse_hex
+from govee_cli.ledger import Mode
 
 
 class PowerRequest(BaseModel):
@@ -178,3 +179,37 @@ class SegmentCalibrationRequest(BaseModel):
 
     boundaries: list[int] = Field(min_length=1)
     permutation: list[int] = Field(min_length=1)
+
+
+class ActiveModeSetRequest(BaseModel):
+    """Body for ``PUT /devices/{ref}/active-mode`` — see §3.6.
+
+    Corrects the ledger's record of what mode the device is in without
+    commanding the device itself. Used for the manual "unknown" mode reset
+    and for correcting transient ledger mismatches (phone-app interference,
+    etc.).
+    """
+
+    mode: Mode
+    label: str | None = None
+    payload: dict[str, Any] | None = None
+
+
+class RoomSceneCaptureRequest(BaseModel):
+    """Body for ``POST /rooms`` — captures a room scene.
+
+    The scene name is the user-supplied label for this room-state snapshot.
+    """
+
+    name: str = Field(min_length=1)
+
+
+class RoomSceneRestoreRequest(BaseModel):
+    """Body for ``POST /rooms/{name}/restore`` — placeholder for future use.
+
+    An empty body today ensures the route signature is versioned separately
+    from the request payload, so restoration options can be added later
+    without a breaking change.
+    """
+
+    pass

@@ -24,7 +24,17 @@ from .errors import install_error_handlers
 from .mock import MockV2
 from .mock import install as install_mock
 from .playback import PlaybackManager
-from .routers import calibration, config, devices, effects, groups, scenes, schedules
+from .routers import (
+    calibration,
+    config,
+    devices,
+    effects,
+    groups,
+    meter,
+    rooms,
+    scenes,
+    schedules,
+)
 from .scheduler_runner import SchedulerRunner
 
 logger = structlog.get_logger(__name__)
@@ -148,7 +158,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     for router in (
         devices.router, scenes.router, groups.router,
         schedules.router, config.router, effects.router,
-        calibration.router,
+        calibration.router, meter.router, rooms.router,
     ):
         app.include_router(router, prefix="/api/v1")
 

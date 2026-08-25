@@ -26,6 +26,8 @@ from typing import Any
 
 import requests
 
+from govee_cli import request_meter
+
 GOVEE_V2_BASE = "https://openapi.api.govee.com/router/api/v1"
 
 # Capability type strings used by the v2 API.
@@ -102,6 +104,18 @@ def _slug(name: str) -> str:
     return "".join(ch for ch in name.lower() if ch.isalnum())
 
 
+def _meter(*, status: int | None, rate_limited: bool = False, error: bool = False) -> None:
+    """Record one v2 request attempt, defensively. ``request_meter.record``
+    already never raises on its own, but this chokepoint sits between the retry
+    loop and a real device command — a future change to request_meter.py must
+    not be able to turn a successful cloud call into a client-visible error just
+    because it broke that contract."""
+    try:
+        request_meter.record("v2", status=status, rate_limited=rate_limited, error=error)
+    except Exception:
+        pass
+
+
 class GoveeHTTPv2:
     """Client for the Govee Open API v2.
 
@@ -134,7 +148,7 @@ class GoveeHTTPv2:
     def _request(self, method: str, path: str, payload: dict | None = None) -> dict:
         """Issue a request, retrying on 429 and 5xx with exponential backoff."""
         url = f"{GOVEE_V2_BASE}{path}"
-        body = None
+        body: dict[str, Any] | None = None
         if payload is not None:
             body = {"requestId": str(uuid.uuid4()), "payload": payload}
 
@@ -146,6 +160,11 @@ class GoveeHTTPv2:
                 )
             except requests.RequestException as e:  # network-level failure
                 last_error = e
+                # Meter every attempt, per §10.2/§10.3 — a 4-attempt call is 4
+                # requests against whatever quota the cloud enforces, retries
+                # included. This lives in the except clause, not the try, so a
+                # meter bug can never masquerade as a network error.
+                _meter(status=None, error=True)
                 time.sleep(2 ** attempt)
                 continue
 
@@ -153,8 +172,15 @@ class GoveeHTTPv2:
                 last_error = GoveeV2Error(
                     f"{resp.status_code} from Govee cloud: {resp.text[:200]}"
                 )
+                _meter(
+                    status=resp.status_code,
+                    rate_limited=resp.status_code == 429,
+                    error=resp.status_code >= 500,
+                )
                 time.sleep(2 ** attempt * 2)
                 continue
+
+            _meter(status=resp.status_code)
 
             try:
                 data = resp.json()

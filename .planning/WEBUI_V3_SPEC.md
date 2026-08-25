@@ -2495,7 +2495,11 @@ control that silently commanded the device would make the ledger lie in the othe
 direction. It must also make **zero** upstream Govee calls beyond the state read it
 needs for the merge.
 The existing `DELETE .../active-mode` stays exactly as it is. A `mode` outside the
-`ledger.Mode` vocabulary is a 422 from pydantic, not a silent coercion.
+`ledger.Mode` vocabulary is **rejected by pydantic before the handler body runs**, not
+silently coerced. (Written as "422" in the first draft; the sidecar's app-wide
+`RequestValidationError` handler in `errors.py` remaps every validation failure to 400,
+so 400 is the correct expectation here and the test asserts the real contract — plus
+the property the status code was standing in for, that the ledger is untouched.)
 Verify: `pytest tests/test_active_mode_set.py` — PUT with
 `mode="diy", label="sleep"` makes a subsequent `GET /devices/{ref}/state` report
 `active.mode == "diy"`, `active.label == "sleep"`, `active.confidence == "assumed"`

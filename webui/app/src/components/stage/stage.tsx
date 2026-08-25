@@ -31,6 +31,7 @@ import {
 import { MotionCanvas } from "@/lib/motion-engine/MotionCanvas";
 import { classifyActiveMode } from "@/lib/motion-engine/classify";
 import { buildGeometry } from "@/lib/motion-engine/geometry";
+import { UnknownModeChooser } from "./mode-picker";
 import type {
   ActiveMode as MotionActiveMode,
   ActiveModeKind as MotionActiveModeKind,
@@ -1099,6 +1100,37 @@ export function DeviceStage({
           {!mini ? (
             <span className="pointer-events-auto">
               <ActiveModeReset deviceRef={state.ref} />
+            </span>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* §10 T27 — the inverse branch: no ledger record at all, so there is
+          nothing honest to caption here (no label, no age, no motion
+          texture — `motionMeta` is null for `unknown`). Deliberately gated
+          on the opposite condition of the block above rather than a
+          relaxed prop on `ActiveModeReset`: that control needs a KNOWN
+          mode to reset FROM, this one needs the ABSENCE of one to fix
+          TOWARD. The picker itself is full-stage only (mirroring
+          `ActiveModeReset`'s own `!mini` gate) because the mini instrument
+          is nested inside a `<Link>` on the dashboard card
+          (`device-plate.tsx`) — a second interactive element in there
+          would both be invalid HTML and hijack the card's navigation
+          click. The honest "unknown" caption still shows at mini size, so
+          the dashboard doesn't silently say nothing. */}
+      {!motionMeta && active?.mode === "unknown" ? (
+        <div className="pointer-events-none absolute inset-x-2 top-2 flex items-start justify-between gap-2">
+          <span
+            className={cn(
+              "truncate rounded-chip border border-hairline bg-bg/80 px-1.5 py-0.5 font-mono leading-none tracking-micro text-low",
+              mini ? "text-[7px]" : "text-[9px]",
+            )}
+          >
+            unknown
+          </span>
+          {!mini ? (
+            <span className="pointer-events-auto">
+              <UnknownModeChooser deviceRef={state.ref} />
             </span>
           ) : null}
         </div>

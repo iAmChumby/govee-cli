@@ -3,12 +3,17 @@
 Enabled by ``GOVEE_WEBUI_MOCK=1``. Three jobs:
 
 1. Redirect every on-disk path the library writes (user config, schedule file,
-   scene cache, active-mode ledger) to a temp dir *before first use*, so a demo
-   run can never touch real ``~/.config/govee-cli`` files. This patches the
-   module-level constants the library reads at call time — it must happen
-   before the first ``load_config()`` / ``list_rules()`` / ``record_mode()``,
-   which is why :func:`install` runs from the app factory rather than from
-   request handlers.
+   scene cache, active-mode ledger, request meter, room scenes) to a temp dir
+   *before first use*, so a demo run can never touch real
+   ``~/.config/govee-cli`` files. This patches the module-level constants the
+   library reads at call time — it must happen before the first
+   ``load_config()`` / ``list_rules()`` / ``record_mode()`` /
+   ``request_meter.record()`` / ``room_scenes.save_scene()``, which is why
+   :func:`install` runs from the app factory rather than from request
+   handlers. A verification run or a test that wrote to the real
+   request-meter.json or room-scenes.json would corrupt the traffic counts and
+   the saved scenes the running console displays — the same reason the ledger
+   is redirected here.
 2. Seed that temp dir with the three fixture devices, one group and two
    schedule rules, so config/group/schedule endpoints exercise the library's
    real load/save code paths against throwaway files.
@@ -33,6 +38,8 @@ from typing import Any
 from govee_cli import config as config_mod
 from govee_cli import http_v2 as http_v2_mod
 from govee_cli import ledger as ledger_mod
+from govee_cli import request_meter as request_meter_mod
+from govee_cli import room_scenes as room_scenes_mod
 from govee_cli.http_v2 import Capability, DIYScene, Scene, V2Device
 from govee_cli.schedule import scheduler as scheduler_mod
 from govee_cli.transport import MODEL_SPECS
@@ -349,6 +356,10 @@ def install() -> pathlib.Path:
         "scene_cache": http_v2_mod._SCENE_CACHE_PATH,
         "ledger_path": ledger_mod.LEDGER_PATH,
         "ledger_lock_path": ledger_mod.LEDGER_LOCK_PATH,
+        "meter_path": request_meter_mod.METER_PATH,
+        "meter_lock_path": request_meter_mod.METER_LOCK_PATH,
+        "room_scenes_path": room_scenes_mod.ROOM_SCENES_PATH,
+        "room_scenes_lock_path": room_scenes_mod.ROOM_SCENES_LOCK_PATH,
     })
     config_mod._CONFIG_PATH = _tmp_dir / "config.json"
     scheduler_mod.SCHEDULE_DIR = _tmp_dir
@@ -359,6 +370,14 @@ def install() -> pathlib.Path:
     # LEDGER_PATH at call time) — see govee_cli/ledger.py.
     ledger_mod.LEDGER_PATH = _tmp_dir / "active-mode.json"
     ledger_mod.LEDGER_LOCK_PATH = _tmp_dir / "active-mode.json.lock"
+    # Same pair-reassignment contract as the ledger above, for the two modules
+    # T24 adds: request_meter (§10.1's traffic counts) and room_scenes (§10's
+    # saved room presets) — both write via flock + atomic replace to a path
+    # read from a module-level constant, not derived at call time.
+    request_meter_mod.METER_PATH = _tmp_dir / "request-meter.json"
+    request_meter_mod.METER_LOCK_PATH = _tmp_dir / "request-meter.json.lock"
+    room_scenes_mod.ROOM_SCENES_PATH = _tmp_dir / "room-scenes.json"
+    room_scenes_mod.ROOM_SCENES_LOCK_PATH = _tmp_dir / "room-scenes.json.lock"
 
     _seed_config(config_mod._CONFIG_PATH)
     _seed_schedules(scheduler_mod.SCHEDULE_FILE)
@@ -376,6 +395,10 @@ def uninstall() -> None:
     http_v2_mod._SCENE_CACHE_PATH = _originals["scene_cache"]
     ledger_mod.LEDGER_PATH = _originals["ledger_path"]
     ledger_mod.LEDGER_LOCK_PATH = _originals["ledger_lock_path"]
+    request_meter_mod.METER_PATH = _originals["meter_path"]
+    request_meter_mod.METER_LOCK_PATH = _originals["meter_lock_path"]
+    room_scenes_mod.ROOM_SCENES_PATH = _originals["room_scenes_path"]
+    room_scenes_mod.ROOM_SCENES_LOCK_PATH = _originals["room_scenes_lock_path"]
     shutil.rmtree(_tmp_dir, ignore_errors=True)
     _tmp_dir = None
     _originals.clear()

@@ -109,6 +109,11 @@ class GoveeConfig:
     default_timeout: float = 10.0
     default_brightness: int | None = None
     default_color: str | None = None  # RRGGGGBB hex
+    # Opt-in soft target for the request meter's status-strip band (WEBUI_V3_SPEC.md
+    # §10.2). None means "unset" — the meter then shows measured counts and no band
+    # at all, never a percentage of a limit we invented. When set, the percentage
+    # shown is explicitly against *this* number, labelled as the user's own.
+    request_budget_per_day: int | None = None
     groups: dict[str, list[str]] = field(default_factory=dict)  # group_name -> [mac, ...]
     devices: dict[str, DeviceConfig] = field(default_factory=dict)  # mac -> DeviceConfig
 
@@ -284,6 +289,7 @@ def load_config() -> GoveeConfig:
             default_timeout=raw.get("default_timeout", 10.0),
             default_brightness=raw.get("default_brightness"),
             default_color=raw.get("default_color"),
+            request_budget_per_day=raw.get("request_budget_per_day"),
             groups=raw.get("groups", {}),
             devices={
                 mac.upper(): DeviceConfig(
@@ -320,6 +326,7 @@ def load_config() -> GoveeConfig:
         default_timeout=raw.get("default_timeout", 10.0),
         default_brightness=raw.get("default_brightness"),
         default_color=raw.get("default_color"),
+        request_budget_per_day=raw.get("request_budget_per_day"),
         groups=raw.get("groups", {}),
         devices=devices,
     )
@@ -356,6 +363,7 @@ def save_config(config: GoveeConfig) -> None:
         "default_timeout": config.default_timeout,
         "default_brightness": config.default_brightness,
         "default_color": config.default_color,
+        "request_budget_per_day": config.request_budget_per_day,
         "groups": config.groups,
         "devices": devices_data,
     }

@@ -4,9 +4,10 @@ import * as React from "react";
 import { AlertTriangle } from "lucide-react";
 
 import { Chip, Odometer, StatusDot } from "@/components/ui";
-import { useDevices, useHealth } from "@/lib/queries";
+import { useDevices, useHealth, useMeter } from "@/lib/queries";
 import { activeHsl } from "@/components/device/device-plate";
-import type { ActiveModeKind } from "@/lib/api";
+import type { ActiveModeKind, MeterSnapshot } from "@/lib/api";
+import { computeBudgetReadout, shouldShowBudget } from "@/lib/budget";
 
 /** Ledger modes the cloud can never read back above "assumed" (§3.4) — the
  *  set that counts as "this device is doing something the dashboard's
@@ -90,6 +91,7 @@ export function StatusStrip() {
   const time = useClock();
   const health = useHealth();
   const devices = useDevices();
+  const meter = useMeter();
   const latency = useLatency(health.isSuccess);
   const isFriOrSat = useIsFriOrSat();
 
@@ -168,9 +170,48 @@ export function StatusStrip() {
         </Chip>
       ) : null}
 
-      {!health.data?.mock ? <span className="hidden md:inline">budget ~2 req/s</span> : null}
+      {shouldShowBudget(!!health.data?.mock) && meter.data ? (
+        <BudgetReadout meter={meter.data} />
+      ) : null}
       <span aria-hidden className="hidden h-3 w-px bg-hairline md:block" />
       <span className="tabular-nums">{time}</span>
     </footer>
+  );
+}
+
+/**
+ * §10 T26 — replaces the hardcoded `budget ~2 req/s` span with measured
+ * counts (§10.2). **Tier: CHASSIS**, with one SIGNAL-SPILL exception
+ * mirroring the strip's existing active-mode Chip: neutral mono text and
+ * the `Odometer` primitive for the rolling count, no motion, no device
+ * hue — the *only* coloured state is `Chip tone="warn"` when
+ * `rate_limited_today > 0`, because a 429 is the one piece of real
+ * evidence we have. No band, no percentage, and no colour when the user
+ * has not set `request_budget_per_day` themselves.
+ */
+function BudgetReadout({ meter }: { meter: MeterSnapshot }) {
+  const budget = computeBudgetReadout(meter);
+  const count = (
+    <span className="inline-flex items-baseline gap-1">
+      <Odometer value={budget.v2Today} /> v2/day
+      {budget.percent !== null ? (
+        <span className="text-low">
+          {" "}
+          · {budget.percent}% of {budget.budgetPerDay}
+        </span>
+      ) : null}
+    </span>
+  );
+
+  return (
+    <span className="hidden items-baseline gap-1.5 md:flex">
+      {budget.tone === "warn" ? (
+        <Chip tone="warn" title="rate-limited by the cloud today">
+          {count}
+        </Chip>
+      ) : (
+        count
+      )}
+    </span>
   );
 }

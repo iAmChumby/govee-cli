@@ -33,6 +33,7 @@ from ..deps import (
 )
 from ..errors import bad_request
 from ..schemas import (
+    ActiveModeSetRequest,
     BrightnessRequest,
     ColorRequest,
     DiscoverRequest,
@@ -137,6 +138,31 @@ async def delete_active_mode(request: Request, ref: str) -> None:
     cfg = await run_blocking(get_config)
     target = resolve_ref(cfg, ref)
     await run_blocking(ledger.clear_mode, target.device_id)
+
+
+@router.put("/devices/{ref}/active-mode")
+async def set_active_mode(
+    request: Request, ref: str, body: ActiveModeSetRequest
+) -> dict[str, Any]:
+    """Correct the ledger's record of what a device is doing — see §3.6/§10.2.
+
+    Unlike every other write route in this file, this one sends **no** device
+    command. The ledger can be wrong (stale after phone-app interference, or
+    honestly "unknown" because nothing was ever recorded) and the fix for
+    that is a bookkeeping correction, not a light command — a route that
+    quietly commanded the device here would make the ledger lie in the other
+    direction, which is the exact bug it exists to prevent. The state read
+    below is only to build the merged response the caller asked for so it
+    doesn't need a second round trip; it is not a verification step.
+    """
+    cfg = await run_blocking(get_config)
+    target = resolve_ref(cfg, ref)
+    await run_blocking(
+        ledger.record_mode, target.device_id, body.mode, body.label, body.payload, "webui"
+    )
+    raw = await read_state(request, target)
+    state = apply_echo(request, target, normalize_state(target, raw))
+    return overlay_active_mode(target, state)
 
 
 async def _device_state(request: Request, ref: str) -> dict[str, Any]:
