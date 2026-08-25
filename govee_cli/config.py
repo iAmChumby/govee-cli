@@ -9,7 +9,7 @@ import json
 import pathlib
 import re
 import sys
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 
 _DEFAULT_ADAPTER = "hci0" if sys.platform == "linux" else None
 
@@ -55,6 +55,31 @@ def _migrate_v1_to_v2(raw: dict) -> dict:
 
 
 @dataclass
+class SegmentCalibration:
+    """A device's user-confirmed segment-to-matrix mapping (WEBUI_V3_SPEC.md §5.3).
+
+    The paint studio's default boundary algorithm (equal-ish contiguous runs
+    over raster LED order) is a defensible hypothesis, not a verified fact —
+    the segment-to-matrix interpolation is undocumented firmware behavior.
+    This record is what turns that hypothesis into an honest, persisted
+    ground truth: a human ran the calibration wizard, watched the physical
+    hardware light up, and confirmed (or reordered) what they actually saw.
+
+    Attributes:
+        boundaries: LED index boundaries, one more entry than segment count —
+            segment i covers ``canvas`` LED indices ``[boundaries[i], boundaries[i+1])``.
+        permutation: Segment index reordering confirmed against the physical
+            device (e.g. segment 3 actually lights up where segment 1 was
+            guessed to be).
+        calibrated_at: ISO 8601 timestamp of when this calibration was saved.
+    """
+
+    boundaries: list[int]
+    permutation: list[int]
+    calibrated_at: str
+
+
+@dataclass
 class DeviceConfig:
     """Per-device configuration.
 
@@ -62,11 +87,16 @@ class DeviceConfig:
         model: Device model (e.g., "H6056", "H6008")
         name: Optional human-readable name for the device
         static_mac: Optional static MAC address if different from connection MAC
+        segment_calibration: User-confirmed segment->matrix mapping for the
+            matrix paint studio, if this device has ever been calibrated.
+            ``None`` means "never calibrated" — the studio falls back to the
+            default boundary algorithm and shows its honesty banner.
     """
 
     model: str
     name: str | None = None
     static_mac: str | None = None
+    segment_calibration: SegmentCalibration | None = None
 
 
 @dataclass
@@ -186,6 +216,24 @@ def get_device_by_name(config: GoveeConfig, name: str) -> tuple[str, DeviceConfi
     return None
 
 
+def _parse_segment_calibration(raw: dict | None) -> SegmentCalibration | None:
+    """Parse a device's ``segment_calibration`` block, tolerating its absence.
+
+    Absent for every device in a pre-v3 config (the field didn't exist before
+    this change) as well as any device that has simply never been calibrated
+    — both cases must load as ``None``, not raise, so an existing
+    ``~/.config/govee-cli/config.json`` keeps loading exactly as it did
+    before this field was added.
+    """
+    if not raw:
+        return None
+    return SegmentCalibration(
+        boundaries=list(raw.get("boundaries", [])),
+        permutation=list(raw.get("permutation", [])),
+        calibrated_at=raw.get("calibrated_at", ""),
+    )
+
+
 def resolve_device_ref(config: GoveeConfig, ref: str) -> tuple[str, DeviceConfig]:
     """Resolve a device reference (name or MAC) to (mac, config).
 
@@ -260,6 +308,9 @@ def load_config() -> GoveeConfig:
             model=model,
             name=device_data.get("name"),
             static_mac=device_data.get("static_mac"),
+            segment_calibration=_parse_segment_calibration(
+                device_data.get("segment_calibration")
+            ),
         )
 
     return GoveeConfig(
@@ -286,6 +337,11 @@ def save_config(config: GoveeConfig) -> None:
                 "model": device.model,
                 "name": device.name,
                 "static_mac": device.static_mac,
+                "segment_calibration": (
+                    asdict(device.segment_calibration)
+                    if device.segment_calibration
+                    else None
+                ),
             }.items()
             if v is not None and v != ""
         }

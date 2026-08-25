@@ -2,6 +2,7 @@
 
 import click
 
+from govee_cli import ledger
 from govee_cli.commands._common import parse_hex, resolve
 from govee_cli.exceptions import GoveeError
 from govee_cli.transport import CLOUD_V1, CLOUD_V2
@@ -18,6 +19,14 @@ def command(ctx: click.Context, hex_color: str, mac: str | None, adapter: str) -
     r, g, b = parse_hex(hex_color)
     pretty = f"#{r:02X}{g:02X}{b:02X}"
 
+    # A plain color write is the strongest available signal a running scene/
+    # DIY/music mode has ended, so this unconditionally overwrites the ledger
+    # to "basic" — per §3.5, the one write site that always invalidates.
+    def record() -> None:
+        ledger.record_mode(
+            target.device_id, "basic", None, {"color_rgb": [r, g, b]}, source="cli"
+        )
+
     if target.transport == CLOUD_V2:
         from govee_cli.commands._common import v2_client
         from govee_cli.http_v2 import GoveeV2Error
@@ -26,6 +35,7 @@ def command(ctx: click.Context, hex_color: str, mac: str | None, adapter: str) -
             v2_client().set_color(target.cloud_model, target.device_id, r, g, b)
         except GoveeV2Error as e:
             raise click.ClickException(str(e)) from e
+        record()
         click.echo(f"Color set to {pretty}")
         return
 
@@ -36,6 +46,7 @@ def command(ctx: click.Context, hex_color: str, mac: str | None, adapter: str) -
             GoveeHTTP().set_color(target.device_id, target.cloud_model, r, g, b)
         except GoveeHTTPError as e:
             raise click.ClickException(str(e)) from e
+        record()
         click.echo(f"Color set to {pretty}")
         return
 
@@ -47,6 +58,7 @@ def command(ctx: click.Context, hex_color: str, mac: str | None, adapter: str) -
             await client.execute(
                 encode_color_hex_for_device(hex_color.lstrip("#"), target.model)
             )
+            record()
             click.echo(f"Color set to {pretty}")
 
     try:

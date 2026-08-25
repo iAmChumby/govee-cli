@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 import click
 
+from govee_cli import ledger
 from govee_cli.commands._common import resolve, v2_client
 from govee_cli.transport import CLOUD_V2
 
@@ -105,6 +106,16 @@ def command(ctx: click.Context, mode: str | None, sensitivity: int,
         )
     except GoveeV2Error as e:
         raise click.ClickException(str(e)) from e
+
+    # `key` is already the per-model mode NAME ("rhythm", "energic", ...), not
+    # the integer `modes[key]` sent over the wire — the same integer means a
+    # different mode on a different model (see module docstring), so writing
+    # the raw int to the ledger would silently mislabel the UI on whichever
+    # model doesn't happen to share that mapping.
+    ledger.record_mode(
+        target.device_id, "music", key,
+        {"music_mode": modes[key], "sensitivity": sensitivity}, source="cli",
+    )
 
     detail = f"sensitivity {sensitivity}"
     if rgb is not None:

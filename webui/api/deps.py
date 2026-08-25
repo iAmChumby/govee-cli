@@ -13,12 +13,14 @@ import re
 import threading
 import time
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any, Protocol, cast
 
 import anyio.to_thread
 import click
 from fastapi import Request
 
+from govee_cli import ledger
 from govee_cli.config import DeviceConfig, GoveeConfig, load_config, resolve_device_ref
 from govee_cli.exceptions import DeviceNotConfigured
 from govee_cli.http_v2 import DIYScene, Scene, V2Device
@@ -341,6 +343,131 @@ def apply_echo(request: Request, target: Resolved, state: dict[str, Any]) -> dic
     return get_write_echo(request).overlay(target.device_id, state)
 
 
+# Modes the cloud API can never confirm mid-playback (scene/segment/music
+# instances always read back ""), so their confidence never rises above
+# "assumed" — see §3.4/§3.6 rule 3.
+_UNVERIFIABLE_MODES = frozenset(
+    {"scene", "diy", "music", "snapshot", "segments", "effect"}
+)
+
+
+def _unknown_active() -> dict[str, Any]:
+    return {
+        "mode": "unknown",
+        "label": None,
+        "confidence": "unknown",
+        "source": None,
+        "set_at": None,
+        "age_seconds": None,
+    }
+
+
+def _age_seconds(set_at: Any) -> int | None:
+    """Seconds since ``set_at``, or None if it can't be parsed.
+
+    A malformed timestamp must not blow up the whole merge — it just means
+    the age can't be shown, same honesty rule as everything else here.
+    ``set_at`` is typed ``str`` on :class:`ledger.ActiveModeEntry`, but that
+    dataclass is built from on-disk JSON with no runtime type check on this
+    field (``_entry_from_dict`` only guards against missing keys) — a
+    corrupted or hand-edited ledger file can hand this a ``null`` or a
+    number, which raises ``TypeError`` rather than ``ValueError``.
+    """
+    try:
+        set_dt = datetime.fromisoformat(set_at)
+    except (ValueError, TypeError):
+        return None
+    if set_dt.tzinfo is None:
+        set_dt = set_dt.replace(tzinfo=timezone.utc)
+    return max(0, int((datetime.now(timezone.utc) - set_dt).total_seconds()))
+
+
+def _entry_active(entry: ledger.ActiveModeEntry, confidence: str) -> dict[str, Any]:
+    return {
+        "mode": entry.mode,
+        "label": entry.label,
+        "confidence": confidence,
+        "source": entry.source,
+        "set_at": entry.set_at,
+        "age_seconds": _age_seconds(entry.set_at),
+    }
+
+
+def _basic_confidence(payload: dict[str, Any] | None, state: dict[str, Any]) -> str:
+    """Compare the ledger's recorded basic-mode payload to live state.
+
+    Brightness-only writes never touch the ledger (§3.5), so ``payload`` only
+    ever carries a ``color_rgb`` or ``color_temp_k`` key when it was written by
+    an explicit color/temp command — that's the one field the comparison
+    checks. ``payload=None`` (a bare power-on) has nothing to diverge from, so
+    there is nothing to disprove: confirmed by default.
+    """
+    if not payload:
+        return "confirmed"
+    if "color_rgb" in payload:
+        live_rgb = (state.get("color") or {}).get("rgb")
+        return "confirmed" if live_rgb == list(payload["color_rgb"]) else "external"
+    if "color_temp_k" in payload:
+        return "confirmed" if state.get("color_temp_k") == payload["color_temp_k"] else "external"
+    return "confirmed"
+
+
+def overlay_active_mode(target: Resolved, state: dict[str, Any]) -> dict[str, Any]:
+    """Merge the ledger's recorded intent onto normalised state (§3.6).
+
+    Must run *after* :func:`apply_echo` — comparing against the echo-applied
+    state (not a raw cloud read) means our own just-issued, not-yet-cloud-
+    confirmed write compares correctly against the ledger entry it wrote in
+    the same request, instead of misreporting "external" purely because the
+    cloud hasn't caught up yet.
+
+    Five rules, in order, mirroring §3.6 exactly:
+
+    1. ``online is False`` -> unknown, unconditionally.
+    2. ``power is False`` -> off/confirmed, unconditionally — power is the one
+       field the cloud always proves outright, so it overrides even a ledger
+       that disagrees.
+    3. ``power is True`` and the ledger's mode is one of the cloud-unverifiable
+       modes (scene/diy/music/snapshot/segments/effect) -> that entry
+       verbatim, confidence always "assumed" (never upgraded — see §3.4).
+    4. ``power is True`` and the ledger's mode is "basic" (or absent) ->
+       compare live brightness/color/temp to the ledger's payload: match is
+       "confirmed", divergence is "external" (the phone-app-changed-it case).
+    5. No ledger entry at all, or a ledger entry contradicted by live state
+       (mode="off" while the device is live and on, or an explicit "unknown"
+       write) -> unknown. Never defaults to "basic" — that would itself be an
+       unverifiable claim about a device never ledger-recorded.
+    """
+    online = state.get("online")
+    power = state.get("power")
+
+    if online is False:
+        active = _unknown_active()
+    elif power is False:
+        entry = ledger.read_one(target.device_id)
+        if entry is not None and entry.mode == "off":
+            active = _entry_active(entry, "confirmed")
+        else:
+            active = {**_unknown_active(), "mode": "off", "confidence": "confirmed"}
+    elif power is not True:
+        # Power itself couldn't be read (e.g. BLE with no state support) —
+        # nothing downstream can be claimed with any confidence either.
+        active = _unknown_active()
+    else:
+        entry = ledger.read_one(target.device_id)
+        if entry is None or entry.mode in ("unknown", "off"):
+            # No entry, an explicit "unknown" write, or a stale "off" entry
+            # that live power now contradicts (rule 2's override runs both
+            # directions: the one thing cloud state proves outright wins).
+            active = _unknown_active()
+        elif entry.mode in _UNVERIFIABLE_MODES:
+            active = _entry_active(entry, "assumed")
+        else:  # "basic"
+            active = _entry_active(entry, _basic_confidence(entry.payload, state))
+
+    return {**state, "active": active}
+
+
 async def run_blocking(func: Any, *args: Any) -> Any:
     """Run a blocking library call on a worker thread.
 
@@ -379,7 +506,8 @@ def capabilities_block(spec: ModelSpec | None) -> dict[str, Any]:
             "segments": False, "segment_brightness": False, "scenes": False,
             "diy": False, "music": False, "toggles": [], "temp_min": 2700,
             "temp_max": 9000, "segment_count_cloud": 0, "segment_count_ble": 0,
-            "prefer_ble_effects": False,
+            "prefer_ble_effects": False, "matrix_rows": 0, "matrix_cols": 0,
+            "matrix_wrap_col": False,
         }
     return {
         "segments": spec.cloud_segments,
@@ -393,6 +521,9 @@ def capabilities_block(spec: ModelSpec | None) -> dict[str, Any]:
         "segment_count_cloud": spec.segment_count,
         "segment_count_ble": spec.ble_segment_count,
         "prefer_ble_effects": spec.prefer_ble_effects,
+        "matrix_rows": spec.matrix_rows,
+        "matrix_cols": spec.matrix_cols,
+        "matrix_wrap_col": spec.matrix_wrap_col,
     }
 
 
@@ -504,6 +635,7 @@ __all__ = [
     "get_write_echo",
     "invalidate_state",
     "normalize_state",
+    "overlay_active_mode",
     "read_state",
     "record_write",
     "require_v2_feature",

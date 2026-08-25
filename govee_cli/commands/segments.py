@@ -4,6 +4,7 @@ import asyncio
 
 import click
 
+from govee_cli import ledger
 from govee_cli.commands._common import parse_hex, parse_segments, resolve, v2_client
 from govee_cli.exceptions import GoveeError
 from govee_cli.transport import CLOUD_V2
@@ -88,6 +89,16 @@ def command(ctx: click.Context, segment_spec: str, hex_color: str | None,
                 done.append(f"{brightness}% brightness")
         except GoveeV2Error as e:
             raise click.ClickException(str(e)) from e
+        # One ledger entry for the whole invocation even though color and
+        # brightness are two separate client calls above — splitting this into
+        # two writes would make "segments 0-2 FF0000 --brightness 30" look like
+        # two independent mode changes instead of one user action.
+        ledger.record_mode(
+            target.device_id, "segments", None,
+            {"segments": segments, "rgb": list(rgb) if rgb else None,
+             "brightness": brightness},
+            source="cli",
+        )
         click.echo(f"Set {label} to {' and '.join(done)}")
         return
 
@@ -108,6 +119,16 @@ def command(ctx: click.Context, segment_spec: str, hex_color: str | None,
         async with GoveeBLE(target.ble_mac, adapter=adapter) as client:
             for seg in segments:
                 await client.execute(encode_segment(seg, r, g, b))
+            # Same single-entry-per-invocation rule as the cloud branch above.
+            # This is exactly the case §3.3's "Rejected" reasoning names as the
+            # motivation for hooking at the command layer instead of inside
+            # GoveeHTTPv2.control() — BLE segment paint never goes through that
+            # client, so it must be captured here or not at all.
+            ledger.record_mode(
+                target.device_id, "segments", None,
+                {"segments": segments, "rgb": [r, g, b], "brightness": None},
+                source="cli",
+            )
             click.echo(f"Set {label} to #{r:02X}{g:02X}{b:02X}")
 
     try:

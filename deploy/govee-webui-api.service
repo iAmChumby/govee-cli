@@ -20,7 +20,18 @@ Restart=on-failure
 RestartSec=3
 
 # Hardening: read-only filesystem except the config dir the library writes
-# (config.json, scene-cache.json, schedule.json).
+# (config.json, scene-cache.json, schedule.json, active-mode.json + its lock).
+#
+# The sandbox costs this unit the ability to read the crontab: in a systemd
+# *user* unit, ProtectSystem/PrivateTmp implicitly enable NoNewPrivileges, which
+# strips the setgid bit /usr/bin/crontab needs to traverse /var/spool/cron/
+# crontabs (mode 1730 root:crontab). Setting NoNewPrivileges=false here does not
+# win it back — the implication applies regardless.
+#
+# Rather than drop the sandbox for one read, govee-crontab-snapshot.timer mirrors
+# the crontab into ~/.config/govee-cli/crontab.snapshot from outside the sandbox,
+# and external_schedule.py falls through crontab -l -> spool file -> snapshot,
+# reporting which route answered and how stale it was.
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict

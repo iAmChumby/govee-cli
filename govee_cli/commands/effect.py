@@ -19,7 +19,7 @@ from __future__ import annotations
 import asyncio
 import pathlib
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import click
 
@@ -136,23 +136,32 @@ def command(
             f"cloud)"
         )
         click.echo("Press Ctrl+C to stop.")
+        previous = _record_effect_start(effect, target, "cloud")
         try:
             _play_cloud(effect, target)
         except KeyboardInterrupt:
             click.echo("\nStopped.")
+            return
+        except Exception:
+            _restore_effect_entry(target, previous)
+            raise
+        _record_effect_finish(effect, target)
         return
 
     click.echo(
         f"Playing effect: {effect.name}  ({effect.fps} fps, loop={effect.loop}, BLE)"
     )
     click.echo("Press Ctrl+C to stop.")
+    previous = _record_effect_start(effect, target, "ble")
     try:
         asyncio.run(
             _play(effect, target.ble_mac, adapter, ctx.obj.get("default_timeout", 10.0))
         )
     except KeyboardInterrupt:
         click.echo("\nStopped.")
+        return
     except GoveeError as e:
+        _restore_effect_entry(target, previous)
         # A device that also has a cloud path can still animate, just slower.
         # Say so instead of leaving the user with a bare Bluetooth error.
         if target.transport == CLOUD_V2:
@@ -162,6 +171,7 @@ def command(
                 f"--cloud (slower: max {CLOUD_MAX_FPS}fps)."
             ) from e
         raise click.ClickException(f"BLE playback failed: {e}") from e
+    _record_effect_finish(effect, target)
 
 
 def _frames(effect: "Effect") -> "Iterator[tuple[float, dict[int, tuple[int, int, int]]]]":
@@ -174,6 +184,75 @@ def _frames(effect: "Effect") -> "Iterator[tuple[float, dict[int, tuple[int, int
     while t <= total_ms:
         yield t, {seg.id: _color_at(seg.keyframes, t) for seg in effect.segments}
         t += frame_ms
+
+
+def last_frame_rgb(effect: "Effect") -> list[int] | None:
+    """The colour of one segment in the effect's final frame.
+
+    Recomputed from the keyframes rather than threaded back out of the runners —
+    ``_frames`` is a pure function of the effect, so replaying it here cannot
+    drift from what was actually sent. Picking a single segment's colour (rather
+    than one per segment) matches the ledger's ``basic`` payload shape; effects
+    whose segments do not converge on one colour are reduced, deliberately, to
+    the first.
+
+    Lives here rather than in the sidecar because both the CLI's blocking
+    playback and the sidecar's managed playback need the same answer, and the
+    library must never import from ``webui``.
+    """
+    last: tuple[int, int, int] | None = None
+    for _t, colors in _frames(effect):
+        rgb = next(iter(colors.values()), None)
+        if rgb is not None:
+            last = rgb
+    return list(last) if last is not None else None
+
+
+def _record_effect_start(effect: "Effect", target: "Target", transport: str) -> Any:
+    """Mark the device as running this effect (§3.3), returning what it displaced.
+
+    The caller hands the displaced entry back to :func:`_restore_effect_entry` if
+    playback never actually got going. A BLE connection that fails on the first
+    frame leaves the light exactly as it was, so the ledger should say so too
+    rather than claim an effect is running.
+    """
+    from govee_cli import ledger
+
+    previous = ledger.read_one(target.device_id)
+    ledger.record_mode(
+        target.device_id, "effect", effect.name,
+        {"effect_file": effect.name, "transport": transport}, source="cli",
+    )
+    return previous
+
+
+def _restore_effect_entry(target: "Target", previous: Any) -> None:
+    """Undo :func:`_record_effect_start` after a playback that never ran."""
+    from govee_cli import ledger
+
+    if previous is None:
+        ledger.clear_mode(target.device_id)
+        return
+    ledger.record_mode(
+        target.device_id, previous.mode, previous.label, previous.payload,
+        source=previous.source,
+    )
+
+
+def _record_effect_finish(effect: "Effect", target: "Target") -> None:
+    """Downgrade to the colour the effect left behind, on natural completion only.
+
+    A user-interrupted effect keeps ``mode="effect"``: Ctrl+C stops the frames
+    but says nothing about where the light landed, and inventing a final colour
+    for it would be exactly the kind of confident-but-wrong claim the ledger
+    exists to avoid. Same rule the sidecar's playback manager follows.
+    """
+    from govee_cli import ledger
+
+    rgb = last_frame_rgb(effect)
+    if rgb is None:
+        return
+    ledger.record_mode(target.device_id, "basic", None, {"color_rgb": rgb}, source="cli")
 
 
 def _play_cloud(effect: "Effect", target: "Target") -> None:

@@ -64,6 +64,14 @@ class ModelSpec:
             device's primary transport is cloud. Cloud playback is capped at
             2fps by the request budget; BLE runs at full speed, so for a device
             that can do both, BLE is strictly better for animation.
+        matrix_rows: Number of rows in the device's matrix geometry, 0 if not
+            a matrix device. Used by the paint studio to render per-cell
+            addressability for devices like the H6022 (11×12 wrapped drum).
+        matrix_cols: Number of columns in the device's matrix geometry, 0 if not
+            a matrix device.
+        matrix_wrap_col: Whether the matrix wraps around (columns wrap to form
+            a cylinder, like the H6022 drum). False for linear bars (H6056) or
+            devices without a matrix.
     """
 
     model: str
@@ -79,6 +87,9 @@ class ModelSpec:
     cloud_music: bool = False
     toggles: tuple[str, ...] = field(default_factory=tuple)
     prefer_ble_effects: bool = False
+    matrix_rows: int = 0
+    matrix_cols: int = 0
+    matrix_wrap_col: bool = False
 
 
 # Verified against live hardware 2026-08-14. Capability flags reflect what the
@@ -111,6 +122,12 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         # The bars are the one device that can do both, and BLE animates far
         # faster than the cloud's 2fps ceiling.
         prefer_ble_effects=True,
+        # The H6056 is actually two bars (rows), with an authoring resolution
+        # of 48 columns per bar for smooth gradients/motion (not a hardware fact
+        # — the bars have no native pixel grid). No column wrapping (linear bars).
+        matrix_rows=2,
+        matrix_cols=48,
+        matrix_wrap_col=False,
     ),
     "H6008": ModelSpec(
         model="H6008",
@@ -145,6 +162,14 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         # Verified rejected: 400 "devices not support this instance".
         cloud_segment_brightness=False,
         cloud_music=True,
+        # The H6022 is a 132-LED matrix arranged as 12 columns wrapped around
+        # × 11 rows (led_index = row * 12 + col). The cloud API addresses it
+        # through 15 linear segments, which the firmware interpolates onto the
+        # matrix by an undocumented rule. Wrapping is true because the drum
+        # cylinders, so columns wrap around.
+        matrix_rows=11,
+        matrix_cols=12,
+        matrix_wrap_col=True,
     ),
 }
 

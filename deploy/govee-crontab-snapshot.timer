@@ -1,0 +1,13 @@
+# Refreshes the crontab snapshot. Ten minutes is deliberate: a crontab changes
+# rarely, and the console displays the snapshot's age rather than passing a
+# cached read off as a live one, so a slightly stale copy is honest, not wrong.
+[Unit]
+Description=Refresh the govee-cli web console's crontab snapshot
+
+[Timer]
+OnStartupSec=30s
+OnUnitActiveSec=10m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -3,6 +3,15 @@
 ``POST /groups/{name}/run`` reuses the CLI's ``_apply_v2_command`` /
 ``_apply_http_command`` verbatim, so the accepted verbs and their semantics are
 exactly ``govee-cli group run``'s — one implementation, two frontends.
+
+Ledger writes (WEBUI_V3_SPEC.md §3.3): a broadcast records one entry per member
+it actually reached, with ``source="group"`` — a member that raised (offline,
+rejected the verb) gets no ledger write, matching every other command path's
+rule that the ledger only ever records what genuinely happened. The
+verb-to-mode mapping mirrors ``devices.py``'s ``_record_ledger_mode`` exactly
+(basic power/color/temp only; brightness-only never changes ``mode``, per
+§3.5) — it is duplicated rather than imported because it needs a different
+``source``, and ``devices.py`` belongs to another task.
 """
 
 from __future__ import annotations
@@ -12,6 +21,7 @@ from typing import Any, cast
 
 from fastapi import APIRouter, Request
 
+from govee_cli import ledger
 from govee_cli.commands.group import _apply_http_command, _apply_v2_command
 from govee_cli.config import GoveeConfig, load_config, save_config
 from govee_cli.http import GoveeHTTP
@@ -23,6 +33,7 @@ from ..deps import (
     get_client_async,
     invalidate_state,
     normalize_state,
+    overlay_active_mode,
     read_state,
     record_write,
     resolve_ref,
@@ -92,7 +103,12 @@ async def group_state(request: Request, name: str) -> dict[str, Any]:
         try:
             target = resolve_ref(cfg, ref)
             raw = await read_state(request, target)
-            devices.append(apply_echo(request, target, normalize_state(target, raw)))
+            # Same read pipeline the single-device route uses, overlay included:
+            # a group view that omitted active mode would show a member running
+            # a scene as plain warm white, which is the exact mismatch the
+            # ledger exists to close.
+            state = apply_echo(request, target, normalize_state(target, raw))
+            devices.append(overlay_active_mode(target, state))
         except Exception as e:
             message = str(getattr(e, "message", e)) or e.__class__.__name__
             errors.append({"ref": ref, "message": message})
@@ -117,6 +133,7 @@ async def run_group_command(request: Request, name: str,
             # pre-command value for the TTL window. The echo overlay keeps the
             # commanded values visible until the cloud's lagging reads catch up.
             record_write(request, target, _echo_fields_for(body.command))
+            _record_ledger_mode_for_group(target, body.command)
             invalidate_state(request, target)
             results.append({"ref": target.label, "id": target.device_id, "ok": True})
         except Exception as e:
@@ -135,6 +152,42 @@ def _echo_fields_for(cmd: str) -> dict[str, Any]:
     if len(parts) != 2:
         return {}
     return _echo_fields(parts[0], parts[1].strip())
+
+
+def _record_ledger_mode_for_group(target: Resolved, cmd: str) -> None:
+    """Same verb-to-mode mapping as ``devices.py``'s ``_record_ledger_mode``
+    (§3.3), for one member of a broadcast — called only after that member's
+    command has already succeeded, so every write here reflects something
+    that genuinely happened. ``source="group"`` is the one difference from
+    the single-device path, so the console can tell "I pressed this on one
+    device" from "this ran because of a group broadcast" (§3.1's `source`
+    field).
+    """
+    parts = cmd.split(None, 1)
+    if len(parts) != 2:
+        return
+    verb, arg = parts[0].lower(), parts[1].strip()
+
+    if verb == "power":
+        if arg == "on":
+            ledger.record_mode(target.device_id, "basic", None, None, source="group")
+        else:
+            ledger.record_mode(target.device_id, "off", None, None, source="group")
+    elif verb == "color":
+        digits = arg.upper().lstrip("#")
+        rgb = [int(digits[i:i + 2], 16) for i in (0, 2, 4)]
+        ledger.record_mode(
+            target.device_id, "basic", None, {"color_rgb": rgb}, source="group"
+        )
+    elif verb == "temp":
+        ledger.record_mode(
+            target.device_id, "basic", None, {"color_temp_k": int(arg)}, source="group"
+        )
+    # brightness (and every non-basic verb: scene/diy/music/segments/toggle):
+    # intentionally no ledger write. Brightness-only is a live modifier
+    # compatible with a running scene (§3.5), same as the single-device path;
+    # the other verbs fall outside devices.py's mapping, which is the one
+    # this task mirrors.
 
 
 async def _apply_to_member(request: Request, target: Resolved, cmd: str) -> None:

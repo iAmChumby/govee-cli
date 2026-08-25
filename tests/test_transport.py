@@ -111,6 +111,47 @@ class TestModelSpecs:
         for spec in MODEL_SPECS.values():
             assert spec.temp_min < spec.temp_max
 
+    def test_h6022_matrix_geometry(self) -> None:
+        # The H6022 is a 132-LED drum: 12 columns wrapped around × 11 rows.
+        # The cloud API addresses it through 15 linear segments.
+        spec = get_spec("H6022")
+        assert spec.matrix_rows == 11
+        assert spec.matrix_cols == 12
+        assert spec.matrix_wrap_col is True
+
+    def test_h6056_matrix_geometry(self) -> None:
+        # The H6056 has 2 bars (rows), with an authoring resolution of 48
+        # columns per bar for smooth gradients/motion. No column wrapping (linear).
+        spec = get_spec("H6056")
+        assert spec.matrix_rows == 2
+        assert spec.matrix_cols == 48
+        assert spec.matrix_wrap_col is False
+
+    def test_h6008_has_no_matrix(self) -> None:
+        # H6008 is a single-zone bulb, not a matrix device.
+        spec = get_spec("H6008")
+        assert spec.matrix_rows == 0
+        assert spec.matrix_cols == 0
+        assert spec.matrix_wrap_col is False
+
+    def test_h6183_has_no_matrix(self) -> None:
+        # H6183 is a single-zone device on the legacy v1 API, not a matrix.
+        spec = get_spec("H6183")
+        assert spec.matrix_rows == 0
+        assert spec.matrix_cols == 0
+        assert spec.matrix_wrap_col is False
+
+    def test_matrix_geometry_defaults_to_zero(self) -> None:
+        # Any unregistered device (returned as None) should not break, and all
+        # defaults should be sensible.
+        from govee_cli.transport import ModelSpec
+
+        # Create a minimal spec with only required fields.
+        spec = ModelSpec(model="TEST", transport="test-transport")
+        assert spec.matrix_rows == 0
+        assert spec.matrix_cols == 0
+        assert spec.matrix_wrap_col is False
+
 
 class TestResolveTarget:
     @staticmethod

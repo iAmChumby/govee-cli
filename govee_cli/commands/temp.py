@@ -2,6 +2,7 @@
 
 import click
 
+from govee_cli import ledger
 from govee_cli.commands._common import resolve
 from govee_cli.exceptions import GoveeError
 from govee_cli.transport import CLOUD_V1, CLOUD_V2
@@ -28,6 +29,13 @@ def command(ctx: click.Context, kelvin: int, mac: str | None, adapter: str) -> N
             f"Valid range: {spec.temp_min}-{spec.temp_max}K."
         )
 
+    # Same invalidation rule as color.py: an explicit temp write always
+    # overwrites the ledger to "basic," ending any running scene/DIY/music.
+    def record() -> None:
+        ledger.record_mode(
+            target.device_id, "basic", None, {"color_temp_k": kelvin}, source="cli"
+        )
+
     if target.transport == CLOUD_V2:
         from govee_cli.commands._common import v2_client
         from govee_cli.http_v2 import GoveeV2Error
@@ -36,6 +44,7 @@ def command(ctx: click.Context, kelvin: int, mac: str | None, adapter: str) -> N
             v2_client().set_color_temp(target.cloud_model, target.device_id, kelvin)
         except GoveeV2Error as e:
             raise click.ClickException(str(e)) from e
+        record()
         click.echo(f"Color temperature set to {kelvin}K")
         return
 
@@ -46,6 +55,7 @@ def command(ctx: click.Context, kelvin: int, mac: str | None, adapter: str) -> N
             GoveeHTTP().set_color_temp(target.device_id, target.cloud_model, kelvin)
         except GoveeHTTPError as e:
             raise click.ClickException(str(e)) from e
+        record()
         click.echo(f"Color temperature set to {kelvin}K")
         return
 
@@ -55,6 +65,7 @@ def command(ctx: click.Context, kelvin: int, mac: str | None, adapter: str) -> N
     async def run() -> None:
         async with GoveeBLE(target.ble_mac, adapter=adapter) as client:
             await client.execute(encode_temp_for_device(kelvin, target.model))
+            record()
             click.echo(f"Color temperature set to {kelvin}K")
 
     try:

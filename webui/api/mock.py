@@ -3,11 +3,12 @@
 Enabled by ``GOVEE_WEBUI_MOCK=1``. Three jobs:
 
 1. Redirect every on-disk path the library writes (user config, schedule file,
-   scene cache) to a temp dir *before first use*, so a demo run can never touch
-   real ``~/.config/govee-cli`` files. This patches the module-level constants
-   the library reads at call time — it must happen before the first
-   ``load_config()`` / ``list_rules()``, which is why :func:`install` runs from
-   the app factory rather than from request handlers.
+   scene cache, active-mode ledger) to a temp dir *before first use*, so a demo
+   run can never touch real ``~/.config/govee-cli`` files. This patches the
+   module-level constants the library reads at call time — it must happen
+   before the first ``load_config()`` / ``list_rules()`` / ``record_mode()``,
+   which is why :func:`install` runs from the app factory rather than from
+   request handlers.
 2. Seed that temp dir with the three fixture devices, one group and two
    schedule rules, so config/group/schedule endpoints exercise the library's
    real load/save code paths against throwaway files.
@@ -31,6 +32,7 @@ from typing import Any
 
 from govee_cli import config as config_mod
 from govee_cli import http_v2 as http_v2_mod
+from govee_cli import ledger as ledger_mod
 from govee_cli.http_v2 import Capability, DIYScene, Scene, V2Device
 from govee_cli.schedule import scheduler as scheduler_mod
 from govee_cli.transport import MODEL_SPECS
@@ -345,11 +347,18 @@ def install() -> pathlib.Path:
         "schedule_file": scheduler_mod.SCHEDULE_FILE,
         "schedule_dir": scheduler_mod.SCHEDULE_DIR,
         "scene_cache": http_v2_mod._SCENE_CACHE_PATH,
+        "ledger_path": ledger_mod.LEDGER_PATH,
+        "ledger_lock_path": ledger_mod.LEDGER_LOCK_PATH,
     })
     config_mod._CONFIG_PATH = _tmp_dir / "config.json"
     scheduler_mod.SCHEDULE_DIR = _tmp_dir
     scheduler_mod.SCHEDULE_FILE = _tmp_dir / "schedule.json"
     http_v2_mod._SCENE_CACHE_PATH = _tmp_dir / "scene-cache.json"
+    # Reassigned as a pair, same as LEDGER_PATH's own module contract requires
+    # (LEDGER_LOCK_PATH is a plain module attr, not derived lazily from
+    # LEDGER_PATH at call time) — see govee_cli/ledger.py.
+    ledger_mod.LEDGER_PATH = _tmp_dir / "active-mode.json"
+    ledger_mod.LEDGER_LOCK_PATH = _tmp_dir / "active-mode.json.lock"
 
     _seed_config(config_mod._CONFIG_PATH)
     _seed_schedules(scheduler_mod.SCHEDULE_FILE)
@@ -365,6 +374,8 @@ def uninstall() -> None:
     scheduler_mod.SCHEDULE_FILE = _originals["schedule_file"]
     scheduler_mod.SCHEDULE_DIR = _originals["schedule_dir"]
     http_v2_mod._SCENE_CACHE_PATH = _originals["scene_cache"]
+    ledger_mod.LEDGER_PATH = _originals["ledger_path"]
+    ledger_mod.LEDGER_LOCK_PATH = _originals["ledger_lock_path"]
     shutil.rmtree(_tmp_dir, ignore_errors=True)
     _tmp_dir = None
     _originals.clear()

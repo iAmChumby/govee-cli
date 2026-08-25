@@ -1,0 +1,21 @@
+# Mirrors the user's crontab into a file the sandboxed sidecar can read.
+#
+# The web console surfaces external automation — the 06:30 wake-ramp job lives
+# in cron, not in govee-cli's own schedule.json, and a Schedules page that
+# ignored it was the reason it could claim "0 rules" while a light came on every
+# weekday morning.
+#
+# The sidecar cannot read the crontab itself: /usr/bin/crontab is setgid, and in
+# a systemd *user* unit any sandboxing directive implicitly enables
+# NoNewPrivileges, which strips the setgid. This unit carries no sandboxing, so
+# the setgid survives and the read succeeds. It writes only one file.
+#
+# Not required — the sidecar also tries `crontab -l` and the spool file directly,
+# and reports honestly when all three routes fail. This just makes the common
+# hardened deployment work without weakening it.
+[Unit]
+Description=Snapshot the user crontab for the govee-cli web console
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c '/usr/bin/crontab -l > %h/.config/govee-cli/crontab.snapshot.tmp 2>/dev/null || : ; mv %h/.config/govee-cli/crontab.snapshot.tmp %h/.config/govee-cli/crontab.snapshot'

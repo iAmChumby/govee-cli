@@ -7,7 +7,7 @@ with the library's own message.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -147,3 +147,34 @@ class EffectPlayRequest(BaseModel):
     file: str
     fps: float | None = Field(default=None, gt=0)
     force: Literal["ble", "cloud"] | None = None
+
+
+class EffectCreateRequest(BaseModel):
+    """A studio-authored effect, ready to be validated and saved as a file.
+
+    Segments/keyframes are deliberately typed loosely (``dict[str, Any]``)
+    rather than modeled field-by-field: ``govee_cli.scenes.effects.Effect
+    .from_dict`` is the one real validator (the same one the CLI parses
+    effect files with), and duplicating its rules here in stricter or looser
+    form would let this endpoint diverge from what ``effect <file>`` actually
+    accepts.
+    """
+
+    device: str
+    name: str
+    segments: list[dict[str, Any]]
+    loop: bool = True
+    fps: float = Field(default=30, gt=0)
+    force: Literal["ble", "cloud"] | None = None
+
+
+class SegmentCalibrationRequest(BaseModel):
+    """Body for ``PUT /devices/{ref}/segment-calibration`` — see §5.3.
+
+    ``calibrated_at`` is not accepted from the client; the server stamps it
+    at write time so the timestamp always reflects when this record was
+    actually persisted, not whatever the calling browser's clock says.
+    """
+
+    boundaries: list[int] = Field(min_length=1)
+    permutation: list[int] = Field(min_length=1)

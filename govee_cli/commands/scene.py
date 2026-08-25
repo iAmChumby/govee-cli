@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 import click
 
+from govee_cli import ledger
 from govee_cli.commands._common import resolve, v2_client
 from govee_cli.exceptions import GoveeError
 from govee_cli.scenes.effects import BuiltInScene
@@ -89,6 +90,11 @@ def command(ctx: click.Context, scene_name: str, mac: str | None, adapter: str,
             client.set_scene(target.cloud_model, target.device_id, scene)
         except GoveeV2Error as e:
             raise click.ClickException(str(e)) from e
+        ledger.record_mode(
+            target.device_id, "scene", scene.name,
+            {"scene_id": scene.scene_id, "param_id": scene.param_id},
+            source="cli",
+        )
         click.echo(f"Playing scene: {scene.name}")
         return
 

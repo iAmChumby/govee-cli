@@ -12,6 +12,19 @@ Three engines share one bookkeeping structure:
 
 Starting a new effect on a device stops its current one; finished or stopped
 effects remove themselves from the registry.
+
+Ledger integration (WEBUI_V3_SPEC.md §3.3/§3.5): starting playback always
+records ``mode="effect"``. Ending it is where the two cases diverge — a
+non-looping effect that reaches the end of its keyframes on its own is the one
+case §3.5's table lets the ledger *guess* a resulting static colour (the last
+frame it rendered); a user-initiated stop must leave ``mode="effect"`` exactly
+as recorded, because nothing tells us what the light is actually showing once
+a human interrupts it mid-animation. ``_finished`` (the task's done-callback)
+is the only place that distinguishes the two: ``_stop_existing`` always pops
+the entry out of ``_playing`` *before* cancelling the task, so by the time a
+user-stopped task's callback runs, it is no longer the registered entry for
+its device — "still current when the task ends" is a reliable proxy for
+"ended on its own."
 """
 
 from __future__ import annotations
@@ -26,7 +39,8 @@ from typing import TYPE_CHECKING, Any
 import anyio.to_thread
 import structlog
 
-from govee_cli.commands.effect import CLOUD_MAX_FPS, _frames
+from govee_cli import ledger
+from govee_cli.commands.effect import CLOUD_MAX_FPS, _frames, last_frame_rgb
 from govee_cli.http_v2 import GoveeV2Error, GoveeV2RateLimited
 
 if TYPE_CHECKING:
@@ -37,6 +51,15 @@ logger = structlog.get_logger(__name__)
 # Mock playback ticks faster than real time so demos show motion without
 # waiting on a 30fps clock; the recorded fps still reports the real value.
 _MOCK_TICK_SECONDS = 0.05
+
+
+class _PlaybackAborted(Exception):
+    """Raised when a runner stops early (rate limit, transport error) instead
+    of actually reaching the end of the effect. Distinguishes "task ended
+    without the user stopping it" from "task ended *because it finished*" —
+    only the latter is a natural finish per §3.5; the former must leave
+    ``mode="effect"`` alone, since nobody knows what the device is actually
+    showing after an aborted run."""
 
 
 @dataclass
@@ -50,6 +73,9 @@ class PlayingEffect:
     transport: str  # "ble" or "cloud"
     started_at: str
     task: asyncio.Task[None] | None = None
+    # Kept only so ``_finished`` can recompute the last frame's colour for the
+    # natural-finish ledger downgrade (§3.5) — not exposed via ``record()``.
+    effect: Any = None
 
 
 class PlaybackManager:
@@ -109,12 +135,14 @@ class PlaybackManager:
                 ref=target_ref, device_id=device_id.upper(), file=str(effect.name),
                 fps=fps, transport="ble",
                 started_at=datetime.now().isoformat(timespec="seconds"),
+                effect=effect,
             )
             entry.task = asyncio.create_task(
                 _play(effect, mac, adapter, timeout), name=f"effect-ble-{device_id}"
             )
             entry.task.add_done_callback(lambda _t: self._finished(entry))
             self._register(entry)
+            self._record_start(entry)
         return entry
 
     async def start_cloud(self, target_ref: str, device_id: str, effect: Any,
@@ -126,6 +154,7 @@ class PlaybackManager:
                 ref=target_ref, device_id=device_id.upper(), file=str(effect.name),
                 fps=fps, transport="cloud",
                 started_at=datetime.now().isoformat(timespec="seconds"),
+                effect=effect,
             )
             stop = threading.Event()
             entry.task = asyncio.create_task(
@@ -137,6 +166,7 @@ class PlaybackManager:
             # stop() can reach it without changing the record shape.
             self._stop_flags[entry.device_id] = stop
             self._register(entry)
+            self._record_start(entry)
         return entry
 
     async def start_mock(self, target_ref: str, device_id: str, effect: Any,
@@ -149,6 +179,7 @@ class PlaybackManager:
                 ref=target_ref, device_id=device_id.upper(), file=str(effect.name),
                 fps=fps, transport=transport_label,
                 started_at=datetime.now().isoformat(timespec="seconds"),
+                effect=effect,
             )
             stop = asyncio.Event()
             entry.task = asyncio.create_task(
@@ -158,6 +189,7 @@ class PlaybackManager:
             entry.task.add_done_callback(lambda _t: self._finished(entry))
             self._mock_stops[entry.device_id] = stop
             self._register(entry)
+            self._record_start(entry)
         return entry
 
     async def stop(self, device_id: str) -> PlayingEffect | None:
@@ -179,6 +211,15 @@ class PlaybackManager:
     def _register(self, entry: PlayingEffect) -> None:
         with self._lock:
             self._playing[entry.device_id] = entry
+
+    @staticmethod
+    def _record_start(entry: PlayingEffect) -> None:
+        """§3.3: playback start always records ``mode="effect"``."""
+        ledger.record_mode(
+            entry.device_id, "effect", entry.file,
+            {"effect_file": entry.file, "transport": entry.transport},
+            source="webui",
+        )
 
     async def _stop_existing(self, device_id: str) -> PlayingEffect | None:
         key = device_id.upper()
@@ -204,13 +245,55 @@ class PlaybackManager:
         return entry
 
     def _finished(self, entry: PlayingEffect) -> None:
-        """Remove the entry when its task ends on its own (effect ran to completion)."""
+        """Remove the entry when its task ends on its own (effect ran to completion).
+
+        ``current is entry`` is true only when nothing has already popped this
+        entry out of ``_playing`` — i.e. a user-initiated ``stop()`` never
+        reaches here (see the module docstring), so this branch *narrows* to
+        §3.5's "natural finish" row only when the task also ended without
+        error — a runner that aborted mid-effect (BLE disconnect, cloud rate
+        limit/API error — see ``_PlaybackAborted``) is not "the effect
+        finished," and recording the last keyframe's colour for it would
+        assert the device reached a state it may never have shown. A looping
+        effect never takes the natural-finish path at all — its runner only
+        exits via cancellation.
+        """
         with self._lock:
             current = self._playing.get(entry.device_id)
             if current is entry:
                 del self._playing[entry.device_id]
+        if current is entry:
+            error = self._task_error(entry.task)
+            if error is None:
+                self._record_natural_finish(entry)
+            else:
+                logger.warning(
+                    "effect_ended_without_ledger_downgrade",
+                    device=entry.device_id, file=entry.file, error=str(error),
+                )
         self._stop_flags.pop(entry.device_id, None)
         self._mock_stops.pop(entry.device_id, None)
+
+    @staticmethod
+    def _task_error(task: "asyncio.Task[None] | None") -> BaseException | None:
+        """The task's exception, if it ended with one — retrieving it here
+        also prevents asyncio's "Task exception was never retrieved" warning
+        for runs nobody else awaits (e.g. a BLE disconnect mid-effect)."""
+        if task is None or task.cancelled():
+            return None
+        return task.exception()
+
+    @staticmethod
+    def _record_natural_finish(entry: PlayingEffect) -> None:
+        rgb = _last_frame_rgb(entry.effect) if entry.effect is not None else None
+        if rgb is None:
+            # No frames to derive a colour from (shouldn't happen for a
+            # playback that actually started) — leave mode=effect rather
+            # than record a fabricated colour.
+            return
+        ledger.record_mode(
+            entry.device_id, "basic", None, {"color_rgb": rgb}, source="webui"
+        )
 
     async def _cloud_runner(self, client: Any, sku: str, device_id: str,
                             effect: Any, stop: threading.Event) -> None:
@@ -241,13 +324,13 @@ class PlaybackManager:
                     for (r, g, b), segs in by_color.items():
                         client.set_segment_color(sku, device_id, sorted(segs), r, g, b)
                         requests_sent += 1
-                except GoveeV2RateLimited:
+                except GoveeV2RateLimited as e:
                     logger.warning("effect_rate_limited", device=device_id,
                                    requests=requests_sent)
-                    return
+                    raise _PlaybackAborted("rate limited") from e
                 except GoveeV2Error as e:
                     logger.error("effect_cloud_error", device=device_id, error=str(e))
-                    return
+                    raise _PlaybackAborted(str(e)) from e
                 last_sent.update(changed)
                 sleep_ms = frame_ms - (time.monotonic() - frame_start) * 1000
                 if sleep_ms > 0:
@@ -273,6 +356,11 @@ class PlaybackManager:
                     pass
             if not effect.loop:
                 return
+
+
+def _last_frame_rgb(effect: Any) -> list[int] | None:
+    """Delegates to the CLI's helper so both playback paths agree exactly."""
+    return last_frame_rgb(effect)
 
 
 def cap_fps_for_cloud(requested: float) -> float:

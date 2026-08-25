@@ -1,13 +1,17 @@
-"""Schedule CRUD over the library's schedule store.
+"""Schedule CRUD over the library's schedule store, plus the external truth panel.
 
 Rules live in the same ``schedule.json`` the CLI daemon reads, so a rule created
 here fires for a CLI-run daemon too (run one scheduler, not both).
+
+The ``/schedules/external`` routes below are a different thing entirely: they
+read automation this store has never heard of — a plain crontab line, per
+WEBUI_V3_SPEC.md §6. See ``external_schedule.py`` for the discovery pipeline.
 """
 
 from __future__ import annotations
 
 import uuid
-from typing import Any
+from typing import Any, cast
 
 from fastapi import APIRouter, Request
 
@@ -20,11 +24,21 @@ from govee_cli.schedule.scheduler import (
     set_rule_enabled,
 )
 
-from ..deps import get_config, run_blocking
+from .. import external_schedule
+from ..deps import TTLCache, get_config, run_blocking
 from ..errors import not_found
 from ..schemas import ScheduleCreateRequest, SchedulePatchRequest
 
 router = APIRouter()
+
+# A separate cache instance from the device-state one (that TTL is 2.5s,
+# tuned for 10s UI polling; this endpoint shells out up to twice per call and
+# the spec asks for a coarser 30-60s window — §6.2). Module-level and shared
+# across requests within one worker process, matching how ``app.state``
+# caches are used elsewhere, without needing a slot on ``app.state`` itself.
+_EXTERNAL_CACHE_TTL = 30.0
+_EXTERNAL_CACHE_KEY = "external_schedule"
+_external_cache = TTLCache(ttl=_EXTERNAL_CACHE_TTL)
 
 
 def _rule_out(rule: ScheduleRule) -> dict[str, Any]:
@@ -86,3 +100,37 @@ async def delete_schedule(rule_id: str) -> dict[str, Any]:
     if not removed:
         raise not_found(f"No schedule rule with id '{rule_id}'.")
     return {"deleted": rule_id}
+
+
+# ------------------------------------------------------------- external truth
+
+
+@router.get("/schedules/external")
+async def get_external_schedules() -> dict[str, Any]:
+    """Crontab-discovered automation the native rule store can't see (§6.2)."""
+    cached = _external_cache.get(_EXTERNAL_CACHE_KEY)
+    if cached is not None:
+        return cast(dict[str, Any], cached)
+    result = await run_blocking(external_schedule.build_external_schedule)
+    _external_cache.set(_EXTERNAL_CACHE_KEY, result)
+    return cast(dict[str, Any], result)
+
+
+@router.post("/schedules/external/wake-ramp/arm")
+async def arm_wake_ramp_route() -> dict[str, Any]:
+    """Shell out to ``wake-ramp arm`` and return the freshly re-read entry.
+
+    Scoped to this one script by exact path — there is no generic "arm any
+    cron line" affordance, since the sidecar has no writable relationship to
+    a crontab entry it doesn't own.
+    """
+    entry = await run_blocking(external_schedule.arm_wake_ramp)
+    _external_cache.invalidate(_EXTERNAL_CACHE_KEY)
+    return cast(dict[str, Any], entry)
+
+
+@router.post("/schedules/external/wake-ramp/disarm")
+async def disarm_wake_ramp_route() -> dict[str, Any]:
+    entry = await run_blocking(external_schedule.disarm_wake_ramp)
+    _external_cache.invalidate(_EXTERNAL_CACHE_KEY)
+    return cast(dict[str, Any], entry)

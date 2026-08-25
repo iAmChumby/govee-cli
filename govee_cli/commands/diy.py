@@ -7,6 +7,7 @@ moment and expect the CLI to see it immediately.
 
 import click
 
+from govee_cli import ledger
 from govee_cli.commands._common import require_v2, resolve
 
 
@@ -54,4 +55,7 @@ def command(ctx: click.Context, name: str | None, mac: str | None) -> None:
     except GoveeV2Error as e:
         raise click.ClickException(str(e)) from e
 
+    ledger.record_mode(
+        target.device_id, "diy", scene.name, {"diy_value": scene.value}, source="cli"
+    )
     click.echo(f"Playing DIY scene: {scene.name}")

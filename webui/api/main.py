@@ -18,12 +18,13 @@ from typing import Any
 import structlog
 from fastapi import FastAPI
 
-from .deps import Settings, TTLCache, WriteEcho
+from . import external_schedule
+from .deps import Settings, TTLCache, WriteEcho, run_blocking
 from .errors import install_error_handlers
 from .mock import MockV2
 from .mock import install as install_mock
 from .playback import PlaybackManager
-from .routers import config, devices, effects, groups, scenes, schedules
+from .routers import calibration, config, devices, effects, groups, scenes, schedules
 from .scheduler_runner import SchedulerRunner
 
 logger = structlog.get_logger(__name__)
@@ -36,6 +37,64 @@ def _version() -> str:
         return version("govee-cli")
     except PackageNotFoundError:
         return "0.0.0.dev0"
+
+
+async def _scheduler_health(app: FastAPI) -> dict[str, Any]:
+    """Both halves of the schedule story, for the console's health readout.
+
+    ``native`` is this process's embedded runner. ``external`` summarises the
+    automation the runner knows nothing about — a crontab line firing
+    ``wake-ramp`` reaches the same bulbs, and a console that reported only the
+    native half was the reason the Schedules page could honestly say "0 rules"
+    while a light came on every weekday morning.
+
+    Crontab discovery shells out, so it runs off the event loop. It is also
+    allowed to fail without taking health down: an unreadable crontab is
+    reported as ``crontab_readable: false``, never silently as "nothing
+    scheduled" — the distinction is the whole point (§6.6).
+
+    Mock mode reports an empty external half rather than probing. ``install_mock``
+    redirects the library's on-disk paths, but the crontab is the *machine's*,
+    not the library's — probing it would leak the real host's automation into a
+    run whose entire promise is that nothing it shows is real.
+    """
+    runner: SchedulerRunner | None = app.state.scheduler_runner
+    native: dict[str, Any] = (
+        runner.snapshot() if runner is not None
+        else {"alive": False, "poll_seconds": None, "last_cycle_at": None, "last_fire": None}
+    )
+
+    if app.state.settings.mock:
+        return {
+            "native": native,
+            "external": {
+                "crontab_readable": False,
+                "error": "mock mode — the host crontab is not read",
+                "wake_ramp_armed": None,
+                "entry_count": 0,
+            },
+        }
+
+    try:
+        payload = await run_blocking(external_schedule.build_external_schedule)
+        entries = payload["entries"]
+        wake_ramp = next((e for e in entries if e.get("kind") == "wake-ramp"), None)
+        external: dict[str, Any] = {
+            "crontab_readable": payload["crontab"]["readable"],
+            "error": payload["crontab"]["error"],
+            "wake_ramp_armed": wake_ramp.get("armed") if wake_ramp else None,
+            "entry_count": len(entries),
+        }
+    except Exception as e:  # never let a crontab hiccup fail the health probe
+        logger.warning("health_external_schedule_failed", error=str(e))
+        external = {
+            "crontab_readable": False,
+            "error": f"external schedule probe failed: {e}",
+            "wake_ramp_armed": None,
+            "entry_count": 0,
+        }
+
+    return {"native": native, "external": external}
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -81,6 +140,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     for router in (
         devices.router, scenes.router, groups.router,
         schedules.router, config.router, effects.router,
+        calibration.router,
     ):
         app.include_router(router, prefix="/api/v1")
 
@@ -92,7 +152,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "status": "ok",
             "version": _version(),
             "mock": resolved.mock,
-            "scheduler": app.state.scheduler_runner is not None,
+            "scheduler": await _scheduler_health(app),
         }
 
     return app

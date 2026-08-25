@@ -7,7 +7,14 @@ import pathlib
 
 import pytest
 
-from govee_cli.config import GoveeConfig, DeviceConfig, load_config, save_config, CONFIG_VERSION
+from govee_cli.config import (
+    CONFIG_VERSION,
+    DeviceConfig,
+    GoveeConfig,
+    SegmentCalibration,
+    load_config,
+    save_config,
+)
 
 
 @pytest.fixture
@@ -155,3 +162,64 @@ class TestConfigMigration:
         device = cfg.devices["AA:BB:CC:DD:EE:FF"]
         assert device.model == "H6056"
         assert device.name == "Desk Lamp"
+        # No segment_calibration key anywhere in this file — this is exactly
+        # the shape of Luke's real, pre-existing ~/.config/govee-cli/config.json.
+        # Adding the field must not break loading it.
+        assert device.segment_calibration is None
+
+
+class TestSegmentCalibration:
+    """WEBUI_V3_SPEC.md §5.3 — DeviceConfig.segment_calibration round-trip."""
+
+    def test_save_and_load_round_trip(self, config_path):
+        calibration = SegmentCalibration(
+            boundaries=[0, 9, 18, 26, 35, 44, 53, 61, 70, 79, 88, 96, 105, 114, 123, 132],
+            permutation=[0, 3, 1, 2, 4, 7, 5, 6, 8, 11, 9, 10, 12, 13, 14],
+            calibrated_at="2026-08-25T14:00:00+00:00",
+        )
+        cfg = GoveeConfig(devices={
+            "50:CE:E8:6E:80:C6:50:3F": DeviceConfig(
+                model="H6022", name="Shelf Lamp", segment_calibration=calibration,
+            ),
+        })
+        save_config(cfg)
+        loaded = load_config()
+
+        device = loaded.devices["50:CE:E8:6E:80:C6:50:3F"]
+        assert device.segment_calibration == calibration
+
+    def test_uncalibrated_device_round_trips_as_none(self, config_path):
+        cfg = GoveeConfig(devices={
+            "AA:BB:CC:DD:EE:FF": DeviceConfig(model="H6056", name="Light Bars"),
+        })
+        save_config(cfg)
+        loaded = load_config()
+
+        assert loaded.devices["AA:BB:CC:DD:EE:FF"].segment_calibration is None
+
+    def test_uncalibrated_device_omits_key_from_disk(self, config_path):
+        """A never-calibrated device's JSON stays exactly as small as before
+        this field existed — no ``"segment_calibration": null`` clutter."""
+        cfg = GoveeConfig(devices={
+            "AA:BB:CC:DD:EE:FF": DeviceConfig(model="H6056", name="Light Bars"),
+        })
+        save_config(cfg)
+        with open(config_path) as f:
+            data = json.load(f)
+        assert "segment_calibration" not in data["devices"]["AA:BB:CC:DD:EE:FF"]
+
+    def test_pre_v3_config_missing_field_entirely_loads_cleanly(self, config_path):
+        """A config.json written before this field existed — the exact shape
+        of Luke's on-disk config — must keep loading without raising."""
+        raw = {
+            "version": CONFIG_VERSION,
+            "default_mac": "6D:19:DD:6E:86:46:44:0C",
+            "devices": {
+                "6D:19:DD:6E:86:46:44:0C": {"model": "H6056", "name": "Light Bars"},
+            },
+        }
+        with open(config_path, "w") as f:
+            json.dump(raw, f)
+
+        cfg = load_config()
+        assert cfg.devices["6D:19:DD:6E:86:46:44:0C"].segment_calibration is None

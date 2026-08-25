@@ -26,9 +26,14 @@ cd "$REPO"
 
 echo "==> systemd user units"
 mkdir -p "$UNIT_DIR"
-install -m 0644 deploy/govee-webui-api.service deploy/govee-webui.service "$UNIT_DIR/"
+install -m 0644 deploy/govee-webui-api.service deploy/govee-webui.service \
+    deploy/govee-crontab-snapshot.service deploy/govee-crontab-snapshot.timer "$UNIT_DIR/"
 systemctl --user daemon-reload
 systemctl --user enable govee-webui-api.service govee-webui.service >/dev/null
+# Unsandboxed sibling: mirrors the crontab somewhere the hardened sidecar can
+# read it. See the comment at the top of govee-crontab-snapshot.service.
+systemctl --user enable --now govee-crontab-snapshot.timer >/dev/null
+systemctl --user start govee-crontab-snapshot.service
 # restart (not start) so a re-run picks up the new build.
 systemctl --user restart govee-webui-api.service govee-webui.service
 

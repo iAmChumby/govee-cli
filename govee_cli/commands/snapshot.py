@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 
 import click
 
+from govee_cli import ledger
 from govee_cli.commands._common import require_v2, resolve
 
 if TYPE_CHECKING:
@@ -88,4 +89,15 @@ def command(ctx: click.Context, name: str | None, mac: str | None) -> None:
     except GoveeV2Error as e:
         raise click.ClickException(str(e)) from e
 
+    # Prefer the resolved option name (matched either by --name lookup above,
+    # or coincidentally by numeric id) over the raw id, but a bare numeric id
+    # with no matching advertised option is still worth a readable label.
+    resolved_label = next(
+        (opt_label for opt_label, opt_value in options if opt_value == value),
+        f"snapshot #{value}",
+    )
+    ledger.record_mode(
+        target.device_id, "snapshot", resolved_label,
+        {"snapshot_value": value}, source="cli",
+    )
     click.echo(f"Activated snapshot: {name}")

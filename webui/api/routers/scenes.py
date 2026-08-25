@@ -14,6 +14,7 @@ from typing import Any
 
 from fastapi import APIRouter, Query, Request
 
+from govee_cli import ledger
 from govee_cli.commands._common import parse_segments
 from govee_cli.devices import SUPPORTED_DEVICES
 from govee_cli.http_v2 import CAP_TOGGLE
@@ -104,6 +105,13 @@ async def apply_scene(
 
     await run_blocking(client.set_scene, target.sku, target.device_id, scene)
     invalidate_state(request, target)
+    # Same mode-selection rule as the CLI's scene.py (§3.3): the resolved scene
+    # name is the label — never the raw scene_id, which means nothing to a
+    # human reading the console.
+    ledger.record_mode(
+        target.device_id, "scene", scene.name,
+        {"scene_id": scene.scene_id, "param_id": scene.param_id}, source="webui",
+    )
     return {"applied": {"name": scene.name, "param_id": scene.param_id,
                         "scene_id": scene.scene_id}}
 
@@ -131,6 +139,10 @@ async def apply_diy(request: Request, ref: str, body: DiyApplyRequest) -> dict[s
         raise not_found(f"Unknown DIY scene '{body.name}' for {target.model}")
     await run_blocking(client.set_diy_scene, target.sku, target.device_id, diy.value)
     invalidate_state(request, target)
+    # Same mode-selection rule as the CLI's diy.py (§3.3).
+    ledger.record_mode(
+        target.device_id, "diy", diy.name, {"diy_value": diy.value}, source="webui",
+    )
     return {"applied": {"name": diy.name, "value": diy.value}}
 
 
@@ -187,6 +199,17 @@ async def apply_snapshot(request: Request, ref: str,
 
     await run_blocking(client.set_snapshot, target.sku, target.device_id, value)
     invalidate_state(request, target)
+    # Same mode-selection rule as the CLI's snapshot.py (§3.3): prefer the
+    # resolved option name over the raw id, but a bare numeric id with no
+    # matching advertised option still gets a readable label.
+    resolved_label = next(
+        (opt_name for opt_name, opt_value in options if opt_value == value),
+        f"snapshot #{value}",
+    )
+    ledger.record_mode(
+        target.device_id, "snapshot", resolved_label,
+        {"snapshot_value": value}, source="webui",
+    )
     return {"applied": {"name_or_id": body.name_or_id, "value": value}}
 
 
@@ -248,6 +271,15 @@ async def apply_music(request: Request, ref: str,
         body.sensitivity, auto_color, rgb,
     )
     invalidate_state(request, target)
+    # Same mode-selection rule as the CLI's music.py (§3.3): `key` is already
+    # the per-model mode NAME ("rhythm", "energic", ...), never the raw int
+    # sent over the wire — the same integer means a different mode on a
+    # different model, so writing modes[key] as the label would silently
+    # mislabel the console on whichever model doesn't share that mapping.
+    ledger.record_mode(
+        target.device_id, "music", key,
+        {"music_mode": modes[key], "sensitivity": body.sensitivity}, source="webui",
+    )
     return {"applied": {"mode": key, "sensitivity": body.sensitivity}}
 
 
@@ -366,6 +398,19 @@ async def apply_segments(request: Request, ref: str,
         await run_blocking(_ble_paint_segments, target, segments, rgb)
 
     invalidate_state(request, target)
+    # Same mode-selection rule as the CLI's segments.py (§3.3): one ledger
+    # entry for the whole invocation even though color and brightness are two
+    # separate client calls above on the cloud path. The CLI's BLE branch also
+    # records (source="cli") — its per-segment loop just has no brightness
+    # concept, so `body.brightness` is already guaranteed None there (the
+    # conflict raised above if it wasn't) — so this one call correctly covers
+    # both paths.
+    ledger.record_mode(
+        target.device_id, "segments", None,
+        {"segments": segments, "rgb": list(rgb) if rgb else None,
+         "brightness": body.brightness},
+        source="webui",
+    )
     state = await read_state(request, target)
     return {
         "applied": {

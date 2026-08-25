@@ -44,7 +44,12 @@ def test_health(client: TestClient) -> None:
     body = resp.json()
     assert body["status"] == "ok"
     assert body["mock"] is True
-    assert body["scheduler"] is False
+    # The scheduler field is a two-halves object: this process's embedded runner
+    # and the host automation it knows nothing about. Mock mode never probes the
+    # real crontab, so the external half is inert by construction.
+    assert body["scheduler"]["native"]["alive"] is False
+    assert body["scheduler"]["external"]["crontab_readable"] is False
+    assert body["scheduler"]["external"]["entry_count"] == 0
 
 
 # ----------------------------------------------------------------- write echo

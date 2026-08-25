@@ -8,6 +8,8 @@ state so the UI can watch a playback move.
 
 from __future__ import annotations
 
+import json
+import re
 from typing import Any, cast
 
 from fastapi import APIRouter, Request
@@ -18,10 +20,32 @@ from govee_cli.scenes.effects import SCENES_DIR, Effect
 from govee_cli.transport import BLE
 
 from ..deps import get_client_async, get_config, resolve_ref, run_blocking
-from ..errors import bad_request, not_found
-from ..schemas import EffectPlayRequest
+from ..errors import ApiError, bad_request, not_found
+from ..schemas import EffectCreateRequest, EffectPlayRequest
 
 router = APIRouter()
+
+# Semantic validation failures on POST /effects (a body Effect.from_dict or the
+# segment-bounds check rejects) land here rather than at bad_request's 400 —
+# distinguishing "malformed request envelope" from "well-formed effect this
+# device can't actually play", while keeping the same {"error": {code,
+# message}} body shape every other endpoint in this API uses.
+_UNPROCESSABLE = 422
+
+
+def _unprocessable(message: str) -> ApiError:
+    return ApiError(_UNPROCESSABLE, "unprocessable_entity", message)
+
+
+def _effect_metadata(file_stem: str, effect: Effect) -> dict[str, Any]:
+    return {
+        "file": file_stem,
+        "name": effect.name,
+        "fps": effect.fps,
+        "loop": effect.loop,
+        "segments": len(effect.segments),
+        "segment_ids": sorted(seg.id for seg in effect.segments),
+    }
 
 
 @router.get("/effects")
@@ -36,18 +60,77 @@ async def list_effects() -> dict[str, Any]:
             except Exception:
                 # A corrupt hand-edited file must not blank the library list.
                 continue
-            out.append({
-                "file": path.stem,
-                "name": effect.name,
-                "fps": effect.fps,
-                "loop": effect.loop,
-                "segments": len(effect.segments),
-                "segment_ids": sorted(seg.id for seg in effect.segments),
-            })
+            out.append(_effect_metadata(path.stem, effect))
         return out
 
     effects = await run_blocking(scan)
     return {"effects": effects}
+
+
+_SLUG_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _slugify(name: str) -> str:
+    slug = _SLUG_RE.sub("-", name.strip().lower()).strip("-")
+    return slug or "effect"
+
+
+def _unique_slug(base: str) -> str:
+    """``base``, or ``base-2``/``base-3``/... if that filename is already taken."""
+    if not (SCENES_DIR / f"{base}.json").exists():
+        return base
+    n = 2
+    while (SCENES_DIR / f"{base}-{n}.json").exists():
+        n += 1
+    return f"{base}-{n}"
+
+
+@router.post("/effects")
+async def create_effect(body: EffectCreateRequest) -> dict[str, Any]:
+    """Save a studio-authored effect as a real, playable ``scenes/*.json`` file.
+
+    Validated exactly the way the CLI validates an effect file: through
+    ``Effect.from_dict`` itself, not a parallel or looser re-implementation
+    — a body ``Effect.from_dict`` would reject is precisely a body
+    ``govee-cli effect <file>`` would refuse to play, so the two paths must
+    never diverge. Segment-bounds checking (against whichever transport this
+    effect targets) reuses ``play_effect``'s own ``_check_segment_bounds``
+    for the same reason.
+    """
+    cfg = await run_blocking(get_config)
+    target = resolve_ref(cfg, body.device)
+
+    raw = {
+        "name": body.name,
+        "segments": body.segments,
+        "loop": body.loop,
+        "fps": body.fps,
+    }
+    try:
+        effect = Effect.from_dict(raw)
+    except Exception as e:
+        raise _unprocessable(f"Invalid effect: {e}") from e
+    if not any(seg.keyframes for seg in effect.segments):
+        raise _unprocessable("Effect has no keyframes.")
+
+    use_ble = _use_ble(target, body.force)
+    try:
+        _check_segment_bounds(target, effect, use_ble)
+    except ApiError as e:
+        # _check_segment_bounds raises bad_request (400) for play_effect's
+        # sake; here the same failure is a 422 (well-formed effect, rejected
+        # on its merits) rather than a malformed request.
+        raise _unprocessable(e.message) from e
+
+    def write() -> str:
+        SCENES_DIR.mkdir(parents=True, exist_ok=True)
+        slug = _unique_slug(_slugify(effect.name))
+        with open(SCENES_DIR / f"{slug}.json", "w") as f:
+            json.dump(raw, f, indent=2)
+        return slug
+
+    slug = await run_blocking(write)
+    return _effect_metadata(slug, effect)
 
 
 @router.post("/effects/play")
@@ -150,6 +233,31 @@ def _check_segment_bounds(target: Any, effect: Effect, use_ble: bool) -> None:
 @router.get("/effects/playing")
 async def list_playing(request: Request) -> list[dict[str, Any]]:
     return cast("list[dict[str, Any]]", request.app.state.playback.list_playing())
+
+
+@router.get("/effects/{file}")
+async def get_effect(file: str) -> dict[str, Any]:
+    """The full keyframe body of one effect file.
+
+    ``GET /effects`` above is metadata-only (name/fps/loop/segment count) —
+    this is genuinely new capability: the raw JSON exactly as saved, segments
+    and keyframes included, which the paint studio needs to re-load a saved
+    effect back onto the canvas for editing. Declared after ``/effects/play``
+    and ``/effects/playing`` so this path parameter can never shadow them.
+    """
+
+    def load() -> dict[str, Any] | None:
+        for path in sorted(SCENES_DIR.glob("*.json")):
+            if path.stem.lower() == file.lower():
+                with open(path) as f:
+                    return cast("dict[str, Any]", json.load(f))
+        return None
+
+    data = cast("dict[str, Any] | None", await run_blocking(load))
+    if data is None:
+        available = ", ".join(p.stem for p in SCENES_DIR.glob("*.json")) or "(none)"
+        raise not_found(f"Unknown effect '{file}'. Available: {available}")
+    return data
 
 
 @router.delete("/effects/playing/{ref}")

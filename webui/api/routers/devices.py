@@ -12,6 +12,7 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 
+from govee_cli import ledger
 from govee_cli.commands.group import _apply_http_command, _apply_v2_command
 from govee_cli.config import GoveeConfig
 from govee_cli.http import GoveeHTTP
@@ -24,6 +25,7 @@ from ..deps import (
     get_config,
     invalidate_state,
     normalize_state,
+    overlay_active_mode,
     read_state,
     record_write,
     resolve_ref,
@@ -51,6 +53,7 @@ async def list_devices(request: Request) -> dict[str, Any]:
         try:
             raw = await read_state(request, target)
             state = apply_echo(request, target, normalize_state(target, raw))
+            state = overlay_active_mode(target, state)
         except Exception:
             # One offline device must not blank the console's device grid.
             state = {}
@@ -65,6 +68,7 @@ async def list_devices(request: Request) -> dict[str, Any]:
             "brightness": state.get("brightness"),
             "color": state.get("color"),
             "color_temp_k": state.get("color_temp_k"),
+            "active": state.get("active"),
         })
     return {"devices": summaries}
 
@@ -122,11 +126,25 @@ async def get_device_state(request: Request, ref: str) -> dict[str, Any]:
     return await _device_state(request, ref)
 
 
+@router.delete("/devices/{ref}/active-mode", status_code=204)
+async def delete_active_mode(request: Request, ref: str) -> None:
+    """The manual "that is not what I see" reset — clears the ledger entry.
+
+    No replacement write happens: the next read reports mode=unknown (§3.6
+    rule 5) rather than a guessed "basic", per the never-claim-what-you-don't-
+    know rule the whole ledger is built on.
+    """
+    cfg = await run_blocking(get_config)
+    target = resolve_ref(cfg, ref)
+    await run_blocking(ledger.clear_mode, target.device_id)
+
+
 async def _device_state(request: Request, ref: str) -> dict[str, Any]:
     cfg = await run_blocking(get_config)
     target = resolve_ref(cfg, ref)
     raw = await read_state(request, target)
-    return apply_echo(request, target, normalize_state(target, raw))
+    state = apply_echo(request, target, normalize_state(target, raw))
+    return overlay_active_mode(target, state)
 
 
 @router.put("/devices/{ref}/power")
@@ -177,9 +195,36 @@ async def _basic_control(request: Request, ref: str, verb: str,
     # The cloud's state read lags behind its write endpoint; remember what we
     # commanded so reads (including this one) report intent until it catches up.
     record_write(request, target, _echo_fields(verb, arg))
+    # Same mode-selection rules as the CLI's power/color/temp/brightness
+    # commands (§3.3) — a basic control always ends any running scene/DIY/
+    # music the device might have been showing, except brightness alone,
+    # which is a live modifier compatible with a running scene (§3.5).
+    _record_ledger_mode(target, verb, arg)
     invalidate_state(request, target)
     raw = await read_state(request, target)
-    return apply_echo(request, target, normalize_state(target, raw))
+    state = apply_echo(request, target, normalize_state(target, raw))
+    return overlay_active_mode(target, state)
+
+
+def _record_ledger_mode(target: Resolved, verb: str, arg: str) -> None:
+    if verb == "power":
+        if arg == "on":
+            ledger.record_mode(target.device_id, "basic", None, None, source="webui")
+        else:
+            ledger.record_mode(target.device_id, "off", None, None, source="webui")
+    elif verb == "color":
+        digits = arg.upper().lstrip("#")
+        rgb = [int(digits[i:i + 2], 16) for i in (0, 2, 4)]
+        ledger.record_mode(
+            target.device_id, "basic", None, {"color_rgb": rgb}, source="webui"
+        )
+    elif verb == "temp":
+        ledger.record_mode(
+            target.device_id, "basic", None, {"color_temp_k": int(arg)}, source="webui"
+        )
+    # brightness: intentionally no ledger write — §3.5 treats a brightness-only
+    # change as a live modifier compatible with a running scene, not a mode-
+    # ending action.
 
 
 def _echo_fields(verb: str, arg: str) -> dict[str, Any]:
