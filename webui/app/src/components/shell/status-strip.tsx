@@ -140,7 +140,12 @@ export function StatusStrip() {
         </span>
       ) : null}
 
-      <span className="hidden items-baseline gap-1.5 sm:flex">
+      {/* data-volatile: this readout and the clock below are the only two
+          things in the app whose rendered width changes between two captures
+          of identical code ("7 ms" vs "127 ms"), so scripts/viewport_audit.py
+          excludes them from its desktop-invariance diff rather than reporting
+          the tick as a layout regression. Nothing else reads this attribute. */}
+      <span data-volatile="true" className="hidden items-baseline gap-1.5 sm:flex">
         {latency !== null ? (
           <Odometer value={latency} pad={2} suffix="ms" />
         ) : (
@@ -174,7 +179,7 @@ export function StatusStrip() {
         <BudgetReadout meter={meter.data} />
       ) : null}
       <span aria-hidden className="hidden h-3 w-px bg-hairline md:block" />
-      <span className="tabular-nums">{time}</span>
+      <span data-volatile="true" className="tabular-nums">{time}</span>
     </footer>
   );
 }

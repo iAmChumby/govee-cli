@@ -2637,3 +2637,450 @@ deployed, and before this round is called done:
    afterwards and the ledger entry reads `assumed`, not `confirmed`.
 4. Device commands are subject to the standing rule: check the time first. These
    lights are in a bedroom.
+
+---
+
+# 11. Round three — the phone
+
+Added 2026-08-25, after round two shipped. The brief, verbatim: *"Now ultracode a
+uiux polish for mobile. This should NOT impact desktop but make it super easy to use
+on mobile. No hidden elements and stuff like that."*
+
+§8's rules still hold — disjoint file ownership, contracts specified here so a
+dependent task never waits on its dependency's code, and no task is done if it turns
+a §9.1 gate red.
+
+## 11.1 "Should not impact desktop" is a gate, not a promise
+
+Every previous round could be checked by reading the thing it changed. This one
+cannot: the whole point is that one viewport changes and another does not, and
+nobody can eyeball the absence of a regression across five routes and two themes.
+
+So the constraint gets an instrument, the same way §10.2's budget did.
+`scripts/viewport_audit.py --baseline` walks every route at 1440x900 and records the
+rounded bounding box of every visible element under a content-derived key.
+`--check` re-walks and diffs. **A single element whose x/y/width/height moved by more
+than 1px at desktop width is a hard failure**, and so is a desktop element that
+appeared or disappeared. The baseline is captured from the commit *before* any of
+T29–T36 lands.
+
+That gate decides the implementation mechanism, and it rules out the obvious one.
+"Just make it responsive" almost always means editing a shared class string and
+letting the breakpoint sort it out — which is exactly what silently shifts desktop by
+2px. Two mechanisms are permitted, and no others:
+
+- **`max-*` variants** (`max-md:`, `max-sm:`) — additive, and inert at and above the
+  breakpoint by construction. Prefer these over rewriting a base class and adding an
+  `md:` reset, because the reset form is one forgotten property away from a desktop
+  diff and the `max-` form cannot be.
+- **`@media (pointer: coarse)`** for touch-target sizing. This is the honest
+  predicate for "a finger is doing the pointing", and it is *not* the same question
+  as "is the viewport narrow." A 1440px desktop with a mouse is untouched by it,
+  which is precisely the property the gate is checking.
+
+Sizing a hit area up is also not permitted to move its neighbours. Where a control
+needs to grow to 44px, it grows via padding on an inner box or an absolutely
+positioned `::after` overlay, not by changing the laid-out box — same reasoning, and
+it is why the gate compares geometry rather than screenshots.
+
+## 11.2 "No hidden elements" — the actual inventory
+
+This is not a style note. Six things render on a desktop browser and are, right now,
+unreachable on a 390px phone. Listed worst-first, each one verified against the
+screenshots `verify_ui.py` already writes to `.verify-ui/`:
+
+1. **The temperature presets on every dashboard card are 100% invisible.**
+   `device-plate.tsx`'s channel-strip dock is a non-wrapping flex row: six 44px
+   swatches with 8px gaps is 304px, and the card's content box at 390px is about
+   310px. The divider, `2700`, `4000` and `6500` all sit past the right edge. The
+   dock scrolls, but the `maskImage` fade that was meant to signal that instead
+   makes the divider dissolve into the panel, so the row reads as *finished*, not as
+   *continued*. **The user's screenshots show `270` sliced in half — that is what
+   prompted this round.** This is the single worst defect in the console: a control
+   that exists, works, and cannot be found.
+2. **The last two-to-four tabs on the device console are hard-cut.** `TabsList`
+   (`tabs.tsx:69`) is `overflow-x-auto scrollbar-none`, and the comment there
+   explicitly chose scrolling over wrapping — correctly. But it hid the scrollbar
+   without putting anything in its place, so an H6056 renders `… DIY  SNAPSHO` and
+   Music, Toggles and Effects are invisible. Scroll affordance is missing, not
+   scrolling.
+3. **The status strip drops three readouts and one alert below `sm`/`md`**:
+   the native-scheduler dot, the round-trip latency, the whole §10 request-budget
+   readout — *including its `rate_limited_today > 0` warning chip* — and the
+   wake-ramp "not armed this weekend, the light will not come on" glyph. Round two
+   spent an entire section arguing that a 429 is the only evidence the cloud gives
+   us, then displayed it only on the machine Luke is not holding at 6am.
+4. **The breadcrumb** (`top-bar.tsx:69`, `hidden … md:flex`). Minor: the back link
+   on the device page covers most of its job.
+5. **The device filter field** (`page.tsx:164`, `hidden sm:block`). Minor at four
+   devices; it is still a control that exists only on desktop.
+6. **Every `truncate` + `title=` pair is a desktop-only reveal, and two of them hide
+   the thing the component exists to say.** `title` renders as a hover tooltip.
+   Touch has no hover, so on a phone the tooltip is not "harder to reach" — it does
+   not exist. The two that matter:
+   - `room-scene-card.tsx:224` truncates `step.skipped_reason`. That string is the
+     entire point of the row: §10's room scenes skip a device rather than guess, and
+     the reason is *why*. A desktop reader hovers and learns "mode was unknown when
+     this room scene was captured"; a phone reader gets `— skipped: mode was unk…`
+     and no way to finish the sentence. Same for `step.error` on line 228.
+   - `schedules/page.tsx:183` truncates `rule.command` at `max-w-[220px]`. That is
+     the command a rule will actually run, clipped to a fragment, on the screen
+     where someone decides whether to trust or delete it.
+   Lower-stakes instances of the same pattern live in `schedules/external-panel.tsx`,
+   `schedules/timeline.tsx`, `settings/devices-section.tsx` and
+   `settings/groups-section.tsx`. The rule: **under `pointer: coarse`, a string whose
+   only full rendering is a `title` attribute must wrap instead of truncate.**
+7. **The nav rail's device list** (`page.tsx:38`). Not a defect — the dashboard body
+   lists every device as a card and `GroupsSection` renders inline, so nothing in
+   the rail is *only* in the rail. Recorded here so a later reader does not
+   "fix" it.
+
+Two rules follow, and they are what "no hidden elements" gets turned into:
+
+- **Information may be relocated or reflowed on a phone. It may not be removed.**
+  A `hidden max-md:` on anything that carries a fact is forbidden. The one carve-out
+  is `aria-hidden` decorative separators — a vertical hairline rule carries nothing,
+  and dropping it to buy 9px of a 390px bar is reflow, not omission.
+- **Overflow must announce itself.** Any horizontally scrolling row must show a
+  live edge affordance on the side that actually has more content, and must stop
+  showing it at the end of the scroll. A static mask that is always on is worse than
+  nothing: it is indistinguishable from the content being cut off, which is the bug
+  in (1).
+
+## 11.3 What "super easy to use" means here, in numbers
+
+Vague enough to be unfalsifiable unless it is pinned down, so:
+
+- **Every interactive element is at least 44x44 CSS px under `pointer: coarse`.**
+  Today the top-bar nav links are 36px, the console's `SwatchRow` buttons are 28px,
+  the toast dismiss is 24px, and `TabsTrigger` is roughly 24px tall. The dashboard
+  card's swatches are already 44px — that pattern (a 44px button wrapping a 24px
+  visual) is the one to copy, because it grows the hit area without growing the ink.
+- **The primary control of a route is reachable in the first viewport.** On the
+  device console at 390x844 the brightness dial's centre currently lands near 1050px
+  — below the fold, behind a 320px instrument, an address caption, a device header
+  and a tab rail. `viewport_audit.py` reports that number on every run.
+- **The instrument stays the loudest thing on the page.** §G is not renegotiated by
+  this round. Making the dial reachable means compressing *chassis* — caption,
+  header padding, the gap stack — and only then reconsidering the instrument's
+  height. The console does not become a list of grey controls to win 200px.
+
+## 11.4 What this round deliberately does not do
+
+- **No new navigation paradigm.** No bottom tab bar, no swipe-between-devices, no
+  hamburger drawer. The top bar's four icon links already reach every route, and a
+  bottom bar would collide with the status strip and with iOS Safari's own chrome.
+- **No new colour, no new looping animation, anywhere in chassis.** §G stands. Edge
+  affordances are neutral gradients over the existing panel background, not accents.
+- **No change to any Python module, API route, ledger, meter or room-scene
+  behaviour.** This round is `webui/app/src` plus two scripts. If a task finds
+  itself editing `webui/api/`, it has misread its brief.
+- **No `POLL_MS` / `STATE_CACHE_TTL` tuning.** Still pending the §10.4 measurement,
+  still deliberately untouched, and still for the same reason: one change per number.
+
+## 11.5 Resolving the inventory honestly
+
+§11.2's rule is "information may be relocated, not removed." Two of the six entries
+are not removals once that is applied strictly, and saying so beats quietly leaving
+them hidden and hoping nobody checks:
+
+| Hidden below the breakpoint | Resolution |
+|---|---|
+| tagline *"govee control console"* | **Stays hidden.** Redundant with the `filament` wordmark 12px to its left and the document title. Static branding, carries no state. |
+| breadcrumb `console / device / shelf lamp` | **Stays hidden.** Every crumb is already on screen at mobile widths — each route renders its own `<h1>` (Console / Rooms / Schedules / Settings) and the device console renders a `← console` back link directly above the device's name. Deduplication, not omission. |
+| `poll 10s` chip | **Moves.** Not duplicated anywhere. Belongs with the other cadence/health facts, i.e. the status strip. |
+| scheduler dot, latency, budget readout, wake-ramp warning | **Surfaced.** See T31. |
+| device filter field | **Surfaced.** See T37. |
+| nav-rail device list | Not hidden — see §11.2 (6). |
+
+Anything a task leaves hidden must earn a row in this table naming the on-screen
+element that already carries the same fact. "It didn't fit" is not a resolution.
+
+## 11.6 Tasks
+
+`webui/app/src` unless stated. File ownership is strictly disjoint; `depends_on`
+names a contract, not a build order.
+
+---
+
+### T29 — `viewport_audit.py`, the gate
+
+**Files:** `scripts/viewport_audit.py`
+**Depends on:** nothing.
+
+**Done when:** `--baseline` records desktop geometry at 1440x900 for `/`, `/rooms`,
+`/schedules`, `/settings` and the first device console, keyed by a content-derived
+key (tag + class + truncated text) rather than a DOM index path — an index path
+would diff the whole page the moment a task adds one wrapper, which is the failure
+mode that makes invariance gates get switched off. `--check` re-walks and reports:
+desktop elements that moved >1px, vanished, or newly appeared (all hard failures);
+then at 390x844 in both themes, hard-clipped content (`scrollWidth - clientWidth > 2`
+under `overflow-x: hidden`), scrollable rows lacking `data-scroll-affordance`,
+interactive boxes under 44px, controls whose rect falls outside the viewport, and
+the absolute y of the brightness dial's centre on the device route.
+
+Reuses `verify_ui.py`'s `start_stack` by import — it must not fork that machinery,
+and it must keep the `health.mock is True` guard, for the reason that guard exists:
+these are real lights in a bedroom.
+
+**Verify:** run `--baseline` on the commit before T30–T38, then `--check` after.
+
+---
+
+### T30 — Top bar: reveal, and stop wasting the 390px
+
+**Files:** `components/shell/top-bar.tsx`
+**Depends on:** T31 (the `poll 10s` chip's new home).
+
+**Done when:** the `poll 10s` chip is gone from the bar (T31 now carries it); the
+mobile nav links are >=44x44 under `pointer: coarse`; the bar's height and every
+desktop element's geometry are unchanged at >=md. The breadcrumb and tagline keep
+their current `hidden md:*` treatment, justified by §11.5's table.
+
+The bar is 48px of a 844px screen and it currently spends part of it on a chip the
+status strip is about to render properly. Reclaiming that is what buys the nav links
+their touch targets without a taller bar.
+
+---
+
+### T31 — Status strip: everything, on one 32px row
+
+**Files:** `components/shell/status-strip.tsx`
+**Depends on:** T32 (`useEdgeScroll`).
+
+**Done when:** at 390px the strip renders *every* item it renders at 1440px —
+sidecar health, mock badge, native-scheduler dot, wake-ramp warning glyph, latency,
+active-mode chip, budget readout with its rate-limit chip, clock — plus the `poll 10s`
+chip inherited from T30. Below `md` it becomes a horizontally scrolling row with a
+live edge affordance and `data-scroll-affordance="true"`; at >=md it is byte-identical
+to today.
+
+**Two things a scrolling strip gets wrong unless they are specified:**
+
+1. **Warnings must never be the thing that scrolled off.** Below `md`, order the row
+   alert-first: any `AlertTriangle` (wake-ramp unarmed) and any `tone="warn"` chip
+   (`rate_limited_today > 0`) render before the routine readouts and are pinned
+   outside the scrolling region. A strip where the 429 chip is three swipes to the
+   right is worse than today's, because today's at least did not *claim* to be
+   showing you everything.
+2. **The clock is the least important thing on it** and currently sits at the far
+   right where it is the only thing that always fits. It scrolls with the rest.
+
+No new colour, no new animation: §G. The edge affordance is a neutral gradient in
+the existing `--bg`, not an accent.
+
+---
+
+### T32 — `useEdgeScroll`, and the tab rail that needed it
+
+**Files:** `lib/use-edge-scroll.ts`, `lib/use-edge-scroll.test.ts`,
+`components/ui/tabs.tsx`
+**Depends on:** nothing. **Everything else with a scrolling row depends on this.**
+
+**Contract — write it exactly this shape, three other tasks import it:**
+
+```ts
+export interface ScrollEdges { scrollable: boolean; atStart: boolean; atEnd: boolean }
+
+/** Pure, and therefore the only part that gets a unit test — the repo's vitest
+ *  runs in the node environment with no jsdom, so a hook test is not available
+ *  and a hook that hides its arithmetic inside an effect is untestable here. */
+export function computeEdges(
+  scrollLeft: number, scrollWidth: number, clientWidth: number,
+): ScrollEdges;
+
+/** Attaches a passive scroll listener plus a ResizeObserver; recomputes on both.
+ *  `edges.scrollable` is false until measured, so nothing flashes on mount. */
+export function useEdgeScroll<T extends HTMLElement>(): {
+  ref: React.RefObject<T | null>;
+  edges: ScrollEdges;
+};
+```
+
+`computeEdges` tolerates sub-pixel `scrollWidth` (browsers report fractions):
+treat a residual under 2px as "not scrollable" and under 1px as "at the edge",
+or the affordance flickers permanently on a row that in fact fits.
+
+**Done when:** `TabsList` shows a fade **only on the side that actually has more
+tabs**, and drops it on reaching that end. A permanently-on mask is the defect
+being fixed, not the fix: it is visually identical to content being cut off, which
+is why the user read `SNAPSHO` as a rendering bug rather than as "swipe left."
+Under `pointer: coarse`, `TabsTrigger` gets >=44px of vertical hit area via padding
+that does not move the underline or the row's laid-out height at fine pointer.
+
+**Verify:** `computeEdges` unit tests cover fits-exactly, sub-pixel residual,
+scrolled-to-start, mid-scroll, scrolled-to-end. `--check` reports the tab rail as
+carrying an affordance.
+
+---
+
+### T33 — The dashboard card's channel strip: the headline defect
+
+**Files:** `components/device/device-plate.tsx`
+**Depends on:** T32.
+
+**Done when:** at 390px all three temperature presets are visible without scrolling.
+
+The dock is six 44px swatches with 8px gaps — 304px — inside a card content box of
+roughly 310px. The divider and `2700 / 4000 / 6500` are entirely past the right edge,
+and the `maskImage` fade dissolves the divider so the row reads as complete. Below
+`sm` the dock wraps to two rows (`max-sm:flex-wrap`) and drops the mask
+(`max-sm:[mask-image:none]`); 6 swatches fit row one, divider + 3 chips fit row two,
+and nothing scrolls or hides. At >=sm the row is untouched — still one line, still
+masked, still scrolling — because at >=sm it is what the grid was designed around.
+
+Keep the 4:3 / 16:10 instrument aspect exactly as it is. §F chose those on purpose
+and the user did not complain about them; this round is not the place to relitigate
+how tall a card is.
+
+---
+
+### T34 — Device console: put the dial above the fold
+
+**Files:** `app/device/[ref]/page.tsx`, `app/device/[ref]/control-deck.tsx`
+**Depends on:** T32.
+
+**Done when:** at 390x844 the brightness dial's centre is above the fold and the
+Light tab's inline power switch is inside the viewport, both as reported by `--check`.
+
+**Measured before writing this, at 390x844 in a real headless Chromium** — because
+the first draft of this task asserted the dial was clipped on its left edge, and it
+is not. The dial's box is a clean 160x160 at x=115..275 inside a panel spanning
+24..366, on both an H6022 and an H6056. What is actually wrong is vertical:
+
+| | measured |
+|---|---|
+| instrument | y=112..432 — 320px, 42% of the 764px below the top bar |
+| dial centre | y=691 — 82% of the way down an 844px screen |
+| inline power switch | y=822 — **10px below** `main`'s visible bottom edge at 812 |
+
+So there is a control genuinely off the screen, and the dial sits at the very
+bottom edge of the best case. On a real iPhone it is worse than the best case:
+Safari's non-collapsed toolbar makes the visible viewport shorter than the nominal
+844 CSS px, which pushes the dial itself under too.
+
+Recover the space from **chassis first**: the two-line MAC/geometry caption, the
+back link's margins, the header's vertical rhythm — all below `md`. Only then reduce
+the mobile stage height. The instrument stays the loudest thing on the page (§G);
+the console does not become a list of grey controls to win 200px.
+
+The cause of the off-screen switch is the dial/power cluster's
+`flex flex-wrap justify-around`: a 160px dial plus a `min-w-[140px]` column plus a
+24px gap is 324px against ~310px of content box, so it wraps — but by accident, at a
+threshold that depends on the panel's padding, and `justify-around` then centres a
+lone dial with uneven space. Below `md`, arrange it deliberately instead of relying
+on that near-miss.
+
+**Do not "fix" a horizontal clip here.** It was in the first draft of this task on
+the strength of a screenshot, it was checked, and it is not real. Anything that
+looks like it is fixing one is fixing something that does not exist.
+
+---
+
+### T35 — Touch targets in the primitives
+
+**Files:** `components/ui/button.tsx`, `components/ui/icon-button.tsx`,
+`components/ui/switch.tsx`, `components/ui/toaster.tsx`,
+`components/ui/theme-toggle.tsx`, `components/ui/slider.tsx`,
+`app/device/[ref]/color-picker.tsx`
+**Depends on:** nothing.
+
+**Done when:** under `pointer: coarse` nothing in these files is under 44x44:
+`SwatchRow` buttons (28px today), the `NativeColorInput` swatch (28px), the toast
+dismiss (24px), the `ThemeToggle` button (36px, and unlike the nav links it renders
+at *every* width, so this one genuinely needs the `pointer: coarse` guard rather
+than a `md:hidden` wrapper), and the `Slider` thumb's 20px grab area inside a 24px
+track. `--check` reports zero sub-44px targets on any route.
+
+Also reposition the toast stack below `md`. It is `fixed bottom-12 right-4`, up to
+320px wide — 82% of a 390px screen — and every toast is `pointer-events-auto` for
+its full 4000ms. In a single-column card layout that lands it squarely over the
+controls of whichever card the user just pressed, so those controls stop responding
+for four seconds with no visible reason. Anchor it under the top bar below `md`,
+which is chassis with nothing interactive beneath it.
+
+`device-plate.tsx`'s dock already solves this correctly — a 44px button wrapping a
+24px visual circle — and that is the pattern to copy: **grow the hit area, not the
+ink.** Where growing the box would reflow neighbours (`SwatchRow` is a wrapping
+row), grow it under `pointer: coarse` only; a fine-pointer desktop never evaluates
+the rule, so the gate cannot see it.
+
+Do **not** reach for a transparent `::after` overlay bigger than the laid-out box.
+It satisfies a naive audit and produces overlapping hit rectangles between adjacent
+swatches — taps land on the neighbour, which is a worse bug than the one being
+fixed and an invisible one.
+
+---
+
+### T36 — Overlays that fit on a phone
+
+**Files:** `components/ui/dialog.tsx`, `components/stage/mode-picker.tsx`
+**Depends on:** nothing.
+
+**Done when:** a dialog taller than the viewport scrolls its own body with its
+action buttons reachable, at 390x844, in both the `center` and `right` positions.
+The realistic worst cases are `capture-room-dialog` after a capture that returned
+unknown devices (title + description + warning block + two buttons) and
+`mode-picker` with a long scene list.
+
+`DialogContent`'s centre position is `grid place-items-center overflow-y-auto` with
+an unconstrained child; an item taller than a centred grid area can have its top
+edge clipped past the scroll origin, which puts the title — and in the sheet
+variant the confirm button — somewhere no scroll can reach. Cap the panel at
+`max-h-[calc(100dvh-2rem)]` and give it internal scroll. `dvh`, not `vh`: iOS
+Safari's toolbar makes `100vh` taller than the visible viewport, which is the
+same class of bug one layer down.
+
+Neither cap may bind at 1440x900 for any dialog in the app — if one does, the gate
+will say so, and that is a real desktop change to be reported, not silenced.
+
+---
+
+### T37 — The other four routes
+
+**Files:** `app/page.tsx`, `app/rooms/page.tsx`, `app/schedules/page.tsx`,
+`app/schedules/external-panel.tsx`, `app/schedules/timeline.tsx`,
+`app/settings/page.tsx`, `app/settings/devices-section.tsx`,
+`app/settings/groups-section.tsx`, `components/rooms/room-scene-card.tsx`,
+`components/rooms/capture-room-dialog.tsx`
+**Depends on:** T32.
+
+**Done when:** the dashboard's device filter is reachable at 390px (§11.5); the
+console header's "Refresh state" `IconButton` reaches 44px on a phone via a
+**call-site** class, not by editing `IconButton`'s shared `SIZE_CLASSES` (T35 owns
+that file, and every other consumer of `size="md"` is a desktop call site that must
+not move); **every `truncate` + `title=` string in these files wraps instead of
+truncating under `pointer: coarse`** (§11.2 (6) — `room-scene-card.tsx:224/228` and
+`schedules/page.tsx:183` are the two that matter); no route hard-clips content or places a control off-viewport at 390x844 in either theme; and
+`--check` reports zero hard failures for `/`, `/rooms`, `/schedules`, `/settings`.
+
+---
+
+### T38 — The coarse-pointer base layer
+
+**Files:** `styles/globals.css`
+**Depends on:** nothing.
+
+**Done when:** `-webkit-tap-highlight-color: transparent` (the default grey flash
+fights every `active:` state in the app), `overscroll-behavior-x: contain` on
+horizontal scroll rows so a swipe cannot trigger Safari's back gesture, and any
+shared `pointer: coarse` rule the primitives need. Rules live under
+`@media (pointer: coarse)` or `max-md`, never unguarded — an unguarded rule here is
+the single easiest way to fail T29's desktop diff, because it applies to every
+route at once.
+
+## 11.7 Verification for this round
+
+§9.1's gates apply unchanged, plus:
+
+1. `python3 scripts/viewport_audit.py --baseline` on the pre-T30 commit; after the
+   round, `--check` must report **zero** desktop diffs and **zero** mobile hard
+   failures.
+2. `python3 scripts/verify_ui.py` still green — it walks the same routes at 390x844
+   and asserts the instrument is actually animating, which no geometry gate can see.
+3. **Read the screenshots.** Both scripts write to `.verify-ui/`. Round two's own
+   report records that screenshot review caught two real defects that every
+   assertion had passed. Assertions confirm what they were told to look for;
+   looking is what finds the thing nobody thought to assert.
+4. Real-device check on a phone only after the mock gates are green, and subject to
+   the standing rule: check the time first, these lights are in a bedroom.
