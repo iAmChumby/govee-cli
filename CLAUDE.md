@@ -153,6 +153,62 @@ wrapped, H6056 = 2x48, H6008 = none). The paint studio draws on that canvas and
 downsamples to the 15 segments cloud v2 actually exposes, showing both — the lamp
 cannot render what you drew, and the UI says so rather than implying otherwise.
 
+### The request meter, and what it may not claim
+
+`govee_cli/request_meter.py` counts every outbound cloud request, hooked **inside
+`GoveeHTTPv2._request`** rather than at any call site — three independent clients
+exist in this process tree (the sidecar's singleton, a fresh one per scheduler
+firing, one per CLI invocation) and `_request` is the only point all three share.
+Every retry attempt counts; each is a real request.
+
+**We do not know v2's rate limit.** It publishes none and returns no headers, so
+the meter shows measured counts and never a percentage of an invented
+denominator — that would be the same sin as reporting 2700K for a lamp running a
+blue scene. The only thing allowed to raise a warning is `rate_limited_today > 0`:
+a 429 is the cloud actually saying so. A daily target is opt-in
+(`request_budget_per_day`, default `None`) and is presented as the user's number.
+v1 and v2 are metered separately and are never summed.
+
+Measured 2026-08-25: a focused dashboard draws **26 req/min** (~37,400/day if
+left open), with **zero 429s**. `POLL_MS` and `STATE_CACHE_TTL` are deliberately
+untuned pending that evidence.
+
+Its flush deliberately **omits `fsync`**, unlike `ledger.py`. `os.replace` still
+gives atomicity; `fsync` only adds durability across a power cut, at a measured
+p50 of 124ms on this disk — inside `playback.py`'s 500ms frame budget. Losing the
+ledger's last write means lying about a light; losing the meter's means a tally
+is two seconds stale.
+
+### Room scenes are a third thing
+
+`groups` broadcast one command string. Govee's `snapshot` is per-device and
+firmware-side. A **room scene** (`govee_cli/room_scenes.py`,
+`~/.config/govee-cli/room-scenes.json`) captures every device's state *and*
+ledger mode, and restores them to four different modes at once.
+
+`plan_restore()` is pure so its mode dispatch is testable without hardware. A
+device captured while its mode was `unknown` — or running an `effect` — is
+**skipped with a stated reason, never guessed**. That is the ledger's own rule
+one level up, and it is why `PUT /devices/{ref}/active-mode` exists: correcting
+an `unknown` is what makes a capture worth taking. That route writes the ledger
+and **sends nothing to the device**; the UI copy has to keep saying so, because a
+user who thinks it commands the light will mis-set the ledger.
+
+**`resolve_ref` falls back to treating any MAC-shaped string as an ad-hoc BLE
+address, and mock mode does not cover BLE** — it fakes only the HTTP client. Any
+code path that resolves a stored device id must check `target.device_cfg is not
+None` first, or a stale reference becomes real GATT packets to whatever answers.
+This has already happened once, to real hardware in a bedroom.
+
+### Anything that writes to `~/.config/govee-cli/` needs a test redirect
+
+`tests/conftest.py` redirects the ledger, the meter and room scenes; `mock.py`'s
+`install()` does the same for the sidecar. Add a new state file and you must add
+it to both, or the test suite silently rewrites what the running console
+displays. This has now bitten twice — first the ledger, then the meter, where
+test runs wrote fabricated 429s into the one signal the budget readout treats as
+ground truth.
+
 ---
 
 ## Device Notes (H6056)
