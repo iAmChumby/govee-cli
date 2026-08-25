@@ -115,30 +115,61 @@ export function Slider({
         />
       </SliderPrimitive.Track>
 
-      {/* thumb */}
+      {/* thumb — WEBUI_V3_SPEC.md §11.3/T35: the 20px grab area inside a
+          24px track is under 44px. The old markup painted the visible
+          chip (border, bg-raised, rounded-full) directly on the element
+          Radix positions and drags, so growing *that* box would have
+          grown the chip itself — the "ink" §11.1 says a hit-area fix may
+          not move. Splitting it in two fixes that: the outer
+          `motion.span` stays the actual Radix thumb (it receives Radix's
+          drag/keyboard handlers and its positioning transform) but is
+          now visually empty, sized to its content (20px) at fine pointer
+          and floored at `pointer-coarse:min-h-11`/`min-w-11` on touch;
+          the inner `span` carries every pixel of the old chip's look —
+          including `data-dragging`/`data-tint` and the `.slider-thumb`
+          class globals.css keys its drag-glow box-shadow off — at a
+          fixed 20px, unconditionally. A
+          mouse never evaluates `pointer-coarse:`, so the dragged box's
+          size and the track math built on it (`TRAVEL` etc.) are
+          unchanged at fine pointer. `group-hover`/`group-focus-visible`
+          replace the old direct `hover:`/`focus-visible:` rules so the
+          now-invisible outer thumb still paints its state onto the
+          visible inner chip, and the value bubble moves inside the inner
+          span so its `-top-8` offset stays anchored to the chip's own
+          edge rather than drifting outward with the touch padding. */}
       <SliderPrimitive.Thumb
         aria-label={ariaLabel}
         asChild
-        className="block cursor-grab outline-none active:cursor-grabbing"
+        className="cursor-grab outline-none active:cursor-grabbing"
       >
         <motion.span
-          data-dragging={dragging ? "true" : "false"}
-          data-tint={tint ? "true" : "false"}
           whileTap={reduced ? undefined : { scale: 1.12, transition: springSnappy }}
           transition={springStandard}
-          className="slider-thumb group relative block h-5 w-5 rounded-full border border-hairline-strong bg-raised transition-colors duration-150 hover:border-accent focus-visible:border-accent"
+          className="group relative flex h-5 w-5 shrink-0 items-center justify-center pointer-coarse:min-h-11 pointer-coarse:min-w-11"
         >
-          <span className="absolute inset-[6px] rounded-full bg-accent" />
-          {showBubble ? (
-            <span
-              className={cn(
-                "pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 rounded-chip border border-hairline bg-raised px-1.5 py-0.5 font-mono text-[10px] leading-none text-hi transition-opacity duration-150",
-                dragging ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100",
-              )}
-            >
-              {Math.round(current)}
-            </span>
-          ) : null}
+          {/* `data-dragging`/`data-tint` stay on the same element as the
+              `.slider-thumb` class — globals.css's compound selector
+              `.slider-thumb[data-dragging="true"][data-tint="true"]`
+              needs all three on one node, and the glow it draws is a
+              box-shadow that should hug the 20px chip, not the taller
+              touch target around it. */}
+          <span
+            data-dragging={dragging ? "true" : "false"}
+            data-tint={tint ? "true" : "false"}
+            className="slider-thumb relative block h-5 w-5 rounded-full border border-hairline-strong bg-raised transition-colors duration-150 group-hover:border-accent group-focus-visible:border-accent"
+          >
+            <span aria-hidden className="absolute inset-[6px] rounded-full bg-accent" />
+            {showBubble ? (
+              <span
+                className={cn(
+                  "pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 rounded-chip border border-hairline bg-raised px-1.5 py-0.5 font-mono text-[10px] leading-none text-hi transition-opacity duration-150",
+                  dragging ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100",
+                )}
+              >
+                {Math.round(current)}
+              </span>
+            ) : null}
+          </span>
         </motion.span>
       </SliderPrimitive.Thumb>
     </SliderPrimitive.Root>

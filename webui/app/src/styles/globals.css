@@ -175,3 +175,54 @@
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
+
+/* ============================================================
+   Coarse-pointer base layer (WEBUI_V3_SPEC.md §11.6 T38)
+   Chassis-wide rules a touch pointer needs that no single
+   primitive owns. Both live under `pointer: coarse` — §11.1's
+   honest predicate for "a finger is doing the pointing," not
+   "the viewport is narrow" — so a fine-pointer 1440x900 session,
+   the one scripts/viewport_audit.py measures, never evaluates
+   either rule. Everything else touch-sizing related (44px hit
+   areas, wrap-instead-of-truncate) is scoped per component by the
+   tasks that own those files; this section is only for the two
+   rules that would otherwise get reinvented per call site.
+   ============================================================ */
+@media (pointer: coarse) {
+  /* The platform's own grey tap-flash is a `:active`-adjacent
+     effect the browser draws, not the app, and every interactive
+     primitive here already animates its own `active:` state
+     (press-in scale, border/background shift — see button.tsx,
+     switch.tsx, the swatch rows). Left on, the two fire together
+     and the flash reads as a rendering glitch layered on top of an
+     intentional one — the same complaint that motivated killing
+     the horizontal-scroll mask that reads as clipped content
+     (§11.2 item 1). Killing it once here beats every primitive
+     fighting it locally, and it is inert on a mouse/trackpad
+     session, which never paints this highlight regardless.  */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Rows that scroll horizontally by design (T32's tab rail and
+     status strip, the plate's channel-strip dock) live inside a
+     page that itself scrolls vertically. Without
+     `overscroll-behavior-x: contain`, a horizontal swipe that runs
+     out of row to scroll chains into the page's own scroll
+     container, and on iOS Safari a swipe that starts near the
+     screen edge and chains like that is read as the back-
+     navigation gesture — leaving whatever the user was
+     mid-adjustment on. Getting navigated away while dragging a
+     light's channel strip is exactly the kind of thing that makes
+     someone stop trusting the console.
+     Scoped to the app's own `data-scroll-affordance="true"` hook
+     (set by `useEdgeScroll`, lib/use-edge-scroll.ts, only once a
+     row measures as actually scrollable — see T32) rather than
+     every `overflow-x-auto` in the app: a future scrolling row
+     earns this the same way it earns its edge-fade affordance, by
+     wiring the same hook, not by incidentally matching a broader
+     selector. */
+  [data-scroll-affordance="true"] {
+    overscroll-behavior-x: contain;
+  }
+}

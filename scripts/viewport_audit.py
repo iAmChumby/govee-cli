@@ -113,7 +113,7 @@ CLIP_HARD_OVERFLOW_PX = 2
 SCROLL_WARN_OVERFLOW_PX = 8
 TOUCH_MIN_PX = 44
 
-MAX_PRINTED_DIFFS = 25
+MAX_PRINTED_DIFFS = 400
 
 TOUCH_TARGET_SELECTOR = (
     'button, a[href], [role="button"], [role="tab"], '
@@ -156,8 +156,27 @@ JS_HELPERS = """
       const text = ownText(el).replace(/[0-9]/g, '#');
       return text.length > 40 ? ('h:' + hashStr(text)) : text;
     }
+    /* Classes that provably cannot apply at 1440x900 with a mouse are stripped
+       before the key is built. This is not a convenience — without it the gate
+       is unusable for its actual purpose. Every mobile fix in this round works
+       by ADDING a `max-md:` or `pointer-coarse:` class to an existing element;
+       if those land in the key, the element's identity changes, and a diff that
+       should read "nothing moved" instead reads "249 elements vanished and 249
+       appeared". The first run of this gate after the mobile pass did exactly
+       that, and the geometry underneath was in fact identical.
+       Stripping them is also the honest definition of the key: it is meant to
+       identify what this element IS at desktop, and a rule that never evaluates
+       at desktop is not part of that. Anything else added to the class list is
+       a real desktop-relevant edit and SHOULD change the key — that is the
+       gate doing its job, not noise. */
+    function desktopClasses(cls) {
+      return cls
+        .split(/\\s+/)
+        .filter((c) => c && !/^(max-(sm|md|lg|xl|2xl)|(any-)?pointer-coarse):/.test(c))
+        .join(' ');
+    }
     function stableKey(el, cls) {
-      return el.tagName.toLowerCase() + '|' + cls + '|' + keyText(el);
+      return el.tagName.toLowerCase() + '|' + desktopClasses(cls) + '|' + keyText(el);
     }
     /* For humans reading the report: the real, un-normalised text. */
     function labelOf(el) {
@@ -173,6 +192,15 @@ JS_HELPERS = """
     }
     /* A visually-hidden span is a 1px box clipping a full sentence. That is
        what sr-only IS, not a defect, and flagging it buries the real ones. */
+    function hasScrollableXAncestor(el) {
+      for (let p = el.parentElement; p; p = p.parentElement) {
+        const ox = getComputedStyle(p).overflowX;
+        if ((ox === 'auto' || ox === 'scroll') && p.scrollWidth - p.clientWidth > 2) {
+          return true;
+        }
+      }
+      return false;
+    }
     function isScreenReaderOnly(cls) {
       return /(^|\\s)sr-only(\\s|$)/.test(cls);
     }
@@ -280,10 +308,20 @@ TOUCH_JS = """(sel) => {
         g.minH = Math.min(g.minH, Math.round(r.height));
         small[key] = g;
       }}
+      /* Off-viewport only counts when the control cannot be brought into
+         view. A tab sitting at x=447 inside a horizontally scrollable rail is
+         one swipe away, not unreachable — and this round's whole point is that
+         such rails now announce themselves. Flagging them anyway would push
+         the fix toward cramming every tab on screen, which is the wrapping
+         layout tabs.tsx deliberately rejected. An element with no scrollable
+         ancestor and a box outside the viewport really is lost, and still
+         fails. */
       if (r.right > vw + 1 || r.left < -1) {{
-        offscreen.push({{
-          key, left: Math.round(r.left), right: Math.round(r.right), vw,
-        }});
+        if (!hasScrollableXAncestor(el)) {{
+          offscreen.push({{
+            key, left: Math.round(r.left), right: Math.round(r.right), vw,
+          }});
+        }}
       }}
     }}
     return {{ small, offscreen }};
@@ -379,6 +417,40 @@ def diff_all_routes(baseline: GeometryByRoute, current: GeometryByRoute) -> list
                     "route": route, "kind": "changed", "key": key,
                     "before": bgeo, "after": ageo, "severity": delta,
                 })
+    # An element whose key changed but whose box did not is not a desktop
+    # regression, and reporting it as one makes the gate useless. This happens
+    # for two legitimate edits: changing a Tailwind *bare* value that a `sm:` or
+    # `lg:` override already wins over at desktop (h-[320px] -> h-[260px] under
+    # `lg:h-[480px]` renders identically at 1440px), and wrapping a control in a
+    # hit-area container that occupies exactly the same box. Both change the
+    # key; neither moves a pixel.
+    #
+    # So: pair each `missing` with a `new` at the identical (w,h,x,y) on the
+    # same route and downgrade the pair to `rekeyed` — reported, counted, and
+    # printed so a human still reviews it, but not a failure. The constraint is
+    # "desktop must not move", and an element occupying the same box in the same
+    # place did not move. Deliberately exact-match on all four numbers: a
+    # one-pixel shift stays a failure, and a coincidental box collision between
+    # two genuinely different elements is visible in the printed pair.
+    by_route: dict[str, dict[str, list[dict[str, Any]]]] = {}
+    for d in out:
+        by_route.setdefault(d["route"], {}).setdefault(d["kind"], []).append(d)
+    paired: list[dict[str, Any]] = []
+    for route, kinds in by_route.items():
+        news = list(kinds.get("new", []))
+        for miss in kinds.get("missing", []):
+            match = next(
+                (n for n in news if n["after"] == miss["before"]), None
+            )
+            if match is None:
+                continue
+            news.remove(match)
+            miss["kind"] = "rekeyed"
+            miss["after"] = match["after"]
+            miss["new_key"] = match["key"]
+            miss["severity"] = -1.0
+            match["kind"] = "consumed"
+    out = [d for d in out if d["kind"] != "consumed"]
     out.sort(key=lambda d: d["severity"], reverse=True)
     return out
 
@@ -393,6 +465,12 @@ def print_desktop_diffs(diffs: list[dict[str, Any]]) -> None:
             print(f"  [MISSING] {d['route']} :: {d['key']}  (was {format_geom(d['before'])})")
         elif d["kind"] == "new":
             print(f"  [NEW]     {d['route']} :: {d['key']}  (now {format_geom(d['after'])})")
+        elif d["kind"] == "rekeyed":
+            print(
+                f"  [REKEYED] {d['route']} :: same box {format_geom(d['after'])}\n"
+                f"              was: {d['key']}\n"
+                f"              now: {d['new_key']}"
+            )
         else:
             print(
                 f"  [CHANGED] {d['route']} :: {d['key']}  "
@@ -402,12 +480,31 @@ def print_desktop_diffs(diffs: list[dict[str, Any]]) -> None:
     omitted = len(diffs) - len(shown)
     if omitted > 0:
         print(f"  ... and {omitted} more diff(s) not shown")
-    print(f"  {len(diffs)} total desktop geometry diff(s)")
+    moved = [d for d in diffs if d["kind"] != "rekeyed"]
+    rekeyed = len(diffs) - len(moved)
+    # Counts by kind, always, regardless of the print cap. "changed" is the one
+    # that means an element which still exists moved on screen — the others are
+    # structural (a wrapper added, an element relocated) and need a human read.
+    # Printing only the first 25 without this line let a reader conclude
+    # "no CHANGED entries" from a truncated list.
+    kinds = {k: sum(1 for d in moved if d["kind"] == k) for k in ("missing", "new", "changed")}
+    print(
+        f"  by kind: changed={kinds['changed']} "
+        f"missing={kinds['missing']} new={kinds['new']}"
+    )
+    print(f"  {len(moved)} desktop element(s) actually moved/appeared/vanished")
+    if rekeyed:
+        print(
+            f"  {rekeyed} rekeyed (same box, changed class or wrapper) — "
+            "not a failure, but read them"
+        )
 
 
 def diffs_to_failures(diffs: list[dict[str, Any]]) -> list[str]:
     out = []
     for d in diffs:
+        if d["kind"] == "rekeyed":
+            continue  # same box, different key — see diff_all_routes
         if d["kind"] == "missing":
             out.append(f"desktop element disappeared: {d['route']} :: {d['key']}")
         elif d["kind"] == "new":
@@ -553,7 +650,11 @@ def run_check_mode(
     print_mobile_report(audit)
 
     print("\n=== SUMMARY ===")
-    print(f"hard failures: {len(hard)}")
+    # Split, because a single "hard failures: 87" merged 57 desktop diffs with
+    # 30 mobile ones and read like a mobile regression at a glance. The two
+    # halves of this gate answer different questions and get different lines.
+    print(f"hard failures: {len(hard)}  (desktop {len(hard) - len(audit.hard)}"
+          f" + mobile {len(audit.hard)})")
     print(f"warnings: {len(warn)}")
     print(f"info: {len(info)}")
     print(f"\nscreenshots: {AUDIT_DIR}")

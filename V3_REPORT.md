@@ -533,3 +533,123 @@ tally is two seconds stale. Worst-case `record()` went from 535ms to **0.31ms**.
 - **Whether a hidden tab stops polling** — untested, see above.
 - The two sub-44px touch targets and the 72MB `.git` from the first report are
   still there.
+
+---
+
+# Round three — the phone, built 2026-08-25
+
+Brief: *"Now ultracode a uiux polish for mobile. This should NOT impact desktop
+but make it super easy to use on mobile. No hidden elements and stuff like that."*
+
+## The constraint became a gate
+
+"Should not impact desktop" is not checkable by reading a diff across 28 files,
+so `scripts/viewport_audit.py` records the bounding box of every visible element
+on every route at 1440x900 and diffs it. `.planning/desktop-baseline.json` is the
+fixture, committed because it captures a state no later run can reproduce.
+
+**Result: `changed=0`, `missing=0`.** Nothing that exists at desktop moved a
+pixel or disappeared. 40 new elements appeared, all non-painting: 35 are
+hit-area wrappers sitting on exactly the box of the control they wrap (verified
+against the pre-change capture, not asserted), and 5 are one invisible flex
+container per route in the status strip whose children all held position.
+
+Two corrections to the gate were needed before it was worth anything, and both
+are the same lesson: an instrument that reports false positives gets switched
+off.
+
+- The element key was built from `textContent`, so the ticking clock and the
+  latency readout propagated up through every ancestor — ~40 phantom regressions
+  per run on *unmodified* code. Fixed by keying on an element's own direct text
+  nodes with digits normalised, plus `data-volatile` on the two readouts whose
+  width genuinely tracks their content.
+- Every mobile fix adds a `max-md:` class, which changed the key of every element
+  it touched: the first post-change run reported **249** elements vanishing and
+  reappearing at identical geometry. The key now strips variants that cannot
+  apply at 1440x900 with a mouse, and a missing/new pair at the same box is
+  reported as `rekeyed`, not as a failure.
+
+`sr-only` spans were also being reported as clipped — a 1px box hiding a full
+sentence is what `sr-only` *is*, and 177 of them were burying the real findings.
+
+## What was actually wrong on a phone
+
+Measured, not guessed:
+
+| | before | after |
+|---|---|---|
+| mobile hard failures | 140 | **4** |
+| scroll rows with no affordance | 8 | **0** |
+| brightness dial centre (390x844) | y=691 | **y=604** |
+| Light tab's power switch | y=822, **10px off-screen** | on screen |
+| temperature presets on each card | 100% off the right edge | visible, second row |
+
+The headline defect was worse than the screenshots suggested. The dashboard
+card's dock held 505px of content in a 324px box; at rest the *first*
+temperature preset started at x=358, one pixel past the container's right edge,
+so all three of 2700/4000/6500 were invisible on first paint. The `maskImage`
+fade meant to signal "more this way" instead dissolved the divider, so the row
+read as finished. Below `sm` the dock now wraps to two rows and drops the mask;
+at `>=sm` it is untouched.
+
+Two blockers came from the same shape and neither was on the original list:
+`truncate` + `title=`. A `title` is a hover tooltip and touch has no hover, so on
+a phone the string does not exist. That was hiding a room scene's **skip reason**
+— the entire point of this project skipping a device rather than guessing — and
+the **command a schedule rule runs**, on the screen where you decide whether to
+trust it.
+
+## Things I got wrong, plainly
+
+- **I claimed the brightness dial was clipped on its left edge**, reasoning from
+  the phone screenshot. It is not. Measured on two device models, the dial is a
+  clean 160x160 at x=115..275 inside a panel spanning 24..366. The real defect
+  there was entirely vertical. The spec now carries a warning not to "fix" a
+  horizontal clip that does not exist.
+- **I had the `poll 10s` chip listed as hidden below `sm`**, reading its
+  `hidden sm:inline-flex`. It was never hidden: `Chip` carries a base
+  `inline-flex`, `cn()` is a plain join with no `tailwind-merge`, and two
+  `display` utilities of equal specificity are settled by Tailwind's emitted rule
+  order, not attribute order. The pre-change 390px screenshots show it rendering
+  the whole time. One task deleted it and another re-rendered it in the status
+  strip before the gate caught the chip *appearing* at 1440x900 — a fix that
+  moved a visible desktop element to solve a problem that did not exist. Both
+  were reverted. It later had to leave the phone anyway, for a different and
+  measured reason: see below.
+- **Growing the nav links to 44px broke the top bar.** The gate caught the app
+  frame overflowing by 35px on every route with the ThemeToggle at x=381..425 —
+  a control pushed off-screen by the change meant to make controls easier to
+  hit. The `poll 10s` chip now renders in the status strip below `md` and stays
+  in the top bar at `>=md`, which buys 84px and leaves desktop untouched.
+- **`useEdgeScroll` never fired for async content.** A `ResizeObserver` on the
+  scroll container fires when *that element's* box changes, but both rows using
+  the hook are `flex-1` children whose width their parent sets — content growing
+  inside them resizes nothing. The status strip and the tab rail both fill from
+  React Query, so the one measurement ran against an empty row, concluded "fits",
+  and the affordance never appeared. A `MutationObserver` now covers content and
+  text changes.
+- **Screenshot review caught what the geometry gate structurally cannot.** The
+  "what's playing?" chip — the sole entry point for correcting an `unknown` mode
+  — was grown to 44px by putting the height on the element that also carries the
+  dashed border, background and radius, so a 44px slab of chrome ended up sitting
+  on the instrument. Both versions measure 44px; the gate was silent. *Grow the
+  hit area, not the ink* is the rule that keeps this class of change visible.
+
+## Still open
+
+- **4 known mobile failures remain**, all on the schedules timeline: the
+  wake-ramp band (46x42, 2px short of the floor) and the rule marker dots
+  (10x10 with a 44px invisible overlay). Both are **pre-existing** — this round
+  only widened the band horizontally from 22px to 46px, a strict improvement.
+  The dots' overlays overlap for any two rules closer than ~3h33m on a 298px
+  rail, so a tap can land on the neighbour. They were deliberately **not**
+  exempted with `data-touch-ok`: an exemption without arithmetic makes the gate
+  lie. Both controls are redundant — every rule has a full-width row in the list
+  below — so this is a real but bounded defect needing a rail redesign.
+  A future run seeing 4 mobile failures on `/schedules` is seeing these.
+- **The status strip scrolls horizontally on mobile.** Everything it renders at
+  1440px is present at 390px, with a live edge fade, but the clock and budget
+  readout are a swipe away. The alternative was a second 32px row of chassis on
+  every route. Worth a second opinion.
+- `POLL_MS` / `STATE_CACHE_TTL` still untuned, still pending round two's
+  measurement. Unchanged by this round on purpose.

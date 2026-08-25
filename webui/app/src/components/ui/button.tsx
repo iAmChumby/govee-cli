@@ -40,10 +40,21 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
     "border-transparent text-white [background-color:hsl(var(--dev-hue)_var(--dev-sat)_var(--dev-light))] hover:brightness-110 active:brightness-95",
 };
 
+// WEBUI_V3_SPEC.md §11.3/T35: every size here is under 44px tall (sm 28,
+// md 36, lg 40), and an icon-only `sm` button (no text driving its width)
+// measured 28x28. `min-h-11`/`min-w-11` under `pointer-coarse:` set a
+// *floor* rather than overriding `h-*`/fixed padding — CSS resolves
+// height/width against min-height/min-width regardless of which utility
+// class comes first in the generated stylesheet, so this can't lose a
+// specificity fight the way a second `h-11` class competing with `h-7`
+// could. At fine pointer `min-height`/`min-width` are unset (initial 0),
+// so the exact px values above still win — the gate at 1440x900 sees
+// nothing move. `pointer-coarse:px-4` on `sm` keeps a short label
+// (e.g. one glyph) from looking pinched inside its taller box.
 const SIZE_CLASSES: Record<ButtonSize, string> = {
-  sm: "h-7 px-2.5 text-[10px]",
-  md: "h-9 px-4 text-[11px]",
-  lg: "h-10 px-5 text-xs",
+  sm: "h-7 px-2.5 text-[10px] pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:px-4",
+  md: "h-9 px-4 text-[11px] pointer-coarse:min-h-11 pointer-coarse:min-w-11",
+  lg: "h-10 px-5 text-xs pointer-coarse:min-h-11 pointer-coarse:min-w-11",
 };
 
 /**

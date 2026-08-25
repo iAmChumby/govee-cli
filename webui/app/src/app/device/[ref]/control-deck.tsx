@@ -54,7 +54,10 @@ export function ControlDeck({ refId, state }: ControlDeckProps) {
   const hasMatrix = (caps?.matrix_rows ?? 0) > 0;
 
   return (
-    <motion.section variants={panelIn} className="flex min-w-0 flex-col gap-5">
+    // T34 (WEBUI_V3_SPEC §11.6): gap-5 -> gap-3 below md trims part of the
+    // chassis stack above the dial (header-to-panel rhythm); additive, so
+    // >=md is untouched.
+    <motion.section variants={panelIn} className="flex min-w-0 flex-col gap-5 max-md:gap-3">
       {/* header */}
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-lg font-medium leading-tight tracking-[-0.02em] text-hi">
@@ -66,7 +69,7 @@ export function ControlDeck({ refId, state }: ControlDeckProps) {
       </div>
 
       {/* tab rail */}
-      <Panel className="px-4 pb-5 pt-4 sm:px-5">
+      <Panel className="px-4 pb-5 pt-4 max-md:pt-3 sm:px-5">
         <Tabs defaultValue="light">
           <TabsList className="-mx-1 overflow-x-auto px-1 sm:flex-wrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <TabsTrigger value="light">Light</TabsTrigger>
@@ -197,9 +200,27 @@ function LightTab({ refId, state }: ControlDeckProps) {
   const brightnessDisplay = scrub ?? state.brightness ?? 50;
 
   return (
-    <div className="space-y-6 pt-5">
-      {/* dial + power cluster */}
-      <div className="flex flex-wrap items-center justify-around gap-6">
+    // T34: pt-5 -> pt-3 and space-y-6 -> space-y-4 below md are chassis
+    // trims (the gap stack §11.6 calls out); pt-5 is the last bit of space
+    // above the dial itself, space-y-6 only affects sections *below* it.
+    <div className="space-y-6 max-md:space-y-4 pt-5 max-md:pt-3">
+      {/*
+        T34: this row used to be `justify-around` with a fixed 160px Dial
+        plus a `min-w-[140px]` column at `gap-6` (24px) — 160+24+140=324
+        against the panel's ~310px content box at 390px, so it wrapped by
+        accident a few px past the threshold. `justify-around` then spread
+        a lone Dial across the first line with uneven space, and the
+        column's wrapped second line was what pushed the inline power
+        switch 10px past `main`'s visible bottom edge (measured, see
+        §11.6 T34). Below md this is now nowrap-by-construction: gap-4
+        (16px) + a 120px column floor = 160+16+120=296, comfortably under
+        310 with margin for the column's actual (wider) content, so the
+        cluster never exceeds the Dial's own 160px row height and nothing
+        downstream of it gets shoved off-screen. `shrink-0` on the Dial
+        keeps the instrument (§G's loudest element) from ever being the
+        thing that gives when space is tight.
+      */}
+      <div className="flex flex-wrap items-center justify-around gap-6 max-md:flex-nowrap max-md:justify-between max-md:gap-4">
         <Dial
           value={brightnessDisplay}
           min={1}
@@ -208,13 +229,14 @@ function LightTab({ refId, state }: ControlDeckProps) {
           size={160}
           unit="%"
           label={`${state.name ?? refId} brightness`}
+          className="max-md:shrink-0"
           onValueChange={(v) => {
             setScrub(v);
             commitBrightness(v);
           }}
         />
 
-        <div className="min-w-[140px] space-y-4">
+        <div className="min-w-[140px] max-md:min-w-[120px] space-y-4">
           <SectionLabel index="01" title="power" />
           <div className="flex items-center gap-4">
             <Switch

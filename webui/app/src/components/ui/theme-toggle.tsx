@@ -79,7 +79,17 @@ export function ThemeToggle({ className }: { className?: string }) {
       onClick={toggle}
       aria-label={mounted ? `Switch to ${isDark ? "light" : "dark"} theme` : "Toggle theme"}
       className={cn(
-        "inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-btn border border-hairline text-mid transition-colors duration-150 hover:border-hairline-strong hover:text-hi hover:bg-accent-dim",
+        // WEBUI_V3_SPEC.md §11.3/T35: 36px. Unlike the top-bar's mobile
+        // nav links (T30, `md:hidden` so a `max-md:` growth is enough),
+        // this button renders at *every* width — desktop included — so
+        // it needs the actual `pointer-coarse:` predicate rather than a
+        // viewport check: a touchscreen laptop at 1440px still has a
+        // finger doing the pointing, and a mouse-driven narrow window
+        // still has a cursor. `min-h-11`/`min-w-11` floor the box the
+        // same way `TabsTrigger` (tabs.tsx) does; at fine pointer they
+        // never bind, so the gate's 1440x900 pass sees the exact 36px
+        // square it always has.
+        "inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-btn border border-hairline text-mid transition-colors duration-150 hover:border-hairline-strong hover:text-hi hover:bg-accent-dim pointer-coarse:min-h-11 pointer-coarse:min-w-11",
         className,
       )}
     >

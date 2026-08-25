@@ -107,9 +107,27 @@ export function DialogContent({
                   transition={springHeavy}
                   className="pointer-events-none fixed inset-0 z-50 grid place-items-center overflow-y-auto p-4"
                 >
+                  {/* `place-items-center` inside a scrollable ancestor is a
+                   * known cross-browser trap: once the child is taller than
+                   * the viewport, the ancestor's scroll range only reaches
+                   * toward the child's *end*, because the start of the range
+                   * is defined by the centred position, not the child's own
+                   * top edge. That permanently strands the title (WEBUI_V3_SPEC
+                   * §11.6 T36) above the reachable scroll offset — a capture
+                   * that returns unknown devices (title + description +
+                   * warning block + two buttons) is the realistic worst case.
+                   * Capping the panel's own height below the viewport means
+                   * it can never be taller than its container, so the trap
+                   * never triggers; the panel scrolls its own content
+                   * instead. `dvh` (not `vh`) so iOS Safari's collapsing
+                   * toolbar can't make the cap taller than what's actually
+                   * visible, which is the same class of bug one layer down.
+                   * `-2rem` matches the `p-4` gutter on the grid above so the
+                   * cap never binds at 1440x900 — nothing in this app is
+                   * currently tall enough to hit it there. */}
                   <div
                     className={cn(
-                      "pointer-events-auto w-[min(92vw,480px)] rounded-stage border border-hairline bg-panel p-6 shadow-overlay",
+                      "pointer-events-auto w-[min(92vw,480px)] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-stage border border-hairline bg-panel p-6 shadow-overlay",
                       className,
                     )}
                   >
@@ -124,9 +142,18 @@ export function DialogContent({
                   transition={springHeavy}
                   className="pointer-events-none fixed inset-y-0 right-0 z-50 grid justify-items-end"
                 >
+                  {/* Same overlong-child problem one layer down: this panel
+                   * had no internal scroll at all, so content taller than
+                   * `h-full` simply overflowed past the box with nothing to
+                   * bring the confirm button back into view. `max-h-[100dvh]`
+                   * (not `-2rem` — this sheet is flush to the screen edges,
+                   * unlike the padded centre dialog above) keeps `h-full`'s
+                   * existing size on a static viewport and only tightens it
+                   * when iOS Safari's toolbar makes the visible viewport
+                   * shorter than `dvh`'s vh-based cousin would report. */}
                   <div
                     className={cn(
-                      "pointer-events-auto h-full w-[min(92vw,420px)] rounded-l-stage border border-hairline border-r-0 bg-panel p-6 shadow-overlay",
+                      "pointer-events-auto h-full max-h-[100dvh] w-[min(92vw,420px)] overflow-y-auto rounded-l-stage border border-hairline border-r-0 bg-panel p-6 shadow-overlay",
                       className,
                     )}
                   >

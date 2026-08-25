@@ -200,6 +200,42 @@ code path that resolves a stored device id must check `target.device_cfg is not
 None` first, or a stale reference becomes real GATT packets to whatever answers.
 This has already happened once, to real hardware in a bedroom.
 
+### Mobile changes are gated, not eyeballed
+
+`scripts/viewport_audit.py` is the instrument for "this must not change desktop".
+`--baseline` records every visible element's box at 1440x900 into
+`.planning/desktop-baseline.json` (committed — it captures a state no later run
+can reproduce); `--check` diffs it and then sweeps 390x844 in both themes for
+clipped content, sub-44px touch targets, off-viewport controls and scroll rows
+with no affordance. It reuses `verify_ui.py`'s stack by import, mock guard
+included.
+
+Only two mechanisms may be used to change mobile without moving desktop:
+`max-md:`/`max-sm:` variants, and `@media (pointer: coarse)` (Tailwind's
+`pointer-coarse:`). A bare class change, or a changed `sm:`/`md:`/`lg:` value,
+applies at desktop and the gate will say so.
+
+Three things the gate cannot see, all learned by running it:
+
+- **It measures boxes, not paint.** Growing a control to 44px by putting the
+  height on the element that carries the border and background makes a 44px slab
+  of chrome; both versions measure 44px. **Grow the hit area, not the ink** —
+  put the visual on an inner span.
+- **Screenshots only show the first viewport.** The app frame is `h-dvh` with an
+  inner `overflow-y-auto`, so the document is exactly one viewport tall and
+  Playwright's `full_page=True` has nothing extra to capture.
+- **Anything positioned from the current time needs `data-volatile="true"`**, or
+  it reports as a regression an hour after the baseline. The clock, the latency
+  readout, the timeline's "now" marker and the next-fire countdowns all carry it.
+
+`title="..."` is a hover tooltip and touch has no hover, so a `truncate` + `title`
+pair is a desktop-only reveal. Under `pointer: coarse` such a string must wrap.
+
+`cn()` is a plain string join with no `tailwind-merge`: a `hidden` passed to a
+component whose base class sets `inline-flex` does **not** reliably win — the
+emitted rule order decides. Put visibility on a wrapper. This cost a round: the
+`poll 10s` chip was believed hidden on phones for months and never was.
+
 ### Anything that writes to `~/.config/govee-cli/` needs a test redirect
 
 `tests/conftest.py` redirects the ledger, the meter and room scenes; `mock.py`'s

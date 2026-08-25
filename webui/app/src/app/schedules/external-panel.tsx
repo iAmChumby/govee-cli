@@ -125,7 +125,7 @@ function WakeRampRow({ entry, crontab }: { entry: ExternalScheduleEntry; crontab
               ? `armed · ${armedDate}`
               : "weekend: not armed"}
         </span>
-        <span className="ml-auto shrink-0 font-mono text-[11px] tabular-nums text-low" title="next fire">
+        <span data-volatile="true" className="ml-auto shrink-0 font-mono text-[11px] tabular-nums text-low" title="next fire">
           next: {formatExternalNextFire(entry)}
         </span>
       </div>
@@ -169,8 +169,12 @@ function CronRow({ entry, crontab }: { entry: ExternalScheduleEntry; crontab: Cr
     <li className="rounded-card border border-dashed border-hairline px-3.5 py-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
         <Lock size={12} strokeWidth={1.5} className="shrink-0 text-low" aria-hidden />
+        {/* §11.2(6): the raw crontab line behind this entry is
+            hover-only via `title` today. Wrapping under pointer:coarse
+            recovers it on a phone; `max-w-full` already bounds this to
+            the row's own width so there is nothing narrower to lift. */}
         <span
-          className="max-w-full truncate font-mono text-[11px] text-mid"
+          className="max-w-full truncate font-mono text-[11px] text-mid pointer-coarse:whitespace-normal pointer-coarse:break-words"
           title={entry.raw_line ?? entry.command}
         >
           {entry.command}
@@ -178,7 +182,7 @@ function CronRow({ entry, crontab }: { entry: ExternalScheduleEntry; crontab: Cr
         <span className="shrink-0 font-mono text-[10px] tabular-nums text-low" title={entry.cron_expr ?? undefined}>
           {entry.cron_expr ?? "—"}
         </span>
-        <span className="ml-auto shrink-0 font-mono text-[11px] tabular-nums text-low" title="next fire">
+        <span data-volatile="true" className="ml-auto shrink-0 font-mono text-[11px] tabular-nums text-low" title="next fire">
           next: {formatExternalNextFire(entry)}
         </span>
       </div>

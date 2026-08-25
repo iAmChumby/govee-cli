@@ -179,10 +179,30 @@ export function UnknownModeChooser({ deviceRef }: UnknownModeChooserProps) {
         aria-label="Tell the console what's playing"
         title="Tell the console what's playing — this does not change the light"
         whileTap={reduced ? undefined : { scale: 0.95, transition: springSnappy }}
-        className="pointer-events-auto flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-chip border border-dashed border-hairline bg-bg/80 px-2 font-mono text-[9px] uppercase leading-none tracking-micro text-low outline-none transition-colors duration-150 hover:border-hairline-strong hover:text-hi"
+        // §11.3: this chip is the SOLE entry point for correcting an unknown
+        // mode, and at h-6 (24px) it failed the 44px touch-target floor.
+        //
+        // The button grows to 44px under `pointer-coarse:`; the *painted*
+        // chip does not. That split matters here more than anywhere else in
+        // the app: this control is absolutely positioned ON TOP of the
+        // instrument, which is SIGNAL-PRIME, and the first attempt at this
+        // fix put the height on the element carrying the dashed border, the
+        // background and the radius — so a 44px slab of chrome ended up
+        // sitting over the lamp. §G forbids exactly that: chassis may be
+        // rearranged or resized, never made louder. Screenshot review caught
+        // it; the geometry gate could not, because both versions measure
+        // 44px.
+        //
+        // Growing the button's own box (rather than layering an oversized
+        // overlay) is safe here because the chip is absolutely positioned
+        // over the stage canvas, with no flex siblings a taller box could
+        // shove — and a fine-pointer desktop never evaluates the rule.
+        className="group pointer-events-auto flex shrink-0 cursor-pointer items-center outline-none pointer-coarse:h-11"
       >
-        <HelpCircle aria-hidden className="h-3 w-3 shrink-0" />
-        what&rsquo;s playing?
+        <span className="flex h-6 items-center gap-1 rounded-chip border border-dashed border-hairline bg-bg/80 px-2 font-mono text-[9px] uppercase leading-none tracking-micro text-low transition-colors duration-150 group-hover:border-hairline-strong">
+          <HelpCircle aria-hidden className="h-3 w-3 shrink-0" />
+          what&rsquo;s playing?
+        </span>
       </motion.button>
 
       <DialogContent>
@@ -251,7 +271,13 @@ export function UnknownModeChooser({ deviceRef }: UnknownModeChooserProps) {
           <DialogClose asChild>
             <button
               type="button"
-              className="rounded-btn border border-hairline px-3 py-1.5 font-medium uppercase tracking-[0.08em] text-[10px] text-mid transition-colors duration-150 hover:border-hairline-strong hover:text-hi"
+              // Kept as a raw <button>, not the shared `Button` component
+              // (T36 brief) — swapping it would change its desktop size,
+              // which this file does not own the blast radius for.
+              // `pointer-coarse:` bumps it past the 44px floor via padding
+              // alone; the fine-pointer geometry (px-3 py-1.5, ~26-28px) is
+              // untouched.
+              className="rounded-btn border border-hairline px-3 py-1.5 font-medium uppercase tracking-[0.08em] text-[10px] text-mid transition-colors duration-150 hover:border-hairline-strong hover:text-hi pointer-coarse:min-h-11 pointer-coarse:px-4 pointer-coarse:py-3"
             >
               cancel
             </button>
@@ -323,6 +349,10 @@ function OptionRow({
       whileTap={disabled || reduced ? undefined : { scale: 0.98, transition: springSnappy }}
       className={cn(
         "flex w-full cursor-pointer items-center justify-between gap-3 rounded-card border border-hairline bg-raised px-3 py-2 text-left transition-colors duration-150 hover:border-hairline-strong",
+        // px-3 py-2 plus one line of 12px text lands under 44px — the same
+        // gap every other picker row in this app has under pointer-coarse.
+        // min-h (not h-) so a long scene name that wraps still grows.
+        "pointer-coarse:min-h-11",
         "disabled:pointer-events-none disabled:opacity-40",
       )}
     >

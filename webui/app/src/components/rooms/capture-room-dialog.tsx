@@ -28,8 +28,13 @@ import { useCaptureRoom, useDeleteRoom, useDevices } from "@/lib/queries";
    that turned out to be close to worthless never has to be lived with.
    ================================================================== */
 
+// §11.3: h-9 is 36px, under the 44px floor. `pointer-coarse:h-11` sets the
+// exact height (not a min-height floor) because this constant is used on
+// exactly one input in this file — there is no risk of it fighting a
+// taller intrinsic content size the way a shared primitive's floor has to
+// guard against.
 const INPUT_CLASS =
-  "h-9 w-full rounded-btn border border-hairline bg-raised px-3 text-[13px] text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong focus-visible:outline-none";
+  "h-9 w-full rounded-btn border border-hairline bg-raised px-3 text-[13px] text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong focus-visible:outline-none pointer-coarse:h-11";
 
 function errMessage(err: unknown): string {
   return err instanceof ApiError ? err.message : String(err);

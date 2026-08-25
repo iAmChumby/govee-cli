@@ -330,9 +330,30 @@ export function ScheduleTimeline({
               type="button"
               aria-label={`wake-ramp — ${statusUnknown ? "status unknown" : todayWillRun ? "will run today" : "will not run today"}`}
               // A 30-minute band can render only a few px wide on a phone's
-              // 24h-width rail; grow the tap target via an invisible
-              // ::before overlay rather than the visible band itself.
-              className="absolute bottom-1 top-8 flex cursor-pointer items-center justify-center rounded-chip border transition-transform duration-150 before:absolute before:-inset-2 before:content-[''] hover:scale-[1.03]"
+              // 24h-width rail (at 390px the rail's content box is ~298px,
+              // so a 30min band is ~6px — matches the ~6x26 raw box the
+              // audit measures here).
+              //
+              // KNOWN BUG, not papered over with data-touch-ok (§11.1): this
+              // ::before overlay does not clear 44px, and the class list
+              // below does not match what an earlier version of this
+              // comment claimed. `before:-inset-y-2 before:-inset-x-5` grows
+              // width to 6+2*20=46px (clears 44) but height to only
+              // 26+2*8=42px — 2px short of the floor. And because it DOES
+              // grow vertically (contrary to a prior "horizontal insets
+              // only" claim here), it bleeds into the native-rule dots' row
+              // directly above: that row's own ::before reaches from
+              // top-2(8px)-17px=-9px to (8+10)+17px=35px, this band's
+              // reaches from top-8(32px)-8px=24px to (32+28)+8px=68px —
+              // an 11px vertical overlap (24px to 35px) between two
+              // invisible hit rectangles, exactly what §11.1 and the spec's
+              // T36 note ("transparent ::after overlay bigger than the
+              // laid-out box ... taps land on the neighbour") warn against.
+              // A real fix needs the rail's row geometry reworked (more
+              // vertical clearance between the dot row and the band row, or
+              // a pointer-coarse-scoped real box grow per §11.3 rather than
+              // a phantom overlay) — not a wider inset here.
+              className="absolute bottom-1 top-8 flex cursor-pointer items-center justify-center rounded-chip border transition-transform duration-150 before:absolute before:-inset-y-2 before:-inset-x-5 before:content-[''] hover:scale-[1.03]"
               style={{
                 left: `${bandStartPct}%`,
                 width: bandEndPct !== null ? `${Math.max(1.5, bandEndPct - bandStartPct)}%` : "8px",
@@ -376,7 +397,16 @@ export function ScheduleTimeline({
                         {formatClock(d.getHours(), d.getMinutes())} ·{" "}
                         {estimated ? "estimated from cron syntax" : "exact"}
                       </p>
-                      <p className="mt-1.5 truncate font-mono text-[10px] text-low" title={entry.raw_line ?? undefined}>
+                      {/* §11.2(6): same title-only reveal as the raw
+                          command line in external-panel.tsx's CronRow —
+                          the popover already requires a tap to reach, but
+                          once open the string still hid behind hover.
+                          PopoverContent's own width (`w-72` below) already
+                          bounds this, so wrapping needs no max-w lift. */}
+                      <p
+                        className="mt-1.5 truncate font-mono text-[10px] text-low pointer-coarse:whitespace-normal pointer-coarse:break-words"
+                        title={entry.raw_line ?? undefined}
+                      >
                         {entry.raw_line ?? entry.command}
                       </p>
                       {entry.today_occurrences_truncated ? (
@@ -406,7 +436,27 @@ export function ScheduleTimeline({
               animate={{ opacity: rule.enabled ? 1 : 0.45 }}
               transition={springStandard}
               // Same invisible-hit-area treatment as MarkerDot below — a
-              // 10px visual dot with a ~44px tap target underneath it.
+              // 10px visual dot whose uniform before:-inset-[17px] reaches
+              // exactly 10+2*17=44px on every side in isolation.
+              //
+              // KNOWN GAP, left un-exempted deliberately: isolated math is
+              // not the whole story on a dense day. The rail's content box
+              // is ~298px wide for 1440 minutes (~0.207px/min), so this
+              // dot's 44px hit box (±22px) needs >=~212 minutes (~3h33m)
+              // between two rule times before their invisible zones stop
+              // touching — two rules an hour apart sit only ~12px apart,
+              // deep inside each other's hit rectangles, so a tap can
+              // resolve to whichever dot paints later in the `rules` array
+              // rather than the one visually under the finger. The same
+              // ::before also reaches down to y=35px, overlapping the
+              // wake-ramp band's own (buggy) expanded zone starting at
+              // y=24px whenever both sit near the same time of day. This is
+              // the exact anti-pattern the spec's T36 note names ("taps
+              // land on the neighbour ... a worse bug ... and an invisible
+              // one") — not exempted with data-touch-ok because it does not
+              // hold up, and not widened further because that only makes
+              // the collision worse. Needs the same rail geometry rework as
+              // the wake-ramp band above.
               className="absolute top-2 h-2.5 w-2.5 -translate-x-1/2 cursor-pointer rounded-full border border-accent-contrast bg-accent transition-transform duration-150 before:absolute before:-inset-[17px] before:content-[''] hover:scale-125"
               style={{ left: `${pct}%` }}
             />
@@ -417,6 +467,7 @@ export function ScheduleTimeline({
         {nowPct !== null ? (
           <div
             aria-hidden
+            data-volatile="true"
             className="absolute inset-y-0 w-px bg-hi/70"
             style={{ left: `${nowPct}%` }}
           />

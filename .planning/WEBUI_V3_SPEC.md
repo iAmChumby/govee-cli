@@ -2714,6 +2714,21 @@ screenshots `verify_ui.py` already writes to `.verify-ui/`:
    on the device page covers most of its job.
 5. **The device filter field** (`page.tsx:164`, `hidden sm:block`). Minor at four
    devices; it is still a control that exists only on desktop.
+
+   **Correction, after the fact.** This inventory originally carried a sixth
+   entry: the `poll 10s` chip in the top bar, read as hidden below `sm` because
+   its class list says `hidden sm:inline-flex`. It is not hidden, and never was.
+   `Chip` carries a base `inline-flex`, `cn()` is a plain string join with no
+   `tailwind-merge`, and two `display` utilities of equal specificity are
+   resolved by Tailwind's emitted rule order — not by their order in the
+   attribute. The pre-change 390px screenshots show `POLL 10S` sitting in that
+   bar the entire time, as do the phone screenshots that started this round.
+   T30 had already deleted it and T31 had already re-rendered it in the status
+   strip before the geometry gate caught the chip *appearing* at 1440x900 —
+   i.e. the "fix" moved a visible element on desktop to solve a problem that
+   did not exist. Both changes were reverted. The lesson is the one this
+   project keeps relearning: a class list is a claim about rendering, and the
+   only evidence is a measurement.
 6. **Every `truncate` + `title=` pair is a desktop-only reveal, and two of them hide
    the thing the component exists to say.** `title` renders as a hover tooltip.
    Touch has no hover, so on a phone the tooltip is not "harder to reach" — it does
@@ -3084,3 +3099,41 @@ route at once.
    looking is what finds the thing nobody thought to assert.
 4. Real-device check on a phone only after the mock gates are green, and subject to
    the standing rule: check the time first, these lights are in a bedroom.
+
+## 11.8 What the gate cannot see, learned by running it
+
+Three limits surfaced while using `viewport_audit.py`, all worth knowing before
+trusting a green run:
+
+- **It measures boxes, not paint.** The "what's playing?" chip — the sole entry
+  point for correcting an `unknown` mode — was grown to 44px by putting the
+  height on the element that also carries the dashed border, the background and
+  the radius. The result was a 44px slab of chrome sitting on top of the
+  instrument, which §G forbids by name. Both the before and after measure 44px,
+  so the gate was silent; the screenshot showed it immediately. **Grow the hit
+  area, not the ink** is not a style preference, it is the rule that keeps this
+  class of change invisible to the only automatic check we have.
+- **Screenshots only ever show the first viewport.** The app frame is
+  `h-dvh` with an inner `overflow-y-auto`, so the *document* is exactly one
+  viewport tall and Playwright's `full_page=True` has nothing extra to capture.
+  Anything below the fold has to be scrolled to deliberately. A reviewer who
+  assumes a full-page screenshot is a full page will believe they checked
+  content they never saw.
+- **The baseline is a fixture with a lifecycle.** Adding a `max-md:` class to an
+  existing element changes its class string and therefore its key, so the first
+  run after the mobile pass reported 249 elements "vanished and reappeared" while
+  the geometry underneath was byte-identical. The key now strips variants that
+  provably cannot apply at 1440x900 with a mouse (`max-*`, `pointer-coarse`), and
+  a `missing` paired with a `new` at the *identical* box is reported as `rekeyed`
+  rather than as a failure. What is left — `changed`, meaning an element that
+  still exists moved — is the number that actually answers the question. After a
+  round is reviewed and accepted, re-run `--baseline`: a gate that stays red for
+  reasons already adjudicated is a gate that gets ignored.
+- **Time-dependent geometry has to be named, not inferred.** The clock and the
+  latency readout were marked `data-volatile` up front. The schedules route has
+  two more that were not obvious: the timeline's "now" marker, positioned from
+  `new Date()` on a 60s interval, and the "in 4h 12m" next-fire countdowns,
+  whose text width and row order both move as the clock advances. They showed up
+  as a 38px and a 58px "regression" an hour after the baseline was taken. Any
+  new readout derived from the current time needs the attribute, or the gate
+  will eventually cry wolf and get switched off.

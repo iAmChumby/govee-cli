@@ -149,37 +149,72 @@ export default function ConsolePage() {
             className="mx-auto max-w-[1080px] space-y-5 px-4 pb-16 pt-6 sm:px-6"
           >
             {/* head */}
-            <motion.section variants={panelIn} className="flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <h1 className="text-xl font-semibold leading-tight tracking-[-0.02em] text-hi">
-                  Console
-                </h1>
-                <p className="mt-1 font-mono text-[11px] text-low">
-                  {devices.isLoading
-                    ? "connecting…"
-                    : `${list.length} devices · ${health.data?.mock ? "mock sidecar" : "live sidecar"} · v${health.data?.version ?? "?"}`}
-                </p>
+            <motion.section variants={panelIn} className="flex flex-col gap-3">
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                  <h1 className="text-xl font-semibold leading-tight tracking-[-0.02em] text-hi">
+                    Console
+                  </h1>
+                  <p className="mt-1 font-mono text-[11px] text-low">
+                    {devices.isLoading
+                      ? "connecting…"
+                      : `${list.length} devices · ${health.data?.mock ? "mock sidecar" : "live sidecar"} · v${health.data?.version ?? "?"}`}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {/* §11.5: this box stays desktop-only — the max-sm:block
+                      row below duplicates it below the breakpoint instead
+                      of just dropping "hidden", because the two live in
+                      different flex contexts (this row keeps it pinned
+                      beside Refresh; the mobile row needs full width) and
+                      a single element can't satisfy both layouts at once
+                      without a resize-triggered reflow the >=sm geometry
+                      must never see. */}
+                  <label className="relative hidden sm:block">
+                    <Search
+                      size={13}
+                      strokeWidth={1.5}
+                      aria-hidden
+                      className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-low"
+                    />
+                    <input
+                      type="text"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="filter devices…"
+                      className="h-9 w-56 rounded-btn border border-hairline bg-raised pl-8 pr-3 text-[13px] text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong focus-visible:outline-none"
+                    />
+                  </label>
+                  <IconButton label="Refresh state" tooltip="Refresh state" onClick={refreshAll}>
+                    <RefreshCw size={15} strokeWidth={1.5} className={devices.isFetching ? "animate-spin" : undefined} />
+                  </IconButton>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <label className="relative hidden sm:block">
-                  <Search
-                    size={13}
-                    strokeWidth={1.5}
-                    aria-hidden
-                    className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-low"
-                  />
-                  <input
-                    type="text"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="filter devices…"
-                    className="h-9 w-56 rounded-btn border border-hairline bg-raised pl-8 pr-3 text-[13px] text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong focus-visible:outline-none"
-                  />
-                </label>
-                <IconButton label="Refresh state" tooltip="Refresh state" onClick={refreshAll}>
-                  <RefreshCw size={15} strokeWidth={1.5} className={devices.isFetching ? "animate-spin" : undefined} />
-                </IconButton>
-              </div>
+
+              {/* §11.2(5)/§11.5: the filter was `hidden sm:block` — a
+                  control that existed only on desktop. Below sm it now
+                  gets its own full-width row under the title instead of
+                  being squeezed into the header's right-aligned control
+                  cluster, which has no room to spare next to Refresh at
+                  390px. `hidden max-sm:block` is additive and inert at
+                  and above the sm breakpoint (§11.1), so the row above
+                  this one — the one the desktop gate actually measures —
+                  never changes. */}
+              <label className="relative hidden max-sm:block">
+                <Search
+                  size={13}
+                  strokeWidth={1.5}
+                  aria-hidden
+                  className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-low"
+                />
+                <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="filter devices…"
+                  className="h-11 w-full rounded-btn border border-hairline bg-raised pl-8 pr-3 text-[13px] text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong focus-visible:outline-none"
+                />
+              </label>
             </motion.section>
 
             {/* error state */}

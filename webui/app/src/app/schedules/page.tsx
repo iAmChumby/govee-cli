@@ -180,11 +180,21 @@ function RuleRow({
         ))}
       </span>
 
-      <span className="max-w-[220px] truncate font-mono text-[11px] text-mid" title={rule.command}>
+      {/* §11.2(6): the command a rule will actually run, clipped to a
+          fragment on the exact screen where someone decides whether to
+          trust or delete it. `max-w-[220px]` existed to keep desktop rows
+          on one line; under pointer:coarse it's lifted so the full string
+          gets the row's whole width to wrap into instead of staying capped
+          at a desktop column width it was never sized against. `title`
+          keeps serving desktop hover. */}
+      <span
+        className="max-w-[220px] truncate font-mono text-[11px] text-mid pointer-coarse:max-w-none pointer-coarse:whitespace-normal pointer-coarse:break-words"
+        title={rule.command}
+      >
         {rule.command}
       </span>
 
-      <span className="ml-auto shrink-0 font-mono text-[11px] tabular-nums text-low" title="next fire">
+      <span data-volatile="true" className="ml-auto shrink-0 font-mono text-[11px] tabular-nums text-low" title="next fire">
         {nextLabel}
       </span>
 

@@ -20,9 +20,19 @@ export interface IconButtonProps
   children?: React.ReactNode;
 }
 
+// WEBUI_V3_SPEC.md §11.3/T35: `sm` (28px) and `md` (36px) are both under
+// 44px on every axis. `min-h-11`/`min-w-11` are a floor, not a competing
+// fixed size — they only bind when `h-*`/`w-*` would resolve smaller, so
+// they can never lose an ordering fight with the base classes the way a
+// second `h-*`/`w-*` utility could. Gated to `pointer-coarse:` per §11.1:
+// a fine-pointer desktop never evaluates the rule, so `--check` at
+// 1440x900 sees the exact `h-7`/`h-9` boxes it always has. T37 grows
+// the one `md` call site (the console's "Refresh state" button) further
+// still via a call-site class, per that task's note not to touch this
+// file's own floor for it.
 const SIZE_CLASSES: Record<IconButtonSize, string> = {
-  sm: "h-7 w-7",
-  md: "h-9 w-9",
+  sm: "h-7 w-7 pointer-coarse:min-h-11 pointer-coarse:min-w-11",
+  md: "h-9 w-9 pointer-coarse:min-h-11 pointer-coarse:min-w-11",
 };
 
 const VARIANT_CLASSES: Record<IconButtonVariant, string> = {

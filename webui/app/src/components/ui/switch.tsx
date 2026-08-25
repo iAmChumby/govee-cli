@@ -78,6 +78,21 @@ export function Switch({
           }}
         />
       ) : null}
+      {/* WEBUI_V3_SPEC.md §11.3/T35: measured 48x28 — under 44px tall, on
+          "the most-tapped control in the app". Previously the `<button>`
+          itself painted the pill (border + bg-raised over its whole
+          border-box), so simply growing the button's height would have
+          grown padding *and* the background into it — the pill would
+          have visibly gotten taller, which is the "ink" §11.1 forbids
+          moving. Splitting the interactive box from the visual pill lets
+          `pointer-coarse:min-h-11` add invisible hit area above/below a
+          track that stays exactly h-7 (28px): the button centers the
+          track via flex and, at fine pointer, shrinks to the track's own
+          size (no min-height applies), so a mouse sees byte-identical
+          geometry. `group`/`group-hover` moves the old direct `hover:`
+          rule onto the button (the actual hoverable element now that it
+          has no visible chrome of its own) so it still paints on the
+          track underneath. */}
       <button
         type="button"
         role="switch"
@@ -85,36 +100,40 @@ export function Switch({
         aria-label={ariaLabel}
         disabled={disabled}
         onClick={() => onCheckedChange(!checked)}
-        className={cn(
-          "relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full border border-hairline bg-raised transition-colors duration-150 hover:border-hairline-strong disabled:pointer-events-none disabled:opacity-40",
-          pending && "border-hairline-strong",
-        )}
+        className="group relative inline-flex shrink-0 cursor-pointer items-center justify-center disabled:pointer-events-none disabled:opacity-40 pointer-coarse:min-h-11"
       >
-        {/* fill — opacity rides the registered --glow-alpha; background is
-            the neutral accent gradient by default, or device-hue when
-            `hue` is set (inline style wins over the class-based gradient
-            below only once `background` is actually defined) */}
-        <motion.span
-          aria-hidden
-          className="absolute inset-0 rounded-full bg-gradient-to-br from-accent to-accent-press [opacity:var(--glow-alpha)]"
-          style={{
-            ...fillStyle,
-            background: hue
-              ? "linear-gradient(135deg, hsl(var(--dev-hue) var(--dev-sat) var(--dev-light)), hsl(var(--dev-hue) var(--dev-sat) calc(var(--dev-light) - 14%)))"
-              : undefined,
-          }}
-        />
-        {/* thumb */}
-        <motion.span
-          aria-hidden
-          className="absolute left-[3px] top-1/2 flex h-[22px] w-[22px] items-center justify-center rounded-full border border-hairline-strong bg-raised"
-          style={{ x: thumbX, y: "-50%" }}
+        <span
+          className={cn(
+            "relative inline-flex h-7 w-12 items-center rounded-full border border-hairline bg-raised transition-colors duration-150 group-hover:border-hairline-strong",
+            pending && "border-hairline-strong",
+          )}
         >
+          {/* fill — opacity rides the registered --glow-alpha; background is
+              the neutral accent gradient by default, or device-hue when
+              `hue` is set (inline style wins over the class-based gradient
+              below only once `background` is actually defined) */}
           <motion.span
-            className="h-1.5 w-1.5 rounded-full bg-accent"
-            style={{ opacity: glow }}
+            aria-hidden
+            className="absolute inset-0 rounded-full bg-gradient-to-br from-accent to-accent-press [opacity:var(--glow-alpha)]"
+            style={{
+              ...fillStyle,
+              background: hue
+                ? "linear-gradient(135deg, hsl(var(--dev-hue) var(--dev-sat) var(--dev-light)), hsl(var(--dev-hue) var(--dev-sat) calc(var(--dev-light) - 14%)))"
+                : undefined,
+            }}
           />
-        </motion.span>
+          {/* thumb */}
+          <motion.span
+            aria-hidden
+            className="absolute left-[3px] top-1/2 flex h-[22px] w-[22px] items-center justify-center rounded-full border border-hairline-strong bg-raised"
+            style={{ x: thumbX, y: "-50%" }}
+          >
+            <motion.span
+              className="h-1.5 w-1.5 rounded-full bg-accent"
+              style={{ opacity: glow }}
+            />
+          </motion.span>
+        </span>
       </button>
     </span>
   );

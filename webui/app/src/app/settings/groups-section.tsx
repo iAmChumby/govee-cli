@@ -124,9 +124,16 @@ function CreateGroupDialog({
                 </p>
               ) : (
                 devices.map((d) => (
+                  // §11.3: the wrapping <label> is the real tap target (the
+                  // checkbox itself stays a native 14px box, same "grow the
+                  // hit area, not the ink" pattern as the device dock) — at
+                  // px-2 py-1.5 the row measured well under 44px tall.
+                  // `pointer-coarse:min-h-11` is a floor, so it only ever
+                  // adds space inside this dialog's own scrollable member
+                  // list, never moving anything else on the page.
                   <label
                     key={d.id}
-                    className="flex cursor-pointer items-center gap-2.5 rounded-chip px-2 py-1.5 text-[13px] text-mid transition-colors duration-150 hover:bg-accent-dim hover:text-hi"
+                    className="flex cursor-pointer items-center gap-2.5 rounded-chip px-2 py-1.5 pointer-coarse:min-h-11 text-[13px] text-mid transition-colors duration-150 hover:bg-accent-dim hover:text-hi"
                   >
                     <input
                       type="checkbox"
@@ -231,8 +238,13 @@ export function GroupsSection() {
                 />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[13px] font-medium leading-tight text-hi">{name}</p>
+                  {/* §11.2(6): the member list is the one thing this row
+                      exists to say — which lights actually fire when the
+                      group is triggered — and it was hover-only via
+                      `title`. No fixed max-w on this element to lift; the
+                      parent's `min-w-0 flex-1` already bounds it. */}
                   <p
-                    className="mt-0.5 truncate font-mono text-[10px] text-low"
+                    className="mt-0.5 truncate font-mono text-[10px] text-low pointer-coarse:whitespace-normal pointer-coarse:break-words"
                     title={memberIds.map(nameOf).join(" · ")}
                   >
                     {memberIds.map(nameOf).join(" · ")}

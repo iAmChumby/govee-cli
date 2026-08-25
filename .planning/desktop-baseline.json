@@ -12,77 +12,89 @@
       "x": 0,
       "y": 0
     },
-    "button|h-7 w-7 cursor-pointer rounded-chip border border-hairline transition-all duration-150 hover:border-hairline-strong hover:scale-105 active:scale-95|": {
+    "button|flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-chip|": {
       "h": 28,
       "w": 28,
       "x": 808,
       "y": 510
     },
-    "button|h-7 w-7 cursor-pointer rounded-chip border border-hairline transition-all duration-150 hover:border-hairline-strong hover:scale-105 active:scale-95|#10": {
+    "button|flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-chip|#10": {
       "h": 28,
       "w": 28,
       "x": 1114,
       "y": 510
     },
-    "button|h-7 w-7 cursor-pointer rounded-chip border border-hairline transition-all duration-150 hover:border-hairline-strong hover:scale-105 active:scale-95|#2": {
+    "button|flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-chip|#2": {
       "h": 28,
       "w": 28,
       "x": 842,
       "y": 510
     },
-    "button|h-7 w-7 cursor-pointer rounded-chip border border-hairline transition-all duration-150 hover:border-hairline-strong hover:scale-105 active:scale-95|#3": {
+    "button|flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-chip|#3": {
       "h": 28,
       "w": 28,
       "x": 876,
       "y": 510
     },
-    "button|h-7 w-7 cursor-pointer rounded-chip border border-hairline transition-all duration-150 hover:border-hairline-strong hover:scale-105 active:scale-95|#4": {
+    "button|flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-chip|#4": {
       "h": 28,
       "w": 28,
       "x": 910,
       "y": 510
     },
-    "button|h-7 w-7 cursor-pointer rounded-chip border border-hairline transition-all duration-150 hover:border-hairline-strong hover:scale-105 active:scale-95|#5": {
+    "button|flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-chip|#5": {
       "h": 28,
       "w": 28,
       "x": 944,
       "y": 510
     },
-    "button|h-7 w-7 cursor-pointer rounded-chip border border-hairline transition-all duration-150 hover:border-hairline-strong hover:scale-105 active:scale-95|#6": {
+    "button|flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-chip|#6": {
       "h": 28,
       "w": 28,
       "x": 978,
       "y": 510
     },
-    "button|h-7 w-7 cursor-pointer rounded-chip border border-hairline transition-all duration-150 hover:border-hairline-strong hover:scale-105 active:scale-95|#7": {
+    "button|flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-chip|#7": {
       "h": 28,
       "w": 28,
       "x": 1012,
       "y": 510
     },
-    "button|h-7 w-7 cursor-pointer rounded-chip border border-hairline transition-all duration-150 hover:border-hairline-strong hover:scale-105 active:scale-95|#8": {
+    "button|flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-chip|#8": {
       "h": 28,
       "w": 28,
       "x": 1046,
       "y": 510
     },
-    "button|h-7 w-7 cursor-pointer rounded-chip border border-hairline transition-all duration-150 hover:border-hairline-strong hover:scale-105 active:scale-95|#9": {
+    "button|flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-chip|#9": {
       "h": 28,
       "w": 28,
       "x": 1080,
       "y": 510
+    },
+    "button|group pointer-events-auto flex shrink-0 cursor-pointer items-center outline-none|": {
+      "h": 24,
+      "w": 128,
+      "x": 630,
+      "y": 121
+    },
+    "button|group relative inline-flex shrink-0 cursor-pointer items-center justify-center disabled:pointer-events-none disabled:opacity-40|": {
+      "h": 28,
+      "w": 48,
+      "x": 1248,
+      "y": 112
+    },
+    "button|group relative inline-flex shrink-0 cursor-pointer items-center justify-center disabled:pointer-events-none disabled:opacity-40|#2": {
+      "h": 28,
+      "w": 48,
+      "x": 1099,
+      "y": 306
     },
     "button|inline-flex h-9 w-9 cursor-pointer items-center justify-center rounded-btn border border-hairline text-mid transition-colors duration-150 hover:border-hairline-strong hover:text-hi hover:bg-accent-dim|": {
       "h": 36,
       "w": 36,
       "x": 1388,
       "y": 6
-    },
-    "button|pointer-events-auto flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-chip border border-dashed border-hairline bg-bg/80 px-2 font-mono text-[9px] uppercase leading-none tracking-micro text-low outline-none transition-colors duration-150 hover:border-hairline-strong hover:text-hi|what\u2019s playing?": {
-      "h": 24,
-      "w": 128,
-      "x": 630,
-      "y": 121
     },
     "button|relative cursor-pointer pb-2 pt-1 text-[11px] uppercase tracking-micro transition-colors duration-150 text-hi|Light": {
       "h": 29,
@@ -119,18 +131,6 @@
       "w": 87,
       "x": 1107,
       "y": 177
-    },
-    "button|relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full border border-hairline bg-raised transition-colors duration-150 hover:border-hairline-strong disabled:pointer-events-none disabled:opacity-40|": {
-      "h": 28,
-      "w": 48,
-      "x": 1248,
-      "y": 112
-    },
-    "button|relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full border border-hairline bg-raised transition-colors duration-150 hover:border-hairline-strong disabled:pointer-events-none disabled:opacity-40|#2": {
-      "h": 28,
-      "w": 48,
-      "x": 1099,
-      "y": 306
     },
     "circle||": {
       "h": 10,
@@ -221,6 +221,12 @@
       "w": 1440,
       "x": 0,
       "y": 48
+    },
+    "div|flex min-w-0 flex-1 items-center gap-4|": {
+      "h": 18,
+      "w": 1408,
+      "x": 16,
+      "y": 876
     },
     "div|flex select-none items-center gap-2|": {
       "h": 11,
@@ -336,7 +342,7 @@
       "x": 399,
       "y": 286
     },
-    "div|relative select-none overflow-hidden rounded-stage border border-hairline bg-raised h-[320px] sm:h-[380px] lg:h-[480px]|": {
+    "div|relative select-none overflow-hidden rounded-stage border border-hairline bg-raised h-[260px] sm:h-[380px] lg:h-[480px]|": {
       "h": 480,
       "w": 623,
       "x": 144,
@@ -882,7 +888,67 @@
       "x": 422,
       "y": 306
     },
-    "span|block cursor-grab outline-none active:cursor-grabbing slider-thumb group relative block h-5 w-5 rounded-full border border-hairline-strong bg-raised transition-colors duration-150 hover:border-accent focus-visible:border-accent|": {
+    "span|block h-7 w-7 rounded-chip border border-hairline transition-all duration-150 hover:border-hairline-strong hover:scale-105 active:scale-95|": {
+      "h": 28,
+      "w": 28,
+      "x": 808,
+      "y": 510
+    },
+    "span|block h-7 w-7 rounded-chip border border-hairline transition-all duration-150 hover:border-hairline-strong hover:scale-105 active:scale-95|#10": {
+      "h": 28,
+      "w": 28,
+      "x": 1114,
+      "y": 510
+    },
+    "span|block h-7 w-7 rounded-chip border border-hairline transition-all duration-150 hover:border-hairline-strong hover:scale-105 active:scale-95|#2": {
+      "h": 28,
+      "w": 28,
+      "x": 842,
+      "y": 510
+    },
+    "span|block h-7 w-7 rounded-chip border border-hairline transition-all duration-150 hover:border-hairline-strong hover:scale-105 active:scale-95|#3": {
+      "h": 28,
+      "w": 28,
+      "x": 876,
+      "y": 510
+    },
+    "span|block h-7 w-7 rounded-chip border border-hairline transition-all duration-150 hover:border-hairline-strong hover:scale-105 active:scale-95|#4": {
+      "h": 28,
+      "w": 28,
+      "x": 910,
+      "y": 510
+    },
+    "span|block h-7 w-7 rounded-chip border border-hairline transition-all duration-150 hover:border-hairline-strong hover:scale-105 active:scale-95|#5": {
+      "h": 28,
+      "w": 28,
+      "x": 944,
+      "y": 510
+    },
+    "span|block h-7 w-7 rounded-chip border border-hairline transition-all duration-150 hover:border-hairline-strong hover:scale-105 active:scale-95|#6": {
+      "h": 28,
+      "w": 28,
+      "x": 978,
+      "y": 510
+    },
+    "span|block h-7 w-7 rounded-chip border border-hairline transition-all duration-150 hover:border-hairline-strong hover:scale-105 active:scale-95|#7": {
+      "h": 28,
+      "w": 28,
+      "x": 1012,
+      "y": 510
+    },
+    "span|block h-7 w-7 rounded-chip border border-hairline transition-all duration-150 hover:border-hairline-strong hover:scale-105 active:scale-95|#8": {
+      "h": 28,
+      "w": 28,
+      "x": 1046,
+      "y": 510
+    },
+    "span|block h-7 w-7 rounded-chip border border-hairline transition-all duration-150 hover:border-hairline-strong hover:scale-105 active:scale-95|#9": {
+      "h": 28,
+      "w": 28,
+      "x": 1080,
+      "y": 510
+    },
+    "span|cursor-grab outline-none active:cursor-grabbing group relative flex h-5 w-5 shrink-0 items-center justify-center|": {
       "h": 20,
       "w": 20,
       "x": 996,
@@ -905,6 +971,12 @@
       "w": 11,
       "x": 1185,
       "y": 275
+    },
+    "span|flex h-6 items-center gap-1 rounded-chip border border-dashed border-hairline bg-bg/80 px-2 font-mono text-[9px] uppercase leading-none tracking-micro text-low transition-colors duration-150 group-hover:border-hairline-strong|what\u2019s playing?": {
+      "h": 24,
+      "w": 128,
+      "x": 630,
+      "y": 121
     },
     "span|flex h-[1em] items-center justify-center|#": {
       "h": 18,
@@ -1104,17 +1176,11 @@
       "x": 808,
       "y": 616
     },
-    "span|flex items-center gap-2|sidecar :####": {
+    "span|flex shrink-0 items-center gap-2|sidecar :####": {
       "h": 17,
       "w": 106,
       "x": 16,
       "y": 876
-    },
-    "span|flex-1|": {
-      "h": 0,
-      "w": 951,
-      "x": 384,
-      "y": 885
     },
     "span|font-mono text-[10px] leading-none text-low|##": {
       "h": 10,
@@ -1188,7 +1254,7 @@
       "x": 904,
       "y": 492
     },
-    "span|hidden h-3 w-px bg-hairline md:block|": {
+    "span|hidden h-3 w-px shrink-0 bg-hairline md:block|": {
       "h": 12,
       "w": 1,
       "x": 1351,
@@ -1200,17 +1266,29 @@
       "x": 309,
       "y": 16
     },
-    "span|hidden items-center gap-1.5 sm:flex|native scheduler": {
-      "h": 17,
-      "w": 125,
-      "x": 195,
-      "y": 876
-    },
     "span|hidden items-center gap-2 font-mono text-[11px] text-low md:flex|console": {
       "h": 17,
       "w": 207,
       "x": 326,
       "y": 15
+    },
+    "span|hidden md:block md:flex-1|": {
+      "h": 0,
+      "w": 951,
+      "x": 384,
+      "y": 885
+    },
+    "span|hidden md:inline-flex|": {
+      "h": 18,
+      "w": 68,
+      "x": 1304,
+      "y": 15
+    },
+    "span|hidden shrink-0 items-center gap-1.5 md:flex|native scheduler": {
+      "h": 17,
+      "w": 125,
+      "x": 195,
+      "y": 876
     },
     "span|hidden text-[11px] uppercase leading-none tracking-micro text-low sm:inline|govee control console": {
       "h": 11,
@@ -1248,17 +1326,17 @@
       "x": 1163,
       "y": 311
     },
-    "span|inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-[3px] font-mono text-[10px] uppercase leading-none tracking-[0.08em] border-hairline text-mid hidden sm:inline-flex|poll ##s": {
-      "h": 18,
-      "w": 68,
-      "x": 1304,
-      "y": 15
-    },
     "span|inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-[3px] font-mono text-[10px] uppercase leading-none tracking-[0.08em] border-hairline text-mid ml-auto|cloud-v#": {
       "h": 18,
       "w": 68,
       "x": 1207,
       "y": 615
+    },
+    "span|inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-[3px] font-mono text-[10px] uppercase leading-none tracking-[0.08em] border-hairline text-mid shrink-0|mock": {
+      "h": 18,
+      "w": 41,
+      "x": 138,
+      "y": 876
     },
     "span|inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-[3px] font-mono text-[10px] uppercase leading-none tracking-[0.08em] border-hairline text-mid|cloud-v#": {
       "h": 18,
@@ -1266,11 +1344,11 @@
       "x": 951,
       "y": 117
     },
-    "span|inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-[3px] font-mono text-[10px] uppercase leading-none tracking-[0.08em] border-hairline text-mid|mock": {
+    "span|inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-[3px] font-mono text-[10px] uppercase leading-none tracking-[0.08em] border-hairline text-mid|poll ##s": {
       "h": 18,
-      "w": 41,
-      "x": 138,
-      "y": 876
+      "w": 68,
+      "x": 1304,
+      "y": 15
     },
     "span|inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-[3px] font-mono text-[10px] uppercase leading-none tracking-[0.08em] border-hairline-strong bg-accent-dim text-hi|H####": {
       "h": 18,
@@ -1356,6 +1434,18 @@
       "x": 1185,
       "y": 311
     },
+    "span|relative inline-flex h-7 w-12 items-center rounded-full border border-hairline bg-raised transition-colors duration-150 group-hover:border-hairline-strong|": {
+      "h": 28,
+      "w": 48,
+      "x": 1248,
+      "y": 112
+    },
+    "span|relative inline-flex h-7 w-12 items-center rounded-full border border-hairline bg-raised transition-colors duration-150 group-hover:border-hairline-strong|#2": {
+      "h": 28,
+      "w": 48,
+      "x": 1099,
+      "y": 306
+    },
     "span|relative inline-flex|": {
       "h": 28,
       "w": 48,
@@ -1367,6 +1457,12 @@
       "w": 48,
       "x": 1099,
       "y": 306
+    },
+    "span|slider-thumb relative block h-5 w-5 rounded-full border border-hairline-strong bg-raised transition-colors duration-150 group-hover:border-accent group-focus-visible:border-accent|": {
+      "h": 20,
+      "w": 20,
+      "x": 996,
+      "y": 441
     },
     "span|sr-only|## %": {
       "h": 1,
@@ -1766,47 +1862,65 @@
       "x": 784,
       "y": 497
     },
+    "button|flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-chip|": {
+      "h": 24,
+      "w": 24,
+      "x": 1151,
+      "y": 782
+    },
+    "button|flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-chip|#2": {
+      "h": 24,
+      "w": 24,
+      "x": 1181,
+      "y": 782
+    },
+    "button|flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-chip|#3": {
+      "h": 24,
+      "w": 24,
+      "x": 1211,
+      "y": 782
+    },
+    "button|flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-chip|#4": {
+      "h": 24,
+      "w": 24,
+      "x": 1241,
+      "y": 782
+    },
+    "button|flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-chip|#5": {
+      "h": 24,
+      "w": 24,
+      "x": 1271,
+      "y": 782
+    },
+    "button|flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-chip|#6": {
+      "h": 24,
+      "w": 24,
+      "x": 1301,
+      "y": 782
+    },
     "button|flex w-full cursor-pointer items-center gap-2.5 rounded-btn px-2.5 py-2 text-[13px] text-mid transition-colors duration-150 hover:bg-accent-dim hover:text-hi|living-room": {
       "h": 36,
       "w": 195,
       "x": 12,
       "y": 821
     },
-    "button|h-6 w-6 shrink-0 cursor-pointer rounded-chip border border-hairline transition-all duration-150 hover:scale-110 hover:border-hairline-strong active:scale-95|": {
-      "h": 24,
-      "w": 24,
-      "x": 1151,
-      "y": 782
+    "button|group relative inline-flex shrink-0 cursor-pointer items-center justify-center disabled:pointer-events-none disabled:opacity-40|": {
+      "h": 28,
+      "w": 48,
+      "x": 582,
+      "y": 178
     },
-    "button|h-6 w-6 shrink-0 cursor-pointer rounded-chip border border-hairline transition-all duration-150 hover:scale-110 hover:border-hairline-strong active:scale-95|#2": {
-      "h": 24,
-      "w": 24,
-      "x": 1181,
-      "y": 782
+    "button|group relative inline-flex shrink-0 cursor-pointer items-center justify-center disabled:pointer-events-none disabled:opacity-40|#2": {
+      "h": 28,
+      "w": 48,
+      "x": 932,
+      "y": 178
     },
-    "button|h-6 w-6 shrink-0 cursor-pointer rounded-chip border border-hairline transition-all duration-150 hover:scale-110 hover:border-hairline-strong active:scale-95|#3": {
-      "h": 24,
-      "w": 24,
-      "x": 1211,
-      "y": 782
-    },
-    "button|h-6 w-6 shrink-0 cursor-pointer rounded-chip border border-hairline transition-all duration-150 hover:scale-110 hover:border-hairline-strong active:scale-95|#4": {
-      "h": 24,
-      "w": 24,
-      "x": 1241,
-      "y": 782
-    },
-    "button|h-6 w-6 shrink-0 cursor-pointer rounded-chip border border-hairline transition-all duration-150 hover:scale-110 hover:border-hairline-strong active:scale-95|#5": {
-      "h": 24,
-      "w": 24,
-      "x": 1271,
-      "y": 782
-    },
-    "button|h-6 w-6 shrink-0 cursor-pointer rounded-chip border border-hairline transition-all duration-150 hover:scale-110 hover:border-hairline-strong active:scale-95|#6": {
-      "h": 24,
-      "w": 24,
-      "x": 1301,
-      "y": 782
+    "button|group relative inline-flex shrink-0 cursor-pointer items-center justify-center disabled:pointer-events-none disabled:opacity-40|#3": {
+      "h": 28,
+      "w": 48,
+      "x": 1281,
+      "y": 178
     },
     "button|inline-flex cursor-pointer select-none items-center justify-center rounded-btn border transition-colors duration-150 disabled:pointer-events-none disabled:opacity-40 [&_svg]:pointer-events-none border-hairline bg-transparent text-mid hover:border-hairline-strong hover:text-hi hover:bg-accent-dim h-9 w-9|": {
       "h": 36,
@@ -1819,24 +1933,6 @@
       "w": 36,
       "x": 1388,
       "y": 6
-    },
-    "button|relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full border border-hairline bg-raised transition-colors duration-150 hover:border-hairline-strong disabled:pointer-events-none disabled:opacity-40|": {
-      "h": 28,
-      "w": 48,
-      "x": 582,
-      "y": 178
-    },
-    "button|relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full border border-hairline bg-raised transition-colors duration-150 hover:border-hairline-strong disabled:pointer-events-none disabled:opacity-40|#2": {
-      "h": 28,
-      "w": 48,
-      "x": 932,
-      "y": 178
-    },
-    "button|relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full border border-hairline bg-raised transition-colors duration-150 hover:border-hairline-strong disabled:pointer-events-none disabled:opacity-40|#3": {
-      "h": 28,
-      "w": 48,
-      "x": 1281,
-      "y": 178
     },
     "circle||": {
       "h": 8,
@@ -1916,6 +2012,12 @@
       "x": 335,
       "y": 778
     },
+    "div|flex flex-wrap items-end justify-between gap-4|": {
+      "h": 46,
+      "w": 1032,
+      "x": 314,
+      "y": 72
+    },
     "div|flex h-dvh flex-col overflow-hidden bg-bg|": {
       "h": 900,
       "w": 1440,
@@ -1963,6 +2065,12 @@
       "w": 1440,
       "x": 0,
       "y": 48
+    },
+    "div|flex min-w-0 flex-1 items-center gap-4|": {
+      "h": 18,
+      "w": 1408,
+      "x": 16,
+      "y": 876
     },
     "div|flex select-none items-center gap-2|": {
       "h": 11,
@@ -2024,19 +2132,19 @@
       "x": 1030,
       "y": 453
     },
-    "div|mt-3 flex items-center gap-2 overflow-x-auto border-t border-hairline py-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden|": {
+    "div|mt-3 flex items-center gap-2 overflow-x-auto border-t border-hairline py-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%_-_20px),transparent)] [-webkit-mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%_-_20px),transparent)]|": {
       "h": 65,
       "w": 299,
       "x": 331,
       "y": 486
     },
-    "div|mt-3 flex items-center gap-2 overflow-x-auto border-t border-hairline py-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden|#2": {
+    "div|mt-3 flex items-center gap-2 overflow-x-auto border-t border-hairline py-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%_-_20px),transparent)] [-webkit-mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%_-_20px),transparent)]|#2": {
       "h": 65,
       "w": 299,
       "x": 680,
       "y": 486
     },
-    "div|mt-3 flex items-center gap-2 overflow-x-auto border-t border-hairline py-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden|#3": {
+    "div|mt-3 flex items-center gap-2 overflow-x-auto border-t border-hairline py-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%_-_20px),transparent)] [-webkit-mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%_-_20px),transparent)]|#3": {
       "h": 65,
       "w": 299,
       "x": 1030,
@@ -2534,7 +2642,7 @@
       "x": 12,
       "y": 200
     },
-    "section|flex flex-wrap items-end justify-between gap-4|": {
+    "section|flex flex-col gap-3|": {
       "h": 46,
       "w": 1032,
       "x": 314,
@@ -2738,29 +2846,41 @@
       "x": 465,
       "y": 290
     },
-    "span|block cursor-grab outline-none active:cursor-grabbing slider-thumb group relative block h-5 w-5 rounded-full border border-hairline-strong bg-raised transition-colors duration-150 hover:border-accent focus-visible:border-accent|": {
-      "h": 20,
-      "w": 20,
-      "x": 447,
-      "y": 421
+    "span|block h-6 w-6 rounded-chip border border-hairline transition-all duration-150 hover:scale-110 hover:border-hairline-strong active:scale-95|": {
+      "h": 24,
+      "w": 24,
+      "x": 1151,
+      "y": 782
     },
-    "span|block cursor-grab outline-none active:cursor-grabbing slider-thumb group relative block h-5 w-5 rounded-full border border-hairline-strong bg-raised transition-colors duration-150 hover:border-accent focus-visible:border-accent|#2": {
-      "h": 20,
-      "w": 20,
-      "x": 847,
-      "y": 421
+    "span|block h-6 w-6 rounded-chip border border-hairline transition-all duration-150 hover:scale-110 hover:border-hairline-strong active:scale-95|#2": {
+      "h": 24,
+      "w": 24,
+      "x": 1181,
+      "y": 782
     },
-    "span|block cursor-grab outline-none active:cursor-grabbing slider-thumb group relative block h-5 w-5 rounded-full border border-hairline-strong bg-raised transition-colors duration-150 hover:border-accent focus-visible:border-accent|#3": {
-      "h": 20,
-      "w": 20,
-      "x": 1309,
-      "y": 421
+    "span|block h-6 w-6 rounded-chip border border-hairline transition-all duration-150 hover:scale-110 hover:border-hairline-strong active:scale-95|#3": {
+      "h": 24,
+      "w": 24,
+      "x": 1211,
+      "y": 782
     },
-    "span|block cursor-grab outline-none active:cursor-grabbing slider-thumb group relative block h-5 w-5 rounded-full border border-hairline-strong bg-raised transition-colors duration-150 hover:border-accent focus-visible:border-accent|#4": {
-      "h": 20,
-      "w": 20,
-      "x": 464,
-      "y": 824
+    "span|block h-6 w-6 rounded-chip border border-hairline transition-all duration-150 hover:scale-110 hover:border-hairline-strong active:scale-95|#4": {
+      "h": 24,
+      "w": 24,
+      "x": 1241,
+      "y": 782
+    },
+    "span|block h-6 w-6 rounded-chip border border-hairline transition-all duration-150 hover:scale-110 hover:border-hairline-strong active:scale-95|#5": {
+      "h": 24,
+      "w": 24,
+      "x": 1271,
+      "y": 782
+    },
+    "span|block h-6 w-6 rounded-chip border border-hairline transition-all duration-150 hover:scale-110 hover:border-hairline-strong active:scale-95|#6": {
+      "h": 24,
+      "w": 24,
+      "x": 1301,
+      "y": 782
     },
     "span|block h-6 w-6 rounded-full border transition-all duration-150 border-hairline hover:scale-110 hover:border-hairline-strong|": {
       "h": 24,
@@ -2869,6 +2989,30 @@
       "w": 24,
       "x": 794,
       "y": 507
+    },
+    "span|cursor-grab outline-none active:cursor-grabbing group relative flex h-5 w-5 shrink-0 items-center justify-center|": {
+      "h": 20,
+      "w": 20,
+      "x": 447,
+      "y": 421
+    },
+    "span|cursor-grab outline-none active:cursor-grabbing group relative flex h-5 w-5 shrink-0 items-center justify-center|#2": {
+      "h": 20,
+      "w": 20,
+      "x": 847,
+      "y": 421
+    },
+    "span|cursor-grab outline-none active:cursor-grabbing group relative flex h-5 w-5 shrink-0 items-center justify-center|#3": {
+      "h": 20,
+      "w": 20,
+      "x": 1309,
+      "y": 421
+    },
+    "span|cursor-grab outline-none active:cursor-grabbing group relative flex h-5 w-5 shrink-0 items-center justify-center|#4": {
+      "h": 20,
+      "w": 20,
+      "x": 464,
+      "y": 824
     },
     "span|flex flex-col|": {
       "h": 210,
@@ -3752,17 +3896,11 @@
       "x": 522,
       "y": 453
     },
-    "span|flex items-center gap-2|sidecar :####": {
+    "span|flex shrink-0 items-center gap-2|sidecar :####": {
       "h": 17,
       "w": 106,
       "x": 16,
       "y": 876
-    },
-    "span|flex-1|": {
-      "h": 0,
-      "w": 951,
-      "x": 384,
-      "y": 885
     },
     "span|font-mono text-[10px] text-low|drag to set all": {
       "h": 15,
@@ -3824,7 +3962,7 @@
       "x": 382,
       "y": 593
     },
-    "span|hidden h-3 w-px bg-hairline md:block|": {
+    "span|hidden h-3 w-px shrink-0 bg-hairline md:block|": {
       "h": 12,
       "w": 1,
       "x": 1351,
@@ -3836,17 +3974,29 @@
       "x": 309,
       "y": 16
     },
-    "span|hidden items-center gap-1.5 sm:flex|native scheduler": {
-      "h": 17,
-      "w": 125,
-      "x": 195,
-      "y": 876
-    },
     "span|hidden items-center gap-2 font-mono text-[11px] text-low md:flex|console": {
       "h": 17,
       "w": 49,
       "x": 326,
       "y": 15
+    },
+    "span|hidden md:block md:flex-1|": {
+      "h": 0,
+      "w": 951,
+      "x": 384,
+      "y": 885
+    },
+    "span|hidden md:inline-flex|": {
+      "h": 18,
+      "w": 68,
+      "x": 1304,
+      "y": 15
+    },
+    "span|hidden shrink-0 items-center gap-1.5 md:flex|native scheduler": {
+      "h": 17,
+      "w": 125,
+      "x": 195,
+      "y": 876
     },
     "span|hidden text-[11px] uppercase leading-none tracking-micro text-low sm:inline|govee control console": {
       "h": 11,
@@ -3962,12 +4112,6 @@
       "x": 1260,
       "y": 453
     },
-    "span|inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-[3px] font-mono text-[10px] uppercase leading-none tracking-[0.08em] border-hairline text-mid hidden sm:inline-flex|poll ##s": {
-      "h": 18,
-      "w": 68,
-      "x": 1304,
-      "y": 15
-    },
     "span|inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-[3px] font-mono text-[10px] uppercase leading-none tracking-[0.08em] border-hairline text-mid ml-auto|H####": {
       "h": 18,
       "w": 48,
@@ -3986,11 +4130,17 @@
       "x": 1225,
       "y": 183
     },
-    "span|inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-[3px] font-mono text-[10px] uppercase leading-none tracking-[0.08em] border-hairline text-mid|mock": {
+    "span|inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-[3px] font-mono text-[10px] uppercase leading-none tracking-[0.08em] border-hairline text-mid shrink-0|mock": {
       "h": 18,
       "w": 41,
       "x": 138,
       "y": 876
+    },
+    "span|inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-[3px] font-mono text-[10px] uppercase leading-none tracking-[0.08em] border-hairline text-mid|poll ##s": {
+      "h": 18,
+      "w": 68,
+      "x": 1304,
+      "y": 15
     },
     "span|ml-1 inline-block h-[5px] w-[5px] animate-dot-breathe rounded-full bg-accent|": {
       "h": 5,
@@ -4058,19 +4208,19 @@
       "x": 1247,
       "y": 717
     },
-    "span|mx-0.5 h-6 w-px shrink-0 bg-hairline|": {
+    "span|mx-0.5 hidden h-6 w-px shrink-0 bg-hairline sm:block|": {
       "h": 24,
       "w": 1,
       "x": 645,
       "y": 507
     },
-    "span|mx-0.5 h-6 w-px shrink-0 bg-hairline|#2": {
+    "span|mx-0.5 hidden h-6 w-px shrink-0 bg-hairline sm:block|#2": {
       "h": 24,
       "w": 1,
       "x": 994,
       "y": 507
     },
-    "span|mx-0.5 h-6 w-px shrink-0 bg-hairline|#3": {
+    "span|mx-0.5 hidden h-6 w-px shrink-0 bg-hairline sm:block|#3": {
       "h": 24,
       "w": 1,
       "x": 1344,
@@ -4298,6 +4448,24 @@
       "x": 1056,
       "y": 453
     },
+    "span|relative inline-flex h-7 w-12 items-center rounded-full border border-hairline bg-raised transition-colors duration-150 group-hover:border-hairline-strong|": {
+      "h": 28,
+      "w": 48,
+      "x": 582,
+      "y": 178
+    },
+    "span|relative inline-flex h-7 w-12 items-center rounded-full border border-hairline bg-raised transition-colors duration-150 group-hover:border-hairline-strong|#2": {
+      "h": 28,
+      "w": 48,
+      "x": 932,
+      "y": 178
+    },
+    "span|relative inline-flex h-7 w-12 items-center rounded-full border border-hairline bg-raised transition-colors duration-150 group-hover:border-hairline-strong|#3": {
+      "h": 28,
+      "w": 48,
+      "x": 1281,
+      "y": 178
+    },
     "span|relative inline-flex|": {
       "h": 28,
       "w": 48,
@@ -4327,6 +4495,30 @@
       "w": 22,
       "x": 854,
       "y": 380
+    },
+    "span|slider-thumb relative block h-5 w-5 rounded-full border border-hairline-strong bg-raised transition-colors duration-150 group-hover:border-accent group-focus-visible:border-accent|": {
+      "h": 20,
+      "w": 20,
+      "x": 447,
+      "y": 421
+    },
+    "span|slider-thumb relative block h-5 w-5 rounded-full border border-hairline-strong bg-raised transition-colors duration-150 group-hover:border-accent group-focus-visible:border-accent|#2": {
+      "h": 20,
+      "w": 20,
+      "x": 847,
+      "y": 421
+    },
+    "span|slider-thumb relative block h-5 w-5 rounded-full border border-hairline-strong bg-raised transition-colors duration-150 group-hover:border-accent group-focus-visible:border-accent|#3": {
+      "h": 20,
+      "w": 20,
+      "x": 1309,
+      "y": 421
+    },
+    "span|slider-thumb relative block h-5 w-5 rounded-full border border-hairline-strong bg-raised transition-colors duration-150 group-hover:border-accent group-focus-visible:border-accent|#4": {
+      "h": 20,
+      "w": 20,
+      "x": 464,
+      "y": 824
     },
     "span|sr-only|## %": {
       "h": 1,
@@ -4528,6 +4720,12 @@
       "x": 0,
       "y": 48
     },
+    "div|flex min-w-0 flex-1 items-center gap-4|": {
+      "h": 18,
+      "w": 1408,
+      "x": 16,
+      "y": 876
+    },
     "div|flex select-none items-center gap-2|": {
       "h": 11,
       "w": 1032,
@@ -4642,17 +4840,11 @@
       "x": 16,
       "y": 15
     },
-    "span|flex items-center gap-2|sidecar :####": {
+    "span|flex shrink-0 items-center gap-2|sidecar :####": {
       "h": 17,
       "w": 106,
       "x": 16,
       "y": 876
-    },
-    "span|flex-1|": {
-      "h": 0,
-      "w": 951,
-      "x": 384,
-      "y": 885
     },
     "span|h-px flex-1 bg-hairline|": {
       "h": 1,
@@ -4660,7 +4852,7 @@
       "x": 318,
       "y": 143
     },
-    "span|hidden h-3 w-px bg-hairline md:block|": {
+    "span|hidden h-3 w-px shrink-0 bg-hairline md:block|": {
       "h": 12,
       "w": 1,
       "x": 1351,
@@ -4672,17 +4864,29 @@
       "x": 309,
       "y": 16
     },
-    "span|hidden items-center gap-1.5 sm:flex|native scheduler": {
-      "h": 17,
-      "w": 125,
-      "x": 195,
-      "y": 876
-    },
     "span|hidden items-center gap-2 font-mono text-[11px] text-low md:flex|console": {
       "h": 17,
       "w": 107,
       "x": 326,
       "y": 15
+    },
+    "span|hidden md:block md:flex-1|": {
+      "h": 0,
+      "w": 951,
+      "x": 384,
+      "y": 885
+    },
+    "span|hidden md:inline-flex|": {
+      "h": 18,
+      "w": 68,
+      "x": 1304,
+      "y": 15
+    },
+    "span|hidden shrink-0 items-center gap-1.5 md:flex|native scheduler": {
+      "h": 17,
+      "w": 125,
+      "x": 195,
+      "y": 876
     },
     "span|hidden text-[11px] uppercase leading-none tracking-micro text-low sm:inline|govee control console": {
       "h": 11,
@@ -4702,17 +4906,17 @@
       "x": 16,
       "y": 881
     },
-    "span|inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-[3px] font-mono text-[10px] uppercase leading-none tracking-[0.08em] border-hairline text-mid hidden sm:inline-flex|poll ##s": {
-      "h": 18,
-      "w": 68,
-      "x": 1304,
-      "y": 15
-    },
-    "span|inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-[3px] font-mono text-[10px] uppercase leading-none tracking-[0.08em] border-hairline text-mid|mock": {
+    "span|inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-[3px] font-mono text-[10px] uppercase leading-none tracking-[0.08em] border-hairline text-mid shrink-0|mock": {
       "h": 18,
       "w": 41,
       "x": 138,
       "y": 876
+    },
+    "span|inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-[3px] font-mono text-[10px] uppercase leading-none tracking-[0.08em] border-hairline text-mid|poll ##s": {
+      "h": 18,
+      "w": 68,
+      "x": 1304,
+      "y": 15
     },
     "span|ml-1 inline-block h-[5px] w-[5px] animate-dot-breathe rounded-full bg-accent|": {
       "h": 5,
@@ -4776,7 +4980,7 @@
       "x": 0,
       "y": 0
     },
-    "button|absolute bottom-1 top-8 flex cursor-pointer items-center justify-center rounded-chip border transition-transform duration-150 before:absolute before:-inset-2 before:content-[''] hover:scale-[1.03]|": {
+    "button|absolute bottom-1 top-8 flex cursor-pointer items-center justify-center rounded-chip border transition-transform duration-150 before:absolute before:-inset-y-2 before:-inset-x-5 before:content-[''] hover:scale-[1.03]|": {
       "h": 26,
       "w": 21,
       "x": 494,
@@ -4793,6 +4997,18 @@
       "w": 10,
       "x": 1188,
       "y": 191
+    },
+    "button|group relative inline-flex shrink-0 cursor-pointer items-center justify-center disabled:pointer-events-none disabled:opacity-40|": {
+      "h": 28,
+      "w": 48,
+      "x": 225,
+      "y": 378
+    },
+    "button|group relative inline-flex shrink-0 cursor-pointer items-center justify-center disabled:pointer-events-none disabled:opacity-40|#2": {
+      "h": 28,
+      "w": 48,
+      "x": 225,
+      "y": 436
     },
     "button|inline-flex cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-btn border font-medium uppercase tracking-[0.08em] transition-colors duration-150 disabled:pointer-events-none disabled:opacity-40 border-hairline bg-transparent text-mid hover:border-hairline-strong hover:text-hi hover:bg-accent-dim h-7 px-2.5 text-[10px] justify-center w-7 px-0|": {
       "h": 28,
@@ -4830,18 +5046,6 @@
       "x": 1388,
       "y": 6
     },
-    "button|relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full border border-hairline bg-raised transition-colors duration-150 hover:border-hairline-strong disabled:pointer-events-none disabled:opacity-40|": {
-      "h": 28,
-      "w": 48,
-      "x": 225,
-      "y": 378
-    },
-    "button|relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full border border-hairline bg-raised transition-colors duration-150 hover:border-hairline-strong disabled:pointer-events-none disabled:opacity-40|#2": {
-      "h": 28,
-      "w": 48,
-      "x": 225,
-      "y": 436
-    },
     "circle||": {
       "h": 4,
       "w": 4,
@@ -4853,12 +5057,6 @@
       "w": 4,
       "x": 320,
       "y": 282
-    },
-    "div|absolute inset-y-0 w-px bg-hi/70|": {
-      "h": 62,
-      "w": 1,
-      "x": 720,
-      "y": 183
     },
     "div|flex flex-wrap items-center gap-x-3 gap-y-2|": {
       "h": 18,
@@ -4883,6 +5081,12 @@
       "w": 1440,
       "x": 0,
       "y": 48
+    },
+    "div|flex min-w-0 flex-1 items-center gap-4|": {
+      "h": 18,
+      "w": 1408,
+      "x": 16,
+      "y": 876
     },
     "div|flex select-none items-center gap-2|": {
       "h": 11,
@@ -5424,17 +5628,11 @@
       "x": 316,
       "y": 277
     },
-    "span|flex items-center gap-2|sidecar :####": {
+    "span|flex shrink-0 items-center gap-2|sidecar :####": {
       "h": 17,
       "w": 106,
       "x": 16,
       "y": 876
-    },
-    "span|flex-1|": {
-      "h": 0,
-      "w": 951,
-      "x": 384,
-      "y": 885
     },
     "span|font-mono text-[10px] leading-none text-low|##": {
       "h": 10,
@@ -5508,7 +5706,7 @@
       "x": 416,
       "y": 513
     },
-    "span|hidden h-3 w-px bg-hairline md:block|": {
+    "span|hidden h-3 w-px shrink-0 bg-hairline md:block|": {
       "h": 12,
       "w": 1,
       "x": 1351,
@@ -5520,17 +5718,29 @@
       "x": 309,
       "y": 16
     },
-    "span|hidden items-center gap-1.5 sm:flex|native scheduler": {
-      "h": 17,
-      "w": 125,
-      "x": 195,
-      "y": 876
-    },
     "span|hidden items-center gap-2 font-mono text-[11px] text-low md:flex|console": {
       "h": 17,
       "w": 135,
       "x": 326,
       "y": 15
+    },
+    "span|hidden md:block md:flex-1|": {
+      "h": 0,
+      "w": 951,
+      "x": 384,
+      "y": 885
+    },
+    "span|hidden md:inline-flex|": {
+      "h": 18,
+      "w": 68,
+      "x": 1304,
+      "y": 15
+    },
+    "span|hidden shrink-0 items-center gap-1.5 md:flex|native scheduler": {
+      "h": 17,
+      "w": 125,
+      "x": 195,
+      "y": 876
     },
     "span|hidden text-[11px] uppercase leading-none tracking-micro text-low sm:inline|govee control console": {
       "h": 11,
@@ -5556,11 +5766,11 @@
       "x": 16,
       "y": 881
     },
-    "span|inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-[3px] font-mono text-[10px] uppercase leading-none tracking-[0.08em] border-hairline text-mid hidden sm:inline-flex|poll ##s": {
+    "span|inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-[3px] font-mono text-[10px] uppercase leading-none tracking-[0.08em] border-hairline text-mid shrink-0|mock": {
       "h": 18,
-      "w": 68,
-      "x": 1304,
-      "y": 15
+      "w": 41,
+      "x": 138,
+      "y": 876
     },
     "span|inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-[3px] font-mono text-[10px] uppercase leading-none tracking-[0.08em] border-hairline text-mid|Fri": {
       "h": 18,
@@ -5640,11 +5850,11 @@
       "x": 541,
       "y": 441
     },
-    "span|inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-[3px] font-mono text-[10px] uppercase leading-none tracking-[0.08em] border-hairline text-mid|mock": {
+    "span|inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-[3px] font-mono text-[10px] uppercase leading-none tracking-[0.08em] border-hairline text-mid|poll ##s": {
       "h": 18,
-      "w": 41,
-      "x": 138,
-      "y": 876
+      "w": 68,
+      "x": 1304,
+      "y": 15
     },
     "span|max-w-[220px] truncate font-mono text-[11px] text-mid|power off": {
       "h": 17,
@@ -5664,29 +5874,23 @@
       "x": 83,
       "y": 24
     },
-    "span|ml-auto shrink-0 font-mono text-[11px] tabular-nums text-low|in ##h ##m": {
-      "h": 17,
-      "w": 70,
-      "x": 1105,
-      "y": 384
-    },
-    "span|ml-auto shrink-0 font-mono text-[11px] tabular-nums text-low|in ##h ##m#2": {
-      "h": 17,
-      "w": 70,
-      "x": 1105,
-      "y": 442
-    },
-    "span|ml-auto shrink-0 font-mono text-[11px] tabular-nums text-low|next: in ##h ##m": {
-      "h": 17,
-      "w": 112,
-      "x": 1088,
-      "y": 566
-    },
     "span|relative block h-4 w-4|": {
       "h": 16,
       "w": 16,
       "x": 1398,
       "y": 16
+    },
+    "span|relative inline-flex h-7 w-12 items-center rounded-full border border-hairline bg-raised transition-colors duration-150 group-hover:border-hairline-strong|": {
+      "h": 28,
+      "w": 48,
+      "x": 225,
+      "y": 378
+    },
+    "span|relative inline-flex h-7 w-12 items-center rounded-full border border-hairline bg-raised transition-colors duration-150 group-hover:border-hairline-strong|#2": {
+      "h": 28,
+      "w": 48,
+      "x": 225,
+      "y": 436
     },
     "span|relative inline-flex|": {
       "h": 28,
@@ -6019,6 +6223,12 @@
       "w": 1440,
       "x": 0,
       "y": 48
+    },
+    "div|flex min-w-0 flex-1 items-center gap-4|": {
+      "h": 18,
+      "w": 1408,
+      "x": 16,
+      "y": 876
     },
     "div|flex select-none items-center gap-2|": {
       "h": 11,
@@ -6464,12 +6674,6 @@
       "x": 16,
       "y": 15
     },
-    "span|flex items-center gap-2|sidecar :####": {
-      "h": 17,
-      "w": 106,
-      "x": 16,
-      "y": 876
-    },
     "span|flex min-w-0 items-center gap-2.5 sm:w-44|": {
       "h": 20,
       "w": 176,
@@ -6506,11 +6710,11 @@
       "x": 413,
       "y": 844
     },
-    "span|flex-1|": {
-      "h": 0,
-      "w": 951,
-      "x": 384,
-      "y": 885
+    "span|flex shrink-0 items-center gap-2|sidecar :####": {
+      "h": 17,
+      "w": 106,
+      "x": 16,
+      "y": 876
     },
     "span|font-mono text-[10px] leading-none text-low|##": {
       "h": 10,
@@ -6560,7 +6764,7 @@
       "x": 320,
       "y": 1048
     },
-    "span|hidden h-3 w-px bg-hairline md:block|": {
+    "span|hidden h-3 w-px shrink-0 bg-hairline md:block|": {
       "h": 12,
       "w": 1,
       "x": 1351,
@@ -6572,17 +6776,29 @@
       "x": 309,
       "y": 16
     },
-    "span|hidden items-center gap-1.5 sm:flex|native scheduler": {
-      "h": 17,
-      "w": 125,
-      "x": 195,
-      "y": 876
-    },
     "span|hidden items-center gap-2 font-mono text-[11px] text-low md:flex|console": {
       "h": 17,
       "w": 128,
       "x": 326,
       "y": 15
+    },
+    "span|hidden md:block md:flex-1|": {
+      "h": 0,
+      "w": 951,
+      "x": 384,
+      "y": 885
+    },
+    "span|hidden md:inline-flex|": {
+      "h": 18,
+      "w": 68,
+      "x": 1304,
+      "y": 15
+    },
+    "span|hidden shrink-0 items-center gap-1.5 md:flex|native scheduler": {
+      "h": 17,
+      "w": 125,
+      "x": 195,
+      "y": 876
     },
     "span|hidden text-[11px] uppercase leading-none tracking-micro text-low sm:inline|govee control console": {
       "h": 11,
@@ -6650,11 +6866,11 @@
       "x": 1130,
       "y": 457
     },
-    "span|inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-[3px] font-mono text-[10px] uppercase leading-none tracking-[0.08em] border-hairline text-mid hidden sm:inline-flex|poll ##s": {
+    "span|inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-[3px] font-mono text-[10px] uppercase leading-none tracking-[0.08em] border-hairline text-mid shrink-0|mock": {
       "h": 18,
-      "w": 68,
-      "x": 1304,
-      "y": 15
+      "w": 41,
+      "x": 138,
+      "y": 876
     },
     "span|inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-[3px] font-mono text-[10px] uppercase leading-none tracking-[0.08em] border-hairline text-mid|H####": {
       "h": 18,
@@ -6698,11 +6914,11 @@
       "x": 1174,
       "y": 261
     },
-    "span|inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-[3px] font-mono text-[10px] uppercase leading-none tracking-[0.08em] border-hairline text-mid|mock#2": {
+    "span|inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-[3px] font-mono text-[10px] uppercase leading-none tracking-[0.08em] border-hairline text-mid|poll ##s": {
       "h": 18,
-      "w": 41,
-      "x": 138,
-      "y": 876
+      "w": 68,
+      "x": 1304,
+      "y": 15
     },
     "span|mb-1.5 block text-[11px] uppercase leading-none tracking-micro text-mid|default brightness": {
       "h": 11,

@@ -306,9 +306,24 @@ export function DevicePlate({ device }: { device: DeviceSummary }) {
 
         <div className="flex items-center gap-2">
           <StatusDot tone={device.online === false ? "off" : "ok"} />
+          {/* WEBUI_V3_SPEC.md §11.6 T33: this Link's laid-out box was
+              79x15 — `leading-none` with no vertical padding — and it is
+              one of only two ways into the device console. `min-w-11`
+              floors the width for short names (e.g. "TV") and `py-4`
+              floors the height at 15 (line-height:1 * 15px font) + 32 =
+              47px, both under `pointer-coarse:` only, so a mouse never
+              sees the row grow (§11.1's gate is inert to this by
+              construction) and the parent row's `items-center` re-centers
+              every sibling around the new, taller box — nothing shifts
+              horizontally, so the grown box can't intrude into the power
+              Switch's hit rectangle two items to the right. Padding on the
+              element itself, not an oversized `::after` (§11.1): an
+              overlay wider than the laid-out box would bleed into the
+              Switch or the Chip instead of just making this link easier
+              to hit. */}
           <Link
             href={href}
-            className="truncate text-[15px] font-medium leading-none text-hi hover:underline hover:underline-offset-4"
+            className="truncate text-[15px] font-medium leading-none text-hi hover:underline hover:underline-offset-4 pointer-coarse:min-w-11 pointer-coarse:py-4"
           >
             {name}
           </Link>
@@ -373,18 +388,27 @@ export function DevicePlate({ device }: { device: DeviceSummary }) {
           </span>
         </div>
 
-        {/* channel strip — quick color + temperature dock. One row,
-            scrolls instead of wraps (§D/§F): recovers the vertical space
-            the old two-row wrap spent on inter-row padding. */}
-        <div
-          className="mt-3 flex items-center gap-2 overflow-x-auto border-t border-hairline py-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          style={{
-            maskImage:
-              "linear-gradient(to right, transparent, black 12px, black calc(100% - 20px), transparent)",
-            WebkitMaskImage:
-              "linear-gradient(to right, transparent, black 12px, black calc(100% - 20px), transparent)",
-          }}
-        >
+        {/* channel strip — quick color + temperature dock. At >=sm, one
+            row that scrolls and masks exactly as before (§11.6 T33: "the
+            row is untouched" at this width, because that's what the grid
+            was designed around). Below sm the dock is 6 44px swatches
+            with 8px gaps (304px) inside a ~310-324px content box, so the
+            divider and all three temperature presets fell past the right
+            edge on first paint — WEBUI_V3_SPEC.md §11.2 (1), "the user's
+            screenshots show 270 sliced in half", the worst defect this
+            round exists to fix. `max-sm:flex-wrap` lets 6 swatches fill
+            row one and the divider + 3 presets fill row two instead, so
+            nothing scrolls and nothing hides at that width; the mask
+            that used to *hide* the cut only made sense while there was a
+            cut to hide, so `max-sm:[mask-image:none]` (+ the -webkit-
+            variant) turns it off there. The mask itself had to move out
+            of `style` and into these two base utility classes to make
+            that override possible at all: an inline `style` attribute
+            beats any class selector's specificity regardless of media
+            query, so a `max-sm:[mask-image:none]` *class* sitting next to
+            a `style={{maskImage}}` prop would have compiled cleanly and
+            done nothing on a real phone. */}
+        <div className="mt-3 flex items-center gap-2 overflow-x-auto border-t border-hairline py-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%_-_20px),transparent)] [-webkit-mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%_-_20px),transparent)] max-sm:flex-wrap max-sm:[mask-image:none] max-sm:[-webkit-mask-image:none]">
           {QUICK_COLORS.map((hex) => {
             const active = device.color?.hex.toUpperCase() === hex;
             return (
@@ -411,7 +435,16 @@ export function DevicePlate({ device }: { device: DeviceSummary }) {
               </button>
             );
           })}
-          <span aria-hidden className="mx-0.5 h-6 w-px shrink-0 bg-hairline" />
+          {/* Below sm the dock wraps (§11.6 T33), and this rule ends up as the
+              last item on row one — a vertical hairline hard against the card's
+              right edge, separating nothing from nothing. That is precisely the
+              "looks cut off" reading the wrap was meant to eliminate, so it
+              would have re-created the defect one row up. It is aria-hidden
+              decoration, which §11.2 exempts by name from the no-hidden-elements
+              rule: it carries no fact, and the wrap already does the separating
+              it existed to do. At >=sm the row is one line and the rule still
+              earns its place. */}
+          <span aria-hidden className="mx-0.5 hidden h-6 w-px shrink-0 bg-hairline sm:block" />
           {TEMP_PRESETS.map((kelvin) => {
             const active = device.color_temp_k === kelvin;
             return (

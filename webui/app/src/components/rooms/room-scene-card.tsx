@@ -220,12 +220,24 @@ export function RoomSceneCard({
                     to one letter ("B… — skipped: mode was unknown when…"),
                     which loses the only part identifying which light it is. */}
                 <span className="shrink-0 text-mid">{nameOf(step.ref)}</span>
+                {/* §11.2(6): this is the entire reason room scenes exist —
+                    a device that got skipped rather than guessed, and why.
+                    `title` alone made that sentence hover-only, i.e. absent
+                    on a phone. Under pointer:coarse the string wraps onto
+                    its own line(s) instead of clipping; `title` stays for
+                    desktop's cheaper hover path. */}
                 {step.skipped_reason ? (
-                  <span className="min-w-0 truncate text-low" title={step.skipped_reason}>
+                  <span
+                    className="min-w-0 truncate text-low pointer-coarse:whitespace-normal pointer-coarse:break-words"
+                    title={step.skipped_reason}
+                  >
                     — skipped: {step.skipped_reason}
                   </span>
                 ) : step.error ? (
-                  <span className="min-w-0 truncate text-ember" title={step.error}>
+                  <span
+                    className="min-w-0 truncate text-ember pointer-coarse:whitespace-normal pointer-coarse:break-words"
+                    title={step.error}
+                  >
                     — {step.error}
                   </span>
                 ) : null}

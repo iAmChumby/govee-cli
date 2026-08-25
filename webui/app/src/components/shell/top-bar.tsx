@@ -47,7 +47,10 @@ export function TopBar() {
       variants={fadeUp}
       className="flex h-12 shrink-0 items-center gap-4 border-b border-hairline bg-bg px-4"
     >
-      {/* wordmark */}
+      {/* wordmark. The tagline stays `hidden ... sm:inline` below md per §11.5's
+          table: it is static branding duplicated by the "filament" wordmark
+          12px to its left, carries no state, and was deliberately left off the
+          hidden-elements inventory rather than surfaced. */}
       <div className="flex items-baseline gap-3">
         <span className="flex items-baseline">
           <span className="text-[17px] font-semibold lowercase leading-none tracking-[-0.02em] text-hi">
@@ -65,7 +68,11 @@ export function TopBar() {
 
       <span aria-hidden className="hidden h-4 w-px bg-hairline md:block" />
 
-      {/* breadcrumb (desktop) */}
+      {/* breadcrumb (desktop). Stays `hidden md:flex` per §11.5's table: every
+          crumb here is already on screen at mobile widths — each route
+          renders its own <h1> and the device console renders a "← console"
+          back link above the device name — so hiding this is deduplication,
+          not omission. */}
       <span className="hidden items-center gap-2 font-mono text-[11px] text-low md:flex">
         console
         {crumbs.map((crumb) => (
@@ -80,7 +87,13 @@ export function TopBar() {
           §G — the chip/typography/color tokens are exactly what they were;
           the one change is springSnappy press-in physics on the one
           interactive chrome in the bar (§D "Top bar"), guarded by
-          useReducedMotion() the way every other primitive's whileTap is. */}
+          useReducedMotion() the way every other primitive's whileTap is.
+          T30: h-11 w-11 (44px) is unconditional, not gated behind
+          pointer-coarse: this whole <nav> already carries `md:hidden`, so it
+          never renders at any width `--check` measures at 1440x900 — a
+          pointer-coarse guard here would be dead weight duplicating a
+          condition the parent already enforces, not a desktop-safety
+          mechanism. */}
       <nav aria-label="Primary" className="flex items-center gap-1 md:hidden">
         {NAV_ITEMS.map((item) => {
           const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
@@ -95,7 +108,7 @@ export function TopBar() {
                 aria-current={active ? "page" : undefined}
                 aria-label={item.label}
                 className={cn(
-                  "flex h-9 w-9 items-center justify-center rounded-btn transition-colors duration-150",
+                  "flex h-11 w-11 items-center justify-center rounded-btn transition-colors duration-150",
                   active ? "bg-accent-dim text-hi" : "text-mid hover:bg-accent-dim hover:text-hi",
                 )}
               >
@@ -108,7 +121,28 @@ export function TopBar() {
 
       <div className="flex-1" />
 
-      <Chip className="hidden sm:inline-flex">poll 10s</Chip>
+      {/* Two corrections live in this one element.
+          First, §11.2's inventory listed this chip as hidden below `sm`,
+          reading its `hidden sm:inline-flex`. It was not. `Chip` carries a
+          base `inline-flex`, `cn()` is a plain join with no tailwind-merge,
+          and two `display` utilities of equal specificity are settled by
+          Tailwind's emitted rule order rather than by attribute order — so
+          the chip rendered at every width, which the pre-change 390px
+          screenshots confirm. The `hidden` class was decorative all along.
+          Second, it does have to leave the phone, but for a reason the
+          inventory never mentioned: this bar does not fit. Growing the four
+          nav links from 36px to 44px (§11.3) added 32px to a row that was
+          already within a few pixels of 390, and the measured result was the
+          whole app frame overflowing by 35px with the ThemeToggle sitting at
+          x=381..425 — a control pushed clean off the screen by the change
+          meant to make controls easier to hit.
+          So the chip is now genuinely mobile-hidden, via a WRAPPER whose
+          display nothing else competes for, and the status strip renders it
+          below `md` instead. Desktop keeps it exactly here, exactly as it
+          looks today. */}
+      <span className="hidden md:inline-flex">
+        <Chip>poll 10s</Chip>
+      </span>
 
       <ThemeToggle />
     </motion.header>

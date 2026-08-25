@@ -273,8 +273,13 @@ export function DevicesSection() {
                   <Chip>{d.transport}</Chip>
                 </span>
 
+                {/* §11.2(6): the cloud device id — the value someone would
+                    need to copy to debug or de-register this exact entry —
+                    was hover-only via `title`. Already `flex-1` (no fixed
+                    max-w to lift); wrapping under pointer:coarse just lets
+                    it use that same width across more than one line. */}
                 <span
-                  className="min-w-0 flex-1 truncate font-mono text-[11px] text-low"
+                  className="min-w-0 flex-1 truncate font-mono text-[11px] text-low pointer-coarse:whitespace-normal pointer-coarse:break-words"
                   title={d.id}
                 >
                   {d.id}
