@@ -184,6 +184,55 @@ Things that cost a round to learn, all of which look correct in code:
 - The canvas sits **above** the app frame (z-10, below dialogs at z-50): the
   frame's background is opaque, so behind it nothing is visible. Views clip to
   their scrolling ancestor or they paint over the TopBar.
+- **The clip box and the camera box are two different rects.** `readBoxes()`
+  intersects a view with its scrolling ancestor; feeding that one rect to both
+  `setViewport` and `setScissor` collapses a distinction `computeFrameRects`'s
+  own comment insists on, and the lamp visibly squashes as it scrolls under the
+  TopBar. Viewport and aspect come from the **full element box**; only the
+  scissor is clipped.
+- **`pointer-events-none` on the mount div means orbit controls never fire.**
+  `attachOrbitControls` attaches to that element, so the listeners were never
+  invoked on any device — and `cn()` will not reliably let a later
+  `pointer-events-auto` win. Only the hero opts in; plates stay inert inside
+  their `<Link>`.
+- **Claim a drag differently for mouse and touch.** Requiring horizontal
+  dominance is right for touch, where page scroll competes for the finger, and
+  wrong for a mouse, where it silently ate every vertical drag.
+- **Colour and brightness are separate device fields, so don't multiply them.**
+  Feeding `colorRgb` straight to emissive radiance double-counts darkness: a
+  lamp set to `#330066` at 100% is a *bright purple*, and the render showed a
+  grey ball. `frameNormalizeGain` lifts the frame's peak to full — hue and
+  saturation untouched, brightness still carried by `emissiveIntensity` alone.
+  Normalize per **frame**, never per LED, or a chase's dim tail is dragged up
+  to meet its bright head and the pattern dies.
+- **A wash and a blackout are the same bug from opposite sides.** Emission gain,
+  `SHADE_SCATTER` and a white `sheen` all compound; on a cylinder most visible
+  surface is grazing, so sheen paints white nearly everywhere. Retune them
+  together, and check a saturated scene rather than a solid colour.
+- **The camera fits a bounding BOX, not a sphere.** A sphere is driven by the
+  largest dimension in any direction, so the H6056's wide-and-short pair was
+  framed as if it were as tall as it is wide and sat small in an empty stage.
+- **A lit panel can be buried inside its own shell.** `ExtrudeGeometry`'s
+  `bevelSize` extends the contour *outward* from the outline, so the solid is
+  thicker than the cross-section it was authored from: the H6056's face sat at
+  `BAR_DEPTH / 2 + epsilon` and rendered as a dark slab with a correct glowing
+  halo behind it. Emission that is computed, uploaded and invisible looks
+  exactly like emission that is broken. Position parts from **measured**
+  geometry, and assert the face is proud of its shell in the shared parent's
+  space (world-space `max.z` is not "in front of" once anything is pitched).
+- **Lathe profiles need spline sampling.** A lathe interpolates linearly
+  between profile points, so eleven hand-placed points around a bulb dome are
+  eleven visible creases.
+- **`fcntl` is POSIX-only and it made the whole package unimportable on
+  Windows** — including the mock sidecar `verify_ui.py` boots, so the visual
+  pass could not run at all. `govee_cli/filelock.py` is the one place that
+  difference lives. Its process-local `threading.RLock` is load-bearing, not
+  decoration: Windows returns `EDEADLOCK` for same-process contention on a byte
+  range, and the never-raise contract then *silently dropped ledger writes*.
+- Verifying any of this means **setting a real mode first**. A device at
+  `power: false` or ledger `unknown` renders correctly dark, which is
+  indistinguishable from a broken emission path in a screenshot. Print the
+  device's reported state next to the render.
 
 `scripts/verify_ui.py` asserts motion by screenshotting the canvas element.
 It cannot use `toDataURL` — a WebGL drawing buffer is cleared after compositing
@@ -263,6 +312,16 @@ Three things the gate cannot see, all learned by running it:
 - **Anything positioned from the current time needs `data-volatile="true"`**, or
   it reports as a regression an hour after the baseline. The clock, the latency
   readout, the timeline's "now" marker and the next-fire countdowns all carry it.
+
+**The desktop baseline is platform-specific and only means anything on Linux.**
+`.planning/desktop-baseline.json` records DOM geometry in pixels, and text box
+widths come from the OS font stack. Running `--check` against it from a Windows
+workstation reports hundreds of diffs on every route — including ones the change
+never touched — concentrated in `flex-1` spacers absorbing different text widths.
+That is the measurement disagreeing with itself, not desktop moving. Do not
+re-baseline to make it green: the file captures a pre-change state no later run
+can reproduce. Run this gate on the machine the baseline came from, and say so
+plainly when you cannot.
 
 `title="..."` is a hover tooltip and touch has no hover, so a `truncate` + `title`
 pair is a desktop-only reveal. Under `pointer: coarse` such a string must wrap.

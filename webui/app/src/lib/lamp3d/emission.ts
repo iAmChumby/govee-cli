@@ -133,19 +133,90 @@ export function createLedTexture(layout: LedLayout): LedTexture {
  * explicit that emission must read "as light inside an object rather than a
  * texture".
  *
+ * Lowered from 0.22 once `frameNormalizeGain` landed. The two compound: the
+ * scatter pulls every texel toward the frame MEAN, which for a multi-hue scene
+ * is close to neutral, and the gain then lifts that desaturated result to full
+ * peak. Together at 0.22 they rendered a rainbow DIY scene as the pastel wash
+ * the design doc exists to eliminate. At 0.14 the shade still reads as frosted
+ * plastic rather than a bank of bare emitters, and the hues survive.
+ *
  * This is a presentation model of the plastic, not a claim about the device.
  * The LED buffer itself is never altered — `led-field.ts`'s output stays
  * exactly what the archetype computed, and this mix happens on the way to the
- * GPU. Deliberately kept low: at 0.22 the per-emitter structure the whole
+ * GPU. Deliberately kept low: at 0.14 the per-emitter structure the whole
  * design exists to show still dominates. An all-zero frame has an all-zero
  * mean, so a powered-off lamp stays completely dark.
  */
-const SHADE_SCATTER = 0.22;
+const SHADE_SCATTER = 0.14;
 
-export function uploadLedFrame(ledTex: LedTexture): void {
+/**
+ * Ceiling on `frameNormalizeGain`'s lift. See that function for the argument;
+ * this is the part of it that is a judgement call rather than a derivation.
+ *
+ * Uncapped normalization would drive ANY non-black frame to full peak,
+ * including one that is dim because the pattern itself is dim — the tail of a
+ * fade, the trough of a breathe. Those are real, and flattening them would be
+ * its own kind of lie. 4x lifts a mid-dark colour to full (a peak channel of
+ * 64/255 or above normalizes completely) while leaving a genuinely dark frame
+ * genuinely dark, so a fade still visibly fades.
+ */
+const EMISSION_NORMALIZE_MAX_GAIN = 4;
+
+/**
+ * The exposure this frame is lifted by before it reaches the GPU — the fix
+ * for "the models don't emit their light colors at all", and the one piece of
+ * this module that is a presentation model rather than a measurement.
+ *
+ * **Why a lift is honest here.** Govee reports a device's colour and its
+ * brightness as two SEPARATE fields: `colorRgb` carries the hue the user
+ * picked, `brightness` carries how bright the lamp is driving it. A lamp set
+ * to `#330066` at 100% is not dim — it is a bright purple. Feeding that hex
+ * straight into emissive radiance multiplies the two together and
+ * double-counts the darkness, so the render showed a near-unlit body for a
+ * lamp that is, in the room, plainly glowing. That is the same class of error
+ * as reporting 2700K for a lamp running a blue scene: reproducing the number
+ * while misrepresenting the thing.
+ *
+ * **What is preserved, exactly.** The gain is a single scalar applied to
+ * every channel of every LED equally, so:
+ *  - **Hue is preserved exactly** — scaling `(r, g, b)` by `k` leaves every
+ *    channel ratio unchanged.
+ *  - **Saturation is preserved exactly** — HSV saturation is
+ *    `(max - min) / max`, and both terms scale by `k`.
+ *  - **Every relative relationship WITHIN the frame is preserved exactly** —
+ *    which is why the peak is taken across the whole frame rather than
+ *    per-LED. A per-LED normalization would drive a chase's dim tail to the
+ *    same peak as its bright head and erase the pattern the archetype
+ *    computed. Only the frame's overall exposure changes.
+ *
+ * **What still carries luminance.** `brightnessGlow(brightness)` alone, via
+ * `emissiveIntensity` — so dimming the device still visibly dims the render,
+ * monotonically, which is the property that makes the brightness control
+ * mean something.
+ *
+ * An all-zero frame returns gain 1 and stays all-zero: a powered-off lamp, or
+ * one whose ledger mode is `unknown`, renders completely dark. That invariant
+ * is load-bearing (CLAUDE.md's first rule) and is covered by a test.
+ */
+export function frameNormalizeGain(buffer: Uint8ClampedArray): number {
+  let peak = 0;
+  for (let i = 0; i < buffer.length; i++) {
+    const v = buffer[i];
+    if (v > peak) peak = v;
+  }
+  // Identity rather than zero for a black frame: every channel is already 0,
+  // so the gain cannot change the result, and 1 keeps this a plain "exposure
+  // multiplier" everywhere it is read.
+  if (peak <= 0) return 1;
+  return Math.min(255 / peak, EMISSION_NORMALIZE_MAX_GAIN);
+}
+
+/** Returns the gain it applied, so the caller can drive the cast light and
+ *  the halo at the same exposure as the body — see `applyEmission`. */
+export function uploadLedFrame(ledTex: LedTexture): number {
   const { buffer, texels } = ledTex;
   const count = buffer.length / 3;
-  if (count === 0) return;
+  if (count === 0) return 1;
 
   let sumR = 0;
   let sumG = 0;
@@ -160,15 +231,24 @@ export function uploadLedFrame(ledTex: LedTexture): void {
   const meanG = sumG / count;
   const meanB = sumB / count;
   const keep = 1 - SHADE_SCATTER;
+  // One scalar for the whole frame, so the scatter blend below still mixes
+  // like-for-like — gaining the texel and its frame mean by the same factor
+  // leaves the blend's proportions untouched.
+  const gain = frameNormalizeGain(buffer);
 
   for (let i = 0; i < count; i++) {
     const src = i * 3;
     const dst = i * 4;
-    texels[dst] = buffer[src] * keep + meanR * SHADE_SCATTER;
-    texels[dst + 1] = buffer[src + 1] * keep + meanG * SHADE_SCATTER;
-    texels[dst + 2] = buffer[src + 2] * keep + meanB * SHADE_SCATTER;
+    // `texels` is a Uint8ClampedArray, so the write itself clamps to 0..255 —
+    // which is exactly the wanted behaviour at the frame's peak, where the
+    // gain lands on 255 by construction and rounding can only push it a
+    // fraction over.
+    texels[dst] = (buffer[src] * keep + meanR * SHADE_SCATTER) * gain;
+    texels[dst + 1] = (buffer[src + 1] * keep + meanG * SHADE_SCATTER) * gain;
+    texels[dst + 2] = (buffer[src + 2] * keep + meanB * SHADE_SCATTER) * gain;
   }
   ledTex.texture.needsUpdate = true;
+  return gain;
 }
 
 /**
@@ -189,8 +269,16 @@ export function uploadLedFrame(ledTex: LedTexture): void {
  * be the light source in the frame. This gain pushes a 100%% emitter into the
  * range where the tone curve's highlight roll-off does the work, so the LED
  * keeps its hue while reading as genuinely bright rather than merely pale.
+ *
+ * Retuned from 2.6 to 1.75 when `frameNormalizeGain` was added, because the two
+ * multiply. Before normalization this gain was compensating for raw device
+ * colours that were often dark; now the frame arrives already lifted to full
+ * peak, so the old value drove every bright texel deep into the roll-off, where
+ * ACES desaturates toward white — the render went from too dark to washed out,
+ * which is the same failure from the other side. 1.75 keeps a full-brightness
+ * emitter clearly the brightest thing in the frame while leaving it its hue.
  */
-const EMISSIVE_GAIN = 2.6;
+const EMISSIVE_GAIN = 1.75;
 
 export function brightnessGlow(brightness: number | null): number {
   const clamped = Math.min(100, Math.max(1, brightness ?? 50));
@@ -220,14 +308,19 @@ export function brightnessGlow(brightness: number | null): number {
  * `ledTex.buffer` for this frame — power is the final word, not another
  * input the archetype math has to know about.
  */
-export function applyEmission(model: LampModel, ledTex: LedTexture, power: boolean, brightness: number | null): void {
+export function applyEmission(
+  model: LampModel,
+  ledTex: LedTexture,
+  power: boolean,
+  brightness: number | null,
+): number {
   if (!power) {
     clearLedField(ledTex.buffer);
   }
-  uploadLedFrame(ledTex);
+  const gain = uploadLedFrame(ledTex);
 
   const diffuser = model.slots.diffuser;
-  if (!(diffuser instanceof MeshPhysicalMaterial)) return;
+  if (!(diffuser instanceof MeshPhysicalMaterial)) return gain;
 
   const hadNoMap = diffuser.emissiveMap === null;
   if (diffuser.emissiveMap !== ledTex.texture) {
@@ -252,4 +345,8 @@ export function applyEmission(model: LampModel, ledTex: LedTexture, power: boole
     diffuser.emissive.setRGB(1, 1, 1);
   }
   diffuser.emissiveIntensity = brightnessGlow(brightness) * EMISSIVE_GAIN;
+  // The caller drives the spill lights and the halo at this same exposure, so
+  // the light the lamp throws matches the light it appears to be making.
+  // Returning it beats recomputing it in cast-light.ts: one frame, one gain.
+  return gain;
 }

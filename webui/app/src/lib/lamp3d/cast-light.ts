@@ -158,14 +158,25 @@ export function updateSpillLights(
   model: LampModel,
   buffer: Uint8ClampedArray,
   brightnessFactor: number,
+  frameGain = 1,
 ): void {
   for (let i = 0; i < lights.length; i++) {
     const light = lights[i];
     const cluster = model.spill[i];
     if (!light || !cluster) continue;
     const [r, g, b] = meanLedColor(buffer, cluster.ledIndices);
-    light.color.setRGB(r / 255, g / 255, b / 255);
-    const meanLuma = (r + g + b) / (3 * 255);
+    // `frameGain` is `emission.ts`'s `frameNormalizeGain` for this same frame,
+    // threaded through by the renderer rather than recomputed here so the
+    // light a lamp throws is at the exact exposure the lamp itself is drawn
+    // at. Without it, a dark-hex colour lit the body (which IS gained) while
+    // casting almost nothing onto the ground, and the two visibly disagreed.
+    //
+    // The colour is clamped to 0..1 AFTER gaining: a PointLight's colour is a
+    // chromaticity, and pushing a channel past 1 there tints the light rather
+    // than brightening it. Intensity is where brightness belongs, so the gain
+    // is allowed to run past 1 in the luma term below and not in the colour.
+    light.color.setRGB(clamp01((r / 255) * frameGain), clamp01((g / 255) * frameGain), clamp01((b / 255) * frameGain));
+    const meanLuma = clamp01(((r + g + b) / (3 * 255)) * frameGain);
     light.intensity = meanLuma * brightnessFactor * SPILL_INTENSITY_SCALE;
   }
 }
@@ -261,9 +272,22 @@ export function createHalo(model: LampModel): Sprite {
 /** Recolours and re-intensifies `halo` from the LED buffer's overall mean —
  *  see `meanAllLedColor`. `brightnessFactor` carries the same meaning as in
  *  `updateSpillLights`: already zero when the device is off. */
-export function updateHalo(halo: Sprite, meanColor: readonly [number, number, number], brightnessFactor: number): void {
+export function updateHalo(
+  halo: Sprite,
+  meanColor: readonly [number, number, number],
+  brightnessFactor: number,
+  frameGain = 1,
+): void {
   const [r, g, b] = meanColor;
-  halo.material.color.setRGB(r / 255, g / 255, b / 255);
-  const luma = (r + g + b) / (3 * 255);
-  halo.material.opacity = clamp01(luma * brightnessFactor * HALO_OPACITY_SCALE);
+  // Gained and clamped for the same reason as the spill lights' colour: this
+  // is the halo's chromaticity, and its strength lives in `opacity`.
+  halo.material.color.setRGB(clamp01((r / 255) * frameGain), clamp01((g / 255) * frameGain), clamp01((b / 255) * frameGain));
+  const luma = clamp01(((r + g + b) / (3 * 255)) * frameGain);
+  // Square-rooted so the halo comes up early and then plateaus. A linear ramp
+  // off a frame MEAN is dominated by how much of the device is lit rather than
+  // how brightly: a chase with three of twelve columns lit has a low mean and
+  // showed almost no halo, even though the lit part is at full intensity and
+  // a real lamp running that pattern plainly glows. The curve keeps the halo
+  // responsive to a partly-lit device without letting a fully-lit one blow out.
+  halo.material.opacity = clamp01(Math.sqrt(luma) * brightnessFactor * HALO_OPACITY_SCALE);
 }

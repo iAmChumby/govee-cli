@@ -1,44 +1,81 @@
 /**
  * The H6022 (RGBIC Table Lamp 2, see CLAUDE.md's "FULLY WORKING" section): a
- * cylindrical drum shade on a tapered metal base, 132 LEDs wrapped around the
- * drum as an 11-row x 12-column matrix (`index = row * 12 + col`).
+ * frosted cylindrical drum shade standing on a low dark plinth, 132 LEDs
+ * wrapped around the drum as an 11-row x 12-column matrix
+ * (`index = row * 12 + col`).
  *
  * Dimensions are proportional, not measured. The 2D stage's fixed-pixel body
  * (`motion-engine/geometry.ts`: a 112x238px drum) plus product photography
- * put the drum's height at roughly 1.7x its diameter — that ratio is what
- * `DRUM_HEIGHT_RATIO` encodes below, not a millimetre spec. Real dimensions
- * would refine this and are welcome later; this file does not claim an
- * accuracy it does not have.
+ * put the drum's height at roughly 1.7x its diameter — that ratio is what the
+ * height constants below encode, not a millimetre spec. Real dimensions would
+ * refine this and are welcome later; this file does not claim an accuracy it
+ * does not have.
  *
- * The body is two `LatheGeometry` revolves rather than one: `LatheGeometry`'s
- * own index buffer interleaves radial segments with profile bands (see
- * `node_modules/three/src/geometries/LatheGeometry.js`), so a single mesh
- * split into "opaque base" and "translucent shade" material groups would need
- * one `geometry.addGroup()` call per radial segment (dozens of tiny groups)
- * for no visual benefit. Two lathes whose profiles share the exact vertex at
- * the base/shade seam produce the same continuous silhouette the spec asks
- * for — "one silhouette", not necessarily one `BufferGeometry` — while
- * keeping the metal foot and the frosted shade as separate materials the
- * simple way.
+ * ## What changed from the first pass, and why
  *
- * ## LatheGeometry's default `uv.y` is by profile-point index, not by height
+ * The first version was a bare extruded cylinder on a foot 1.35x WIDER than
+ * the shade, which is a proportion no table lamp has — it read as two
+ * primitives stacked, which is what a person looking at the render said about
+ * it. Three changes fix that without meaningful vertex cost:
+ *
+ *  - **The plinth is now narrower than the drum** (`PLINTH_TOP_RADIUS` vs
+ *    `DRUM_RADIUS`), so the shade overhangs it and casts a shadow line into
+ *    the gap. An overhang is most of what makes a shade read as sitting ON
+ *    something rather than fused to it.
+ *  - **Rolled rims** bracketing the wall. A moulded diffuser has a radius
+ *    where its wall turns; a hard 90-degree edge is the single strongest
+ *    "this is a primitive" cue, and the rims cost four profile points.
+ *  - **Materials that let the LEDs win.** See `buildDiffuser()`.
+ *
+ * The body stays two `LatheGeometry` revolves rather than one:
+ * `LatheGeometry`'s own index buffer interleaves radial segments with profile
+ * bands (see `node_modules/three/src/geometries/LatheGeometry.js`), so a
+ * single mesh split into "opaque plinth" and "translucent shade" material
+ * groups would need one `geometry.addGroup()` call per radial segment (dozens
+ * of tiny groups) for no visual benefit. Two lathes whose profiles share the
+ * exact vertex at the plinth/shade seam produce the same continuous
+ * silhouette — "one silhouette", not necessarily one `BufferGeometry`.
+ *
+ * ## The wall is a true cylinder, deliberately
+ *
+ * A slight barrel would catch the key light more interestingly, and it was
+ * tried. It is wrong here: `models.test.ts` asserts every LED sits at the
+ * same radius from the drum's Y axis AND on the shade's actual rendered
+ * surface, and those two assertions together encode a real property of this
+ * hardware — 12 columns of emitters at one radius, wrapped around a cylinder.
+ * A barrelled wall would put each row at its own radius and turn "the LED is
+ * on the surface" into a per-row question. The visual interest comes from the
+ * rims and the material instead, which cost nothing in correctness.
+ *
+ * ## UV mapping is by HEIGHT, not by profile-point index
  *
  * `LatheGeometry` assigns `uv.y = j / (points.length - 1)`, where `j` is the
  * *index* of a profile point, not its arc length or its `y` coordinate
- * (`node_modules/three/src/geometries/LatheGeometry.js:156`). The shade's
- * 4-point profile spans the whole LED-bearing wall between points 0 and 1 —
- * one quarter of the four evenly-spaced index slots, `v` in `[0, 0.333]` —
- * and the tiny LED-free dome across points 1-2-3, `v` in `[0.333, 1]`. Left
- * at the default, an 11-row LED texture applied through `emissiveMap` would
- * compress all 11 rows into the bottom third of the shade and smear the
- * top row's colour across the dome. `remapShadeUv()` below overrides `uv.y`
- * so the wall alone spans `[0, 1]` and the dome clamps to the wall's top
- * edge (`v = 1`) — there is no LED there to show a gradient, so it reads
- * whatever the top row shows rather than an invented value. `uv.x` needs no
- * correction: `LatheGeometry` sets `uv.x = i / segments` independent of the
- * profile, already running `0..1` once around the full circumference, which
- * is what lets `wrapS = RepeatWrapping` join column 11 back to column 0
- * without a seam.
+ * (`node_modules/three/src/geometries/LatheGeometry.js:156`). With the
+ * 11-point profile below, the LED-bearing wall spans exactly one index step
+ * out of ten — left at the default, all 11 LED rows would compress into a
+ * tenth of the shade and the dome would smear the top row across itself.
+ *
+ * The previous version fixed this by remapping from named profile-point
+ * INDICES. That worked, and it would have broken silently the moment the
+ * profile changed: adding the rims shifts every index, and neither the type
+ * system nor the tests would flag it — the render just quietly rescales,
+ * which is the exact failure mode this file's comments exist to prevent.
+ *
+ * `remapWallUv()` maps from the vertex's own **y coordinate** instead:
+ * `v = (y - WALL_BOTTOM_Y) / WALL_HEIGHT`, clamped to [0, 1]. That is immune
+ * to profile edits, and — the reason it is correct rather than merely
+ * convenient — it is *the same expression* `placeLeds()` inverts to position
+ * the emitters. The texel a surface point samples and the LED that lights it
+ * now derive from one pair of span constants, so they cannot drift apart.
+ * Everything below `WALL_BOTTOM_Y` clamps to `v = 0` and everything above
+ * `WALL_TOP_Y` clamps to `v = 1`: there is no LED on the rims or the dome, so
+ * they read whatever their adjacent row shows rather than an invented value.
+ *
+ * `uv.x` needs no correction: `LatheGeometry` sets `uv.x = i / segments`
+ * independent of the profile, already running `0..1` once around the full
+ * circumference, which is what lets `wrapS = RepeatWrapping` join column 11
+ * back to column 0 without a seam.
  */
 
 import {
@@ -52,139 +89,162 @@ import {
 } from "three";
 import { ledIndex, type LedLayout, type LedPlacement, type LampModel, type ProceduralSource, type SpillCluster } from "./types";
 
-/** Drum diameter is the unit of everything else in this file — every other
+/** Drum radius is the unit of everything else in this file — every other
  *  constant is expressed as a ratio of it, per the "proportional, not
  *  measured" rule above. */
 const DRUM_RADIUS = 0.5;
 const DRUM_DIAMETER = DRUM_RADIUS * 2;
 
-/** ~1.7x diameter, from the 112x238px drum body plus product photography
- *  (see file-level comment) — a proportion, not a millimetre measurement. */
-const DRUM_HEIGHT_RATIO = 1.7;
-const DRUM_HEIGHT = DRUM_DIAMETER * DRUM_HEIGHT_RATIO;
+/** The plinth: low, and narrower than the shade so the drum overhangs it.
+ *  `PLINTH_TOP_RADIUS` is what the shade's bottom rim curls in to meet, and
+ *  the difference between it and `DRUM_RADIUS` is the shadow gap that makes
+ *  the two read as separate manufactured parts. */
+const PLINTH_HEIGHT = DRUM_DIAMETER * 0.11;
+const PLINTH_FOOT_RADIUS = DRUM_RADIUS * 0.924;
+const PLINTH_TOP_RADIUS = DRUM_RADIUS * 0.872;
 
-/** The tapered foot is wider than the drum for visual stability, and short
- *  relative to the shade — a table lamp's base, not a plinth. */
-const FOOT_RADIUS = DRUM_RADIUS * 1.35;
-const BASE_HEIGHT = DRUM_HEIGHT * 0.18;
+/** The straight, LED-bearing section of the shade, and the rims and dome that
+ *  bracket it. They sum with `PLINTH_HEIGHT` to ~1.7x the drum's diameter —
+ *  the proportion from the file header — rather than the wall alone carrying
+ *  that ratio: 0.11 + 0.066 + 1.42 + 0.05 + 0.051 = 1.697 against a diameter
+ *  of 1. Getting this wrong is visible instantly and was: an earlier pass put
+ *  1.7x on the WALL's own constant and then subtracted the rims from it,
+ *  which rendered a drum barely taller than it was wide. */
+const BOTTOM_RIM_HEIGHT = DRUM_DIAMETER * 0.066;
+const WALL_HEIGHT = DRUM_DIAMETER * 1.42;
+const TOP_RIM_HEIGHT = DRUM_DIAMETER * 0.05;
+const DOME_HEIGHT = DRUM_DIAMETER * 0.051;
 
-/** A slight dome closing the top of the shade rather than leaving it a bare
- *  open cylinder — reads better under a key light without changing the
- *  silhouette's proportions in any way that matters to LED placement. */
-const CAP_HEIGHT = DRUM_HEIGHT * 0.06;
+/** The two heights the LED wall spans. **These are the file's load-bearing
+ *  constants**: `remapWallUv()` maps texture `v` across exactly this span and
+ *  `placeLeds()` positions emitters across exactly this span, so the texel a
+ *  surface point samples and the LED that lights it derive from one source
+ *  rather than from two that merely happen to agree. */
+const WALL_BOTTOM_Y = PLINTH_HEIGHT + BOTTOM_RIM_HEIGHT;
+const WALL_TOP_Y = WALL_BOTTOM_Y + WALL_HEIGHT;
 
-const TOTAL_HEIGHT = BASE_HEIGHT + DRUM_HEIGHT + CAP_HEIGHT;
+const TOTAL_HEIGHT = WALL_TOP_Y + TOP_RIM_HEIGHT + DOME_HEIGHT;
 
 /** Angular smoothness of the revolve. A multiple of 12 so the visual facets
  *  loosely line up with the 12 LED columns, though LED placement below is
- *  computed independently of this and would be correct at any value. */
-const LATHE_SEGMENTS = 48;
+ *  computed independently of this and would be correct at any value. 60
+ *  segments x 11 profile points is ~1,300 triangles for the shade — well
+ *  inside the budget for a dozen of these on one dashboard through a single
+ *  shared renderer. */
+const LATHE_SEGMENTS = 60;
 
+function clamp01(n: number): number {
+  return n < 0 ? 0 : n > 1 ? 1 : n;
+}
 
-function buildBaseGeometry(): BufferGeometry {
-  // Revolve from the drum's own axis (r=0) out to the foot radius and back in
-  // to meet the shade's radius exactly at y = BASE_HEIGHT, closing the bottom
-  // as a flat disc the way LatheGeometry expects (an r=0 endpoint pinches the
-  // revolve shut).
+/**
+ * The dark plinth. Revolves from the axis (r = 0) out to the foot, up a
+ * straight side with one shallow lip, then in to `PLINTH_TOP_RADIUS` — where
+ * the shade's own profile starts, so the two meshes meet with zero gap and
+ * zero overlap. The r = 0 endpoints pinch the revolve shut at both ends,
+ * which is how `LatheGeometry` closes a solid.
+ */
+function buildPlinthGeometry(): BufferGeometry {
   const profile = [
     new Vector2(0, 0),
-    new Vector2(FOOT_RADIUS, 0),
-    new Vector2(FOOT_RADIUS * 0.92, BASE_HEIGHT * 0.35),
-    new Vector2(DRUM_RADIUS, BASE_HEIGHT),
+    new Vector2(PLINTH_FOOT_RADIUS, 0),
+    new Vector2(PLINTH_FOOT_RADIUS, PLINTH_HEIGHT * 0.5),
+    // A shallow lip two-thirds up. One profile point, and it gives the key
+    // light a horizontal line to catch — which is most of what separates
+    // "moulded part" from "cylinder" at plate size.
+    new Vector2(PLINTH_FOOT_RADIUS * 1.014, PLINTH_HEIGHT * 0.66),
+    new Vector2(PLINTH_FOOT_RADIUS * 0.99, PLINTH_HEIGHT * 0.82),
+    new Vector2(PLINTH_TOP_RADIUS, PLINTH_HEIGHT),
+    new Vector2(0, PLINTH_HEIGHT),
   ];
   return new LatheGeometry(profile, LATHE_SEGMENTS);
 }
 
-/** Profile-point indices into `buildShadeGeometry()`'s `profile` array — the
- *  LED-bearing wall runs from `WALL_BOTTOM_POINT` to `WALL_TOP_POINT`;
- *  everything after `WALL_TOP_POINT` is the LED-free dome. Named rather than
- *  inlined so `remapShadeUv()` reads as "the wall's two endpoints", not two
- *  bare array indices that happen to be 0 and 1. */
-const WALL_BOTTOM_POINT = 0;
-const WALL_TOP_POINT = 1;
-
 /**
- * Overrides `LatheGeometry`'s default `uv.y` (see the file-level "LatheGeometry's
- * default uv.y" section for why the default is wrong here) so the
- * LED-bearing wall spans `v` in `[0, 1]` and the dome above it clamps to the
- * wall's top edge rather than inheriting an index-based share of `v` it has
- * no LEDs to justify.
+ * The frosted shade: a bottom roll flaring from the plinth out to the wall,
+ * the straight LED-bearing wall, a top roll, and a shallow dome closing it.
  *
- * Walks the same `j + i * pointCount` vertex layout `LatheGeometry` itself
- * builds (one column of `pointCount` profile vertices per of the `segments +
- * 1` radial steps — the `+ 1` because the revolve emits a seam column at
- * `i = segments` coincident with `i = 0`), so every radial column gets an
- * identical `v` ramp regardless of `i`.
+ * **Exactly two profile points sit at `DRUM_RADIUS`** — the wall's own two
+ * ends. Every rim and dome point is strictly inside it. That is deliberate,
+ * and `models.test.ts` depends on it: the test finds the shade's
+ * maximum-radius band and asserts every LED lies on it, so the band has to BE
+ * the wall. A rim vertex at exactly `DRUM_RADIUS` would widen that band into
+ * the rims and weaken the assertion into something that no longer proves the
+ * emitters sit where the light comes out.
  */
-function remapShadeUv(geometry: BufferGeometry, pointCount: number, segments: number): void {
-  const uv = geometry.getAttribute("uv");
-  if (!uv) throw new Error("h6022 shade geometry has no uv attribute to remap");
-  const wallSpan = WALL_TOP_POINT - WALL_BOTTOM_POINT;
-  for (let i = 0; i <= segments; i++) {
-    for (let j = 0; j < pointCount; j++) {
-      const index = j + i * pointCount;
-      const v = Math.min(1, Math.max(0, (j - WALL_BOTTOM_POINT) / wallSpan));
-      uv.setY(index, v);
-    }
-  }
-  uv.needsUpdate = true;
-}
-
 function buildShadeGeometry(): BufferGeometry {
-  // Starts at the same (DRUM_RADIUS, BASE_HEIGHT) vertex the base ends on, so
-  // the two meshes meet with zero gap and zero overlap — the "one silhouette"
-  // the spec asks for, built from two lathes rather than one for the
-  // material-grouping reason in the file-level comment.
+  const topRimTop = WALL_TOP_Y + TOP_RIM_HEIGHT;
   const profile = [
-    new Vector2(DRUM_RADIUS, BASE_HEIGHT), // WALL_BOTTOM_POINT
-    new Vector2(DRUM_RADIUS, BASE_HEIGHT + DRUM_HEIGHT), // WALL_TOP_POINT
-    new Vector2(DRUM_RADIUS * 0.985, BASE_HEIGHT + DRUM_HEIGHT + CAP_HEIGHT * 0.55),
-    new Vector2(0, BASE_HEIGHT + DRUM_HEIGHT + CAP_HEIGHT),
+    // Starts on the plinth's own top vertex — the shared seam.
+    new Vector2(PLINTH_TOP_RADIUS, PLINTH_HEIGHT),
+    new Vector2(DRUM_RADIUS * 0.966, PLINTH_HEIGHT + BOTTOM_RIM_HEIGHT * 0.42),
+    new Vector2(DRUM_RADIUS * 0.994, PLINTH_HEIGHT + BOTTOM_RIM_HEIGHT * 0.78),
+    new Vector2(DRUM_RADIUS, WALL_BOTTOM_Y),
+    new Vector2(DRUM_RADIUS, WALL_TOP_Y),
+    new Vector2(DRUM_RADIUS * 0.994, WALL_TOP_Y + TOP_RIM_HEIGHT * 0.38),
+    new Vector2(DRUM_RADIUS * 0.962, WALL_TOP_Y + TOP_RIM_HEIGHT * 0.74),
+    new Vector2(DRUM_RADIUS * 0.9, topRimTop),
+    new Vector2(DRUM_RADIUS * 0.72, topRimTop + DOME_HEIGHT * 0.42),
+    new Vector2(DRUM_RADIUS * 0.4, topRimTop + DOME_HEIGHT * 0.82),
+    new Vector2(0, TOTAL_HEIGHT),
   ];
   const geometry = new LatheGeometry(profile, LATHE_SEGMENTS);
-  remapShadeUv(geometry, profile.length, LATHE_SEGMENTS);
+  remapWallUv(geometry);
   return geometry;
 }
 
 /**
- * 132 LEDs on the drum's outer surface: 11 rows climbing the straight wall,
- * 12 columns evenly spaced around the full 2*PI. `layout.rows`/`layout.cols`
- * come from capabilities rather than being hardcoded here, so this keeps
- * working if the sidecar ever reports a different matrix for this model.
+ * Overrides `LatheGeometry`'s index-based `uv.y` (see the file header for why
+ * the default is wrong and why height beats profile index) so the LED-bearing
+ * wall spans `v` in [0, 1] and everything outside it clamps to the adjacent
+ * edge.
  *
- * Wrap continuity: `angle(col) = (col / cols) * 2*PI` is linear in `col`, so
- * the angular step from column `cols-1` back to column `0` (a full turn
- * later) is `2*PI / cols` — identical to the step between any other adjacent
- * pair. That is what lets `matrix_wrap_col` drive a seamless `RepeatWrapping`
- * texture: there is no seam in the geometry to hide.
+ * Reads each vertex's own `position.y` rather than walking `LatheGeometry`'s
+ * `j + i * pointCount` vertex layout, so it stays correct for any profile —
+ * including one a future edit adds points to, which is exactly what would
+ * have silently broken the index-based version this replaced.
  */
+function remapWallUv(geometry: BufferGeometry): void {
+  const uv = geometry.getAttribute("uv");
+  const position = geometry.getAttribute("position");
+  if (!uv) throw new Error("h6022 shade geometry has no uv attribute to remap");
+  if (!position) throw new Error("h6022 shade geometry has no position attribute to remap from");
+  for (let i = 0; i < uv.count; i++) {
+    uv.setY(i, clamp01((position.getY(i) - WALL_BOTTOM_Y) / WALL_HEIGHT));
+  }
+  uv.needsUpdate = true;
+}
+
 /**
  * Places every emitter on the TEXEL CENTRE of the cell that will light it.
  *
- * The shade's `v` now spans the LED wall over `[0, 1]` (see `remapShadeUv`) and
- * the emissive texture is `cols x rows` with `NearestFilter`, so texel `row`
- * lights the band `v` in `[row / rows, (row + 1) / rows)` — whose centre is at
- * `(row + 0.5) / rows`. Spreading the rows edge-to-edge instead (an inset
- * fraction, then `row / (rows - 1)`) leaves each emitter sitting off-centre in
- * its own lit band, by up to a third of a band at the extremes: the model would
- * claim an LED at one height while the light appeared at another, and the spill
- * lights — which are positioned from these very coordinates — would drift from
- * the glow they are supposed to be caused by.
+ * The shade's `v` spans the LED wall over [0, 1] (see `remapWallUv`) and the
+ * emissive texture is `cols x rows`, so texel `row` lights the band `v` in
+ * `[row / rows, (row + 1) / rows)` — whose centre is at `(row + 0.5) / rows`.
+ * Spreading the rows edge-to-edge instead (`row / (rows - 1)`) leaves each
+ * emitter sitting off-centre in its own lit band, by up to a third of a band
+ * at the extremes: the model would claim an LED at one height while the light
+ * appeared at another, and the spill lights — positioned from these very
+ * coordinates — would drift from the glow they are supposed to be caused by.
  *
  * The same argument fixes the angular step: `LatheGeometry` sets
  * `uv.x = i / segments` over a full revolution, so `u` is exactly
  * `angle / 2pi`, and texel `col` covers `[col / cols, (col + 1) / cols)`. The
  * half-step offset centres each LED in its own column band.
  *
- * `(0.5 / rows)` also insets the top and bottom rows from the shade's rims on
- * its own, which is what the hand-tuned margin constant was approximating.
+ * `(0.5 / rows)` also insets the top and bottom rows from the wall's ends on
+ * its own, which is what a hand-tuned margin constant would have approximated.
+ *
+ * `layout.rows`/`layout.cols` come from capabilities rather than being
+ * hardcoded, so this keeps working if the sidecar ever reports a different
+ * matrix for this model.
  */
 function placeLeds(layout: LedLayout): LedPlacement[] {
   const { rows, cols } = layout;
 
   const placements: LedPlacement[] = [];
   for (let row = 0; row < rows; row++) {
-    const y = BASE_HEIGHT + DRUM_HEIGHT * ((row + 0.5) / rows);
+    const y = WALL_BOTTOM_Y + WALL_HEIGHT * ((row + 0.5) / rows);
     for (let col = 0; col < cols; col++) {
       const angle = ((col + 0.5) / cols) * Math.PI * 2;
       const cos = Math.cos(angle);
@@ -225,43 +285,93 @@ function buildSpill(leds: LedPlacement[], layout: LedLayout): SpillCluster[] {
   return clusters;
 }
 
+/**
+ * The frosted polycarbonate shade.
+ *
+ * **`color` is near-black on purpose, and it is half the fix for "the models
+ * don't emit their light colors at all."** The previous value was `0x6e6e73`
+ * — mid grey. Under this scene's ambient + key + environment, that grey's own
+ * NEUTRAL diffuse response lands at a luminance comparable to the emissive
+ * term for any colour a person actually sets, and being neutral it
+ * desaturates the sum: a lamp reporting `#330066` at 50% rendered as a
+ * grey-lavender body, which is what got photographed and reported. A dark
+ * shade still reads as a white shade in a dark room the moment it is lit —
+ * that is what a diffuser DOES — and it leaves the whole bright end of the
+ * range for the emitters to claim. See renderer.ts's exposure-budget comment
+ * for the other half of the same argument.
+ *
+ * `sheen` is the second half of "light inside an object rather than a texture
+ * on it": it lifts grazing angles, so the silhouette's edge glows and the
+ * shade reads as a lit volume rather than a painted cylinder. It costs a
+ * shader branch, which is worth paying on the one surface per model that is
+ * supposed to look like it is glowing.
+ *
+ * `transmission` stays moderate rather than high. Transmission attenuates the
+ * diffuse term and shows what is BEHIND the object, which on a dark stage is
+ * more darkness; pushed high it removes body without adding glow, since
+ * emissive is added after it. `source.ts`'s `setDiffuserQuality()` drops it to
+ * 0 for plates and restores it from `userData.baseTransmission` for the hero.
+ */
+function buildDiffuser(): MeshPhysicalMaterial {
+  const diffuser = new MeshPhysicalMaterial({
+    color: 0x18181d,
+    roughness: 0.4,
+    transmission: 0.55,
+    thickness: 0.5,
+    ior: 1.46,
+    sheen: 0.25,
+    sheenColor: 0xffffff,
+    sheenRoughness: 0.45,
+    // Left black on purpose: `emission.ts` lifts it to white exactly once,
+    // when it first attaches the LED texture as `emissiveMap`, and relies on
+    // its `hadNoMap` guard being true only once per shared material's whole
+    // lifetime.
+    emissive: 0x000000,
+  });
+  // setDiffuserQuality() (source.ts) restores this value for the hero tier
+  // after dropping it to 0 for plates; stashing the authored value on the
+  // material itself means that switch never has to hardcode the number.
+  diffuser.userData.baseTransmission = diffuser.transmission;
+  return diffuser;
+}
+
 export const h6022Source: ProceduralSource = {
   kind: "procedural",
   build(layout: LedLayout): LampModel {
     const shadeGeometry = buildShadeGeometry();
-    const baseGeometry = buildBaseGeometry();
+    const plinthGeometry = buildPlinthGeometry();
 
-    const diffuser = new MeshPhysicalMaterial({
-      // A diffuser that is near-white before the LEDs turn on saturates under
-      // any environment and leaves emission with nowhere to go — see
-      // renderer.ts's exposure-budget comment. A dimmer base still reads as a
-      // white shade in a dark room and leaves the bright end to the emitters.
-      color: 0x6e6e73,
-      roughness: 0.55,
-      transmission: 0.6,
-      thickness: 0.4,
-      ior: 1.4,
-      emissive: 0x000000,
-    });
-    // setDiffuserQuality() (source.ts) restores this value for the hero tier
-    // after dropping it to 0 for plates; stashing the authored value on the
-    // material itself means that switch never has to hardcode the number.
-    diffuser.userData.baseTransmission = diffuser.transmission;
+    const diffuser = buildDiffuser();
 
+    // Soft-touch dark plastic, not chrome. `roughness 0.35, metalness 0.85` —
+    // the previous values — render as a black mirror that reflects the
+    // environment map and reads as a chrome puck under the shade. A real
+    // Govee base is a matte dark polymer with a faint specular sheen, which
+    // is high roughness and low metalness.
     const base = new MeshPhysicalMaterial({
-      color: 0x3a3a3f,
-      roughness: 0.35,
-      metalness: 0.85,
+      color: 0x1b1b20,
+      roughness: 0.52,
+      metalness: 0.22,
     });
 
     const shadeMesh = new Mesh(shadeGeometry, diffuser);
-    const baseMesh = new Mesh(baseGeometry, base);
+    const plinthMesh = new Mesh(plinthGeometry, base);
 
     const group = new Group();
-    group.add(baseMesh, shadeMesh);
+    group.add(plinthMesh, shadeMesh);
 
     const leds = placeLeds(layout);
-    const fitRadius = Math.hypot(TOTAL_HEIGHT / 2, FOOT_RADIUS);
+    // Bounding radius about the model's own mid-height, which is what
+    // renderer.ts's cameraFitDistance() frames from. The silhouette's widest
+    // point is the wall at DRUM_RADIUS, but the point FARTHEST from the
+    // mid-height centre is the plinth's foot ring down at y = 0, so the
+    // enclosing radius is the larger of those two distances rather than
+    // either one alone.
+    const halfHeight = TOTAL_HEIGHT / 2;
+    const fitRadius = Math.max(
+      Math.hypot(PLINTH_FOOT_RADIUS, halfHeight),
+      Math.hypot(DRUM_RADIUS, WALL_TOP_Y - halfHeight),
+    );
 
     let disposed = false;
     return {
@@ -278,7 +388,7 @@ export const h6022Source: ProceduralSource = {
         if (disposed) return;
         disposed = true;
         shadeGeometry.dispose();
-        baseGeometry.dispose();
+        plinthGeometry.dispose();
         (diffuser as Material).dispose();
         (base as Material).dispose();
       },

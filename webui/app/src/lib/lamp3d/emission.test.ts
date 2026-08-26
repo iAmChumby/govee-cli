@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 import { ClampToEdgeWrapping, MeshPhysicalMaterial, RGBAFormat, RepeatWrapping, SRGBColorSpace, UnsignedByteType } from "three";
-import { applyEmission, brightnessGlow, createLedTexture, uploadLedFrame } from "./emission";
+import { applyEmission, brightnessGlow, createLedTexture, uploadLedFrame, frameNormalizeGain } from "./emission";
 import { ledCount, type LampModel, type LedLayout } from "./models/types";
 
 const WRAPPED: LedLayout = { rows: 11, cols: 12, wrapCol: true };
@@ -69,20 +69,27 @@ describe("createLedTexture", () => {
     }
   });
 
-  it("uploadLedFrame keeps alpha opaque and leaves a uniform frame untouched", () => {
+  it("uploadLedFrame keeps alpha opaque and keeps a uniform frame uniform, at the frame's own exposure", () => {
     const led = createLedTexture(UNWRAPPED);
     led.buffer.fill(120);
     const versionBefore = led.texture.version;
 
-    uploadLedFrame(led);
+    const gain = uploadLedFrame(led);
 
-    // Every LED equals the frame mean, so the shade-scatter mix has nothing to
-    // move: a flat frame must survive the trip byte for byte.
+    // This used to assert the frame survived "byte for byte" at 120. It no
+    // longer does, and that is the intended change rather than a regression:
+    // `frameNormalizeGain` lifts every frame to its own peak so a device's
+    // reported hue actually reads on screen (see emission.ts). What must
+    // still hold — and what this test is really about — is that the
+    // shade-scatter mix has nothing to move in a flat frame, so every texel
+    // stays IDENTICAL to every other, and alpha stays opaque.
+    const expected = Math.round(120 * gain);
+    expect(gain).toBeCloseTo(255 / 120, 6);
     const count = led.buffer.length / 3;
     for (let i = 0; i < count; i++) {
-      expect(led.texels[i * 4]).toBe(120);
-      expect(led.texels[i * 4 + 1]).toBe(120);
-      expect(led.texels[i * 4 + 2]).toBe(120);
+      expect(led.texels[i * 4]).toBe(expected);
+      expect(led.texels[i * 4 + 1]).toBe(expected);
+      expect(led.texels[i * 4 + 2]).toBe(expected);
       expect(led.texels[i * 4 + 3]).toBe(255);
     }
     expect(led.texture.version).toBeGreaterThan(versionBefore);
@@ -235,5 +242,119 @@ describe("applyEmission", () => {
     };
     const ledTex = createLedTexture(UNWRAPPED);
     expect(() => applyEmission(model, ledTex, true, 50)).not.toThrow();
+  });
+});
+
+
+/* ------------------------------------------------------------------
+   frameNormalizeGain — the presentation model, and the invariants that
+   keep it honest. See emission.ts's doc comment for the full argument.
+   ------------------------------------------------------------------ */
+
+/** HSV hue/saturation of an RGB byte triple, for asserting they survive the
+ *  gain unchanged. Returns hue in degrees (or null for a grey, which has no
+ *  defined hue) and saturation in 0..1. */
+function hueSat(r: number, g: number, b: number): { hue: number | null; sat: number } {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const delta = max - min;
+  const sat = max === 0 ? 0 : delta / max;
+  if (delta === 0) return { hue: null, sat };
+  let hue: number;
+  if (max === r) hue = ((g - b) / delta) % 6;
+  else if (max === g) hue = (b - r) / delta + 2;
+  else hue = (r - g) / delta + 4;
+  hue *= 60;
+  if (hue < 0) hue += 360;
+  return { hue, sat };
+}
+
+describe("frameNormalizeGain", () => {
+  it("lifts a dark saturated colour to full peak", () => {
+    // #330066 at 50% — the exact colour that rendered as a grey ball and got
+    // reported as "the models don't emit their light colors at all".
+    const buffer = new Uint8ClampedArray([0x33, 0x00, 0x66]);
+    const gain = frameNormalizeGain(buffer);
+    expect(gain).toBeCloseTo(255 / 0x66, 6);
+    expect(0x66 * gain).toBeCloseTo(255, 6);
+  });
+
+  it("preserves hue and saturation exactly, across a spread of colours", () => {
+    const colours: Array<[number, number, number]> = [
+      [0x33, 0x00, 0x66],
+      [0xff, 0x45, 0x45],
+      [0x00, 0x80, 0x40],
+      [0x12, 0x34, 0x56],
+      [0x40, 0x40, 0x40],
+    ];
+    for (const [r, g, b] of colours) {
+      const gain = frameNormalizeGain(new Uint8ClampedArray([r, g, b]));
+      const before = hueSat(r, g, b);
+      const after = hueSat(r * gain, g * gain, b * gain);
+      if (before.hue === null) {
+        expect(after.hue).toBeNull();
+      } else {
+        expect(after.hue).toBeCloseTo(before.hue, 6);
+      }
+      expect(after.sat).toBeCloseTo(before.sat, 6);
+    }
+  });
+
+  it("keeps an all-zero frame at gain 1, so an off or unknown lamp stays black", () => {
+    // CLAUDE.md's first rule, at the pixel level: no ledger entry means the
+    // LED buffer is cleared, and nothing downstream may invent light from it.
+    const buffer = new Uint8ClampedArray(132 * 3);
+    expect(frameNormalizeGain(buffer)).toBe(1);
+    const tex = createLedTexture({ rows: 11, cols: 12, wrapCol: true });
+    tex.buffer.set(buffer);
+    uploadLedFrame(tex);
+    for (let i = 0; i < tex.texels.length; i += 4) {
+      expect(tex.texels[i]).toBe(0);
+      expect(tex.texels[i + 1]).toBe(0);
+      expect(tex.texels[i + 2]).toBe(0);
+    }
+  });
+
+  it("normalizes by the FRAME peak, so a pattern's internal contrast survives", () => {
+    // A chase: one bright head, one dim tail. Per-LED normalization would
+    // drive both to full and erase the pattern the archetype computed; frame
+    // normalization must leave their ratio exactly intact.
+    const buffer = new Uint8ClampedArray([0x80, 0, 0, 0x20, 0, 0]);
+    const gain = frameNormalizeGain(buffer);
+    const headBefore = 0x80;
+    const tailBefore = 0x20;
+    expect((tailBefore * gain) / (headBefore * gain)).toBeCloseTo(tailBefore / headBefore, 9);
+    expect(headBefore * gain).toBeCloseTo(255, 6);
+  });
+
+  it("caps the lift so a genuinely dark frame stays dark", () => {
+    // The tail of a fade is dim because the pattern is dim. Uncapped
+    // normalization would slam it to full and the fade would stop fading.
+    const buffer = new Uint8ClampedArray([4, 0, 0]);
+    const gain = frameNormalizeGain(buffer);
+    expect(gain).toBe(4);
+    expect(4 * gain).toBeLessThan(32);
+  });
+
+  it("still dims monotonically with device brightness", () => {
+    // The gain deliberately does NOT carry luminance — brightness does, via
+    // emissiveIntensity. If the gain absorbed it, the brightness control
+    // would stop meaning anything.
+    const levels = [1, 25, 50, 75, 100];
+    const glows = levels.map((b) => brightnessGlow(b));
+    for (let i = 1; i < glows.length; i++) {
+      expect(glows[i]).toBeGreaterThan(glows[i - 1]);
+    }
+  });
+
+  it("gains the single-emitter (1x1) path the same way — the H6008 bulb", () => {
+    const tex = createLedTexture({ rows: 1, cols: 1, wrapCol: false });
+    tex.buffer.set([0x33, 0x00, 0x66]);
+    const gain = uploadLedFrame(tex);
+    expect(gain).toBeGreaterThan(1);
+    // With one texel the scatter blend is a no-op (the mean IS the texel), so
+    // the peak channel lands exactly on full.
+    expect(tex.texels[2]).toBe(255);
+    expect(tex.texels[1]).toBe(0);
   });
 });

@@ -264,7 +264,7 @@ describe("createViewRegistry", () => {
     expect(view.visible).toBe(false);
   });
 
-  test("readBoxes: a view partly outside clipTo is visible with a box clipped to the overlap", () => {
+  test("readBoxes: a view partly outside clipTo is visible with clipBox trimmed to the overlap, but box stays the full element rect", () => {
     const registry = createViewRegistry();
     const element = stubElement({ left: 10, top: -20, width: 50, height: 50 });
     // Clip ancestor starts at top=0 — the top 20px of the element's own box
@@ -274,7 +274,48 @@ describe("createViewRegistry", () => {
     registry.readBoxes(canvas, 1000);
     const [view] = registry.list();
     expect(view.visible).toBe(true);
-    expect(view.box).toEqual({ left: 10, top: 0, width: 50, height: 30 });
+    // This is the regression case for the shrink/grow-while-scrolling bug:
+    // `box` (what frames the camera) must stay the view's own full rect...
+    expect(view.box).toEqual({ left: 10, top: -20, width: 50, height: 50 });
+    // ...while `clipBox` (what limits painted pixels) is the trimmed overlap.
+    expect(view.clipBox).toEqual({ left: 10, top: 0, width: 50, height: 30 });
+  });
+
+  test("readBoxes: a view whose clipTo trims its top half reports a clipBox covering only the visible half, while box and its aspect ratio stay those of the full element", () => {
+    const registry = createViewRegistry();
+    // A 100x100 element half-covered from the top by a fixed bar sitting over
+    // its clipping ancestor — the exact "stage scrolled under the TopBar"
+    // shape the bug report described.
+    const element = stubElement({ left: 0, top: -50, width: 100, height: 100 });
+    const clip = stubElement({ left: 0, top: 0, width: 400, height: 300 });
+    registry.register({ id: "p1", element, tier: "plate", clipTo: clip });
+    registry.readBoxes(canvas, 1000);
+    const [view] = registry.list();
+
+    expect(view.box).toEqual({ left: 0, top: -50, width: 100, height: 100 });
+    expect(view.box!.width / view.box!.height).toBe(1); // full element's own aspect ratio, untouched
+    expect(view.clipBox).toEqual({ left: 0, top: 0, width: 100, height: 50 });
+  });
+
+  test("readBoxes: a view with no clipTo gets a clipBox identical to its box", () => {
+    const registry = createViewRegistry();
+    const element = stubElement({ left: 5, top: 5, width: 40, height: 30 });
+    registry.register({ id: "p1", element, tier: "plate" });
+    registry.readBoxes(canvas, 1000);
+    const [view] = registry.list();
+    expect(view.clipBox).toEqual(view.box);
+  });
+
+  test("readBoxes: clipBox is a zero-area rect (not the full box) when clipTo doesn't overlap at all", () => {
+    const registry = createViewRegistry();
+    const element = stubElement({ left: 10, top: 10, width: 50, height: 50 });
+    const clip = stubElement({ left: 0, top: 200, width: 400, height: 100 });
+    registry.register({ id: "p1", element, tier: "plate", clipTo: clip });
+    registry.readBoxes(canvas, 1000);
+    const [view] = registry.list();
+    expect(view.visible).toBe(false);
+    expect(view.box).toEqual({ left: 10, top: 10, width: 50, height: 50 });
+    expect(view.clipBox).toEqual({ left: 10, top: 10, width: 0, height: 0 });
   });
 
   test("readBoxes: leaving the screen immediately clears an active slot", () => {

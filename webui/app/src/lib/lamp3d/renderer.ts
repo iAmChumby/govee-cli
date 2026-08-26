@@ -44,6 +44,7 @@ import {
   Scene,
   SRGBColorSpace,
   Vector3,
+  Box3,
   WebGLRenderer,
   type PointLight,
   type Sprite,
@@ -71,6 +72,7 @@ import {
   createViewRegistry,
   cssSize,
   deviceSize,
+  intersectRect,
   isOnScreen,
   scissorFromRect,
   type CssSize,
@@ -349,6 +351,11 @@ interface ViewState {
   id: string;
   tier: "hero" | "plate";
   element: HTMLElement;
+  /** Mirrors `MountLampViewOptions.clipTo`, kept on the view state so
+   *  `drawViewImmediate` can apply the same `clipTo` intersection the
+   *  registry's own `readBoxes()` does, rather than measuring only its own
+   *  element and painting past a clipping ancestor. */
+  clipTo: HTMLElement | null;
   model: LampModel;
   modelKey: string | null;
   layout: LedLayout;
@@ -425,7 +432,18 @@ export function mountLampView(opts: MountLampViewOptions): LampViewHandle {
   const camera = new PerspectiveCamera(CAMERA_FOV_DEGREES, 1, 0.05, 100);
   const targetHeight = model.height * TARGET_HEIGHT_FRACTION;
   const target = new Vector3(0, targetHeight, 0);
-  const radius = cameraFitDistance(model);
+  // The box isn't registered with `views.ts` yet (that happens below), so
+  // there's no `StageView.box` to read; measure the element directly, the
+  // same one-off DOM read `drawViewImmediate` already does elsewhere in this
+  // file. A box with no layout yet (zero width or height — e.g. this stage's
+  // container hasn't been sized by CSS on the very first paint) can't yield a
+  // trustworthy aspect ratio, so it falls back to 1 (square), which is
+  // exactly the ratio at which `cameraFitDistance`'s vertical- and
+  // horizontal-FOV constraints agree — a safe, neutral default rather than a
+  // guess at the real box shape.
+  const mountRect = opts.element.getBoundingClientRect();
+  const initialAspect = mountRect.width > 0 && mountRect.height > 0 ? mountRect.width / mountRect.height : 1;
+  const radius = cameraFitDistance(measureFitExtent(model, targetHeight), initialAspect);
   const [ox, oy, oz] = sphericalOffset(INITIAL_AZIMUTH, INITIAL_ELEVATION, radius);
   camera.position.set(target.x + ox, target.y + oy, target.z + oz);
   camera.lookAt(target);
@@ -469,6 +487,7 @@ export function mountLampView(opts: MountLampViewOptions): LampViewHandle {
     id: `lamp-${nextViewId++}`,
     tier: opts.tier,
     element: opts.element,
+    clipTo: opts.clipTo ?? null,
     model,
     modelKey: opts.model,
     layout,
@@ -552,7 +571,7 @@ export function mountLampView(opts: MountLampViewOptions): LampViewHandle {
  *  computed once per frame per drawn view and threaded through so
  *  `drawView`/`drawViewImmediate` never disagree on how a box became a
  *  scissor rect. */
-interface FrameRects {
+export interface FrameRects {
   viewportX: number;
   viewportY: number;
   viewportW: number;
@@ -580,17 +599,36 @@ interface FrameRects {
  * `views.ts` is right to work in device pixels: it is a general utility and the
  * flip needs a concrete buffer height. Choosing CSS units is this module's
  * business, because this module is the one talking to three.
+ *
+ * Takes two rects, not one — this is the fix for a real bug, not defensive
+ * plumbing. `box` and `clipBox` are `StageView.box`/`StageView.clipBox`: `box`
+ * is a view's own full element rect, and `clipBox` is that rect intersected
+ * with its `clipTo` scrolling ancestor (see `views.ts`). Before this split,
+ * `views.ts` handed this function only the intersected rect, and this function
+ * derived BOTH the viewport and the scissor from that one shrinking rect. A
+ * plate scrolling under the fixed `TopBar` then had its camera's viewport and
+ * `aspect` recomputed every frame from the shrinking visible sliver — not just
+ * clipped, but reframed — so the lamp visibly squashed and shrank as it
+ * scrolled. Decision 3's intent (see the design doc) was always that the FULL
+ * rect frames the camera and only the CLAMPED rect limits painted pixels; using
+ * the clipped rect for both defeats that on any view with a `clipTo`, which is
+ * every plate on the dashboard.
  */
-function computeFrameRects(box: ScreenRect, canvasCss: CssSize): FrameRects | null {
+export function computeFrameRects(box: ScreenRect, clipBox: ScreenRect, canvasCss: CssSize): FrameRects | null {
   if (box.width <= 0 || box.height <= 0) return null;
-  // Decision 3: the FULL (unclamped) rect frames the camera's viewport, so a
-  // view scrolled half off-screen is still framed as if its whole box were
-  // visible; the CLAMPED rect is what actually limits painted pixels via
-  // scissor. Using the clamped rect for both would squash the camera's
-  // aspect as a plate scrolls into view — the classic three.js multi-view
-  // mistake the design doc calls out by name.
+  if (clipBox.width <= 0 || clipBox.height <= 0) return null;
+  // The viewport (and the aspect derived from it) come from the FULL,
+  // unclipped box: a view scrolled half under its clipping ancestor is still
+  // framed as if its whole box were visible.
   const full = scissorFromRect(box, canvasCss, CSS_PIXEL_RATIO);
-  const clamped = clampScissor(full, deviceSize(canvasCss.width, canvasCss.height));
+  // The scissor — what actually limits painted pixels — comes from the
+  // CLIPPED box instead, then gets clamped to the drawing buffer's own
+  // bounds as a second, independent limit (defensive: a `clipTo` ancestor
+  // lives inside the viewport already, so this rarely trims anything beyond
+  // what the clip already did, but a view whose box legitimately hangs off
+  // the canvas edge — no `clipTo` at all — still needs it).
+  const clipScissor = scissorFromRect(clipBox, canvasCss, CSS_PIXEL_RATIO);
+  const clamped = clampScissor(clipScissor, deviceSize(canvasCss.width, canvasCss.height));
   if (!clamped) return null;
   return {
     viewportX: full.x,
@@ -616,27 +654,111 @@ function computeFrameRects(box: ScreenRect, canvasCss: CssSize): FrameRects | nu
 /**
  * How far the camera must sit from the orbit target for the whole body to fit.
  *
- * Derived rather than dialled in. A guessed multiple of `fitRadius` cropped the
- * H6022 badly: `fitRadius` is the radius of a sphere about the model's own
- * mid-height, but the camera looks at `TARGET_HEIGHT_FRACTION` of the height —
- * deliberately below centre, because that reads as looking AT the object rather
- * than at its waist — so the sphere that must actually fit is centred lower and
- * is correspondingly larger. Both terms are accounted for here.
+ * Derived rather than dialled in, and from the body's real BOUNDING BOX about
+ * the orbit target (`measureFitExtent`) rather than from a bounding sphere.
+ * A sphere was the previous basis and it framed wide bodies badly: it is
+ * driven by the object's largest dimension in any direction, so the H6056's
+ * pair of bars — much wider than tall — was fitted as though it were as tall
+ * as it is wide, and rendered small with a band of empty stage above and
+ * below it. The camera also looks at `TARGET_HEIGHT_FRACTION` of the height,
+ * deliberately below centre, so the extent is measured about that target
+ * rather than about the body's own mid-height.
  *
- * The vertical field of view is the binding constraint for every stage box in
- * this app, because all of them are wider than they are tall (the hero is
- * 342x260 on a phone and 504x380 on a desktop; plates are 4:3). For any aspect
- * >= 1 the horizontal half-angle is the larger of the two, so the vertical one
- * governs and a single distance is correct at every width — which is what lets
- * the orbit controls close over one radius instead of recomputing per frame.
- * A box taller than it is wide would crop at the sides; none exists, and this
- * comment is the record of that assumption rather than a silent dependency.
+ * `CAMERA_FOV_DEGREES` (three's `PerspectiveCamera.fov`) is always the
+ * VERTICAL field of view; the horizontal one is derived from it via `aspect`
+ * (`tan(hHalf) = tan(vHalf) * aspect`). For aspect >= 1 (every stage box in
+ * this app today — the hero is 342x260 on a phone and 504x380 on a desktop;
+ * plates are 4:3) the horizontal half-angle is >= the vertical one, so
+ * `sin(hHalf) >= sin(vHalf)` and the vertical term alone gives the larger,
+ * binding, distance — which is what the old single-term formula computed and
+ * why it was correct for every box that has ever existed here.
+ *
+ * Taking `Math.max` of the vertical-only and horizontal-only distances (the
+ * added `distanceForH` term below) keeps that correct AND removes the
+ * silent "no box is ever taller than wide" dependency the single-term
+ * version carried: for aspect < 1 the horizontal half-angle becomes the
+ * SMALLER one, `distanceForH` becomes the larger distance, and `Math.max`
+ * picks it up automatically rather than cropping the sides. For aspect >= 1
+ * this produces the exact same number as before — one extra `atan`/`sin`
+ * pair and one `Math.max`, not a behaviour change for any box that exists.
+ *
+ * `aspect` is measured once, at mount, from the view's own element (see the
+ * call site) — `views.ts`'s registry hasn't measured a `StageView.box` yet
+ * at that point, and the orbit controls close over the resulting radius as a
+ * single value for the view's lifetime rather than recomputing it as the box
+ * resizes, matching the existing "one radius, not per-frame" design (a mid
+ * session recompute would also fight a user who has already orbited/zoomed).
+ * A view whose aspect flips from >=1 to <1 after mount (a hero rotated on a
+ * device that supports it, say) is not re-fit; nothing in this app does that
+ * today, and this comment is the record of that residual assumption.
  */
-function cameraFitDistance(model: LampModel): number {
-  const halfFov = (CAMERA_FOV_DEGREES * Math.PI) / 360;
-  const offCentre = Math.abs(0.5 - TARGET_HEIGHT_FRACTION) * model.height;
-  const enclosingRadius = model.fitRadius + offCentre;
-  return (enclosingRadius / Math.sin(halfFov)) * CAMERA_FIT_MARGIN;
+export interface FitExtent {
+  /** Greatest horizontal distance from the orbit axis to any point of the
+   *  body, i.e. `max(hypot(x, z))` over the bounding box's corners. Taken at
+   *  the worst azimuth rather than per-orbit-angle, so a body stays framed
+   *  through a full rotation instead of clipping as it turns side-on. */
+  radiusXZ: number;
+  /** Greatest vertical distance from the orbit TARGET to the top or the bottom
+   *  of the body — not half the height, because the target deliberately sits
+   *  below centre. */
+  halfHeight: number;
+}
+
+/**
+ * The body's real extent, about the orbit target, from the geometry the
+ * renderer is actually going to draw.
+ *
+ * `Box3.setFromObject` walks every mesh's world-transformed geometry, so this
+ * needs no cooperation from the model files and is automatically right for a
+ * model whose parts are rotated or offset — the H6056's bars are pitched in
+ * their yokes and toed in toward each other, and no constant in that file
+ * describes the resulting silhouette.
+ *
+ * `updateMatrixWorld(true)` first: three only refreshes matrices during a
+ * render, and this runs at mount, long before the first frame.
+ */
+function measureFitExtent(model: LampModel, targetY: number): FitExtent {
+  model.object3D.updateMatrixWorld(true);
+  const box = new Box3().setFromObject(model.object3D);
+  if (box.isEmpty()) {
+    // Nothing measurable (a model built with no meshes should not exist, but a
+    // zero-area box would divide the framing math by nothing). Fall back to the
+    // model's self-reported sphere, which is always populated.
+    return { radiusXZ: model.fitRadius, halfHeight: model.fitRadius };
+  }
+  const xs = [box.min.x, box.max.x];
+  const zs = [box.min.z, box.max.z];
+  let radiusXZ = 0;
+  for (const x of xs) {
+    for (const z of zs) {
+      radiusXZ = Math.max(radiusXZ, Math.hypot(x, z));
+    }
+  }
+  return {
+    radiusXZ,
+    halfHeight: Math.max(box.max.y - targetY, targetY - box.min.y),
+  };
+}
+
+export function cameraFitDistance(extent: FitExtent, aspect: number): number {
+  const halfFovV = (CAMERA_FOV_DEGREES * Math.PI) / 360;
+  const halfFovH = Math.atan(Math.tan(halfFovV) * aspect);
+  // `tan`, not `sin`: `r / sin(halfFov)` is the tangency distance for a
+  // SPHERE of radius r, and that is what this used to compute. A sphere is a
+  // loose bound for every body here — the H6056 is a pair of bars 2.8 wide and
+  // 2.4 tall, whose enclosing sphere is driven entirely by its width, so
+  // fitting that sphere vertically pushed the camera far enough back that the
+  // bars filled barely half the frame's height and read as small and far away.
+  // Fitting the box's two half-extents against their own axes instead is what
+  // a person means by "frame the object".
+  //
+  // `+ radiusXZ` on both terms is the near-side correction: the closest point
+  // of the body sits that much nearer the camera than the orbit axis does, and
+  // a distance measured to the axis alone would let the near edge push out of
+  // frame.
+  const distanceForV = extent.halfHeight / Math.tan(halfFovV) + extent.radiusXZ;
+  const distanceForH = extent.radiusXZ / Math.tan(halfFovH) + extent.radiusXZ;
+  return Math.max(distanceForV, distanceForH) * CAMERA_FIT_MARGIN;
 }
 
 function drawView(view: ViewState, rects: FrameRects, tSeconds: number, nowMs: number): void {
@@ -658,12 +780,16 @@ function drawView(view: ViewState, rects: FrameRects, tSeconds: number, nowMs: n
     clearLedField(buffer);
   }
 
-  applyEmission(view.model, view.ledTex, view.power, view.brightness);
+  // The gain `applyEmission` returns is this frame's exposure lift (see
+  // `emission.ts`'s `frameNormalizeGain`). Threading it into the cast light
+  // and the halo below — rather than letting each recompute it — is what
+  // keeps the light a lamp throws at the same exposure as the lamp itself.
+  const frameGain = applyEmission(view.model, view.ledTex, view.power, view.brightness);
   setDiffuserQuality(view.model, view.tier);
 
   const brightnessFactor = view.power ? brightnessGlow(view.brightness) : 0;
-  updateSpillLights(view.spillLights, view.model, buffer, brightnessFactor);
-  updateHalo(view.halo, meanAllLedColor(buffer), brightnessFactor);
+  updateSpillLights(view.spillLights, view.model, buffer, brightnessFactor, frameGain);
+  updateHalo(view.halo, meanAllLedColor(buffer), brightnessFactor, frameGain);
 
   // Reparent the shared body into this view's scene immediately before
   // drawing it — see models/source.ts's module doc comment for why this is
@@ -703,17 +829,17 @@ function renderFrame(tSeconds: number): void {
 
   for (const stageView of active) {
     const view = viewStates.get(stageView.id);
-    if (!view || !stageView.box) continue;
-    const rects = computeFrameRects(stageView.box, canvasCss);
+    if (!view || !stageView.box || !stageView.clipBox) continue;
+    const rects = computeFrameRects(stageView.box, stageView.clipBox, canvasCss);
     if (!rects) continue;
     drawView(view, rects, tSeconds, nowMs);
   }
 
   for (const stageView of slow) {
     const view = viewStates.get(stageView.id);
-    if (!view || !stageView.box) continue;
+    if (!view || !stageView.box || !stageView.clipBox) continue;
     if (!dueForSlowRedraw(view.lastSlowDrawAt, nowMs)) continue;
-    const rects = computeFrameRects(stageView.box, canvasCss);
+    const rects = computeFrameRects(stageView.box, stageView.clipBox, canvasCss);
     if (!rects) continue;
     view.lastSlowDrawAt = nowMs;
     drawView(view, rects, tSeconds, nowMs);
@@ -721,14 +847,16 @@ function renderFrame(tSeconds: number): void {
 }
 
 /** `drawOnce()`'s implementation: measures the view's own current box
- *  directly (bypassing the registry's cached box and its `clipTo`
- *  intersection) rather than waiting for the next tick's `readBoxes()` —
- *  appropriate for an explicit "draw right now" request, though it means a
- *  view clipped by a scrolling ancestor could, for this one immediate call
- *  only, paint slightly past that ancestor's edge until the next regular
- *  tick corrects it. Silently does nothing if the view is currently fully
- *  off-canvas or the renderer isn't ready yet — the same "no area, no draw"
- *  stance `views.ts` takes everywhere else. */
+ *  directly (bypassing the registry's cached box) rather than waiting for
+ *  the next tick's `readBoxes()` — appropriate for an explicit "draw right
+ *  now" request. It still applies the same `clipTo` intersection the
+ *  registry does: the view's element box frames the camera unclipped (same
+ *  reasoning as `computeFrameRects`), but the box actually painted is that
+ *  rect intersected with `view.clipTo`'s own current box, so this escape
+ *  hatch cannot paint past a scrolling ancestor's edge even on its one
+ *  immediate call. Silently does nothing if the view is currently fully
+ *  off-canvas (by its clipped box) or the renderer isn't ready yet — the
+ *  same "no area, no draw" stance `views.ts` takes everywhere else. */
 function drawViewImmediate(view: ViewState): void {
   const renderer = sharedRenderer;
   const canvas = sharedCanvas;
@@ -736,10 +864,21 @@ function drawViewImmediate(view: ViewState): void {
 
   const rect = view.element.getBoundingClientRect();
   const box: ScreenRect = { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+  let clipBox: ScreenRect = box;
+  if (view.clipTo) {
+    const clipRect = view.clipTo.getBoundingClientRect();
+    const intersected = intersectRect(box, {
+      left: clipRect.left,
+      top: clipRect.top,
+      width: clipRect.width,
+      height: clipRect.height,
+    });
+    clipBox = intersected ?? { left: box.left, top: box.top, width: 0, height: 0 };
+  }
   const canvasCss = cssSize(canvas.clientWidth, canvas.clientHeight);
-  if (!isOnScreen(box, canvasCss)) return;
+  if (!isOnScreen(clipBox, canvasCss)) return;
 
-  const rects = computeFrameRects(box, canvasCss);
+  const rects = computeFrameRects(box, clipBox, canvasCss);
   if (!rects) return;
 
   const nowMs = typeof performance !== "undefined" ? performance.now() : Date.now();

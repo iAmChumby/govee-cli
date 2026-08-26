@@ -178,16 +178,17 @@ export interface ViewRegistration {
    * — in this app, the `main.overflow-y-auto` app frame, so a plate
    * scrolled up under the fixed `TopBar` doesn't draw through it. When set,
    * `readBoxes` intersects the view's own box with this element's box
-   * (`intersectRect`) and uses the intersection as `box`; a view whose box
-   * no longer overlaps its clip box at all is treated as not visible, even
-   * though its own `getBoundingClientRect()` might still nominally overlap
-   * the render canvas.
+   * (`intersectRect`) and stores the intersection as `StageView.clipBox`,
+   * separate from the view's own unclipped `StageView.box` — a view whose
+   * clipped box no longer overlaps its clip box at all is treated as not
+   * visible, even though its own `getBoundingClientRect()` might still
+   * nominally overlap the render canvas.
    */
   clipTo?: HTMLElement;
 }
 
 /**
- * One mounted stage, as the registry tracks it. `box`/`visible`/
+ * One mounted stage, as the registry tracks it. `box`/`clipBox`/`visible`/
  * `lastVisibleAt`/`active`/`activeSince`/`lastActiveAt` are `null`/`false`/
  * `0` until the first `readBoxes()`/`drawSets()` pass measures and schedules
  * the element; a view registered mid-frame simply sits out of every
@@ -200,7 +201,32 @@ export interface StageView {
   element: HTMLElement;
   tier: "hero" | "plate";
   visible: boolean;
+  /**
+   * This view's own on-screen box, in CSS pixels — the FULL
+   * `getBoundingClientRect()` result, never intersected with `clipTo`. A
+   * consumer that frames a camera from this box gets a stable aspect ratio
+   * and field of view regardless of how much of the view is actually
+   * scrolled under a clipping ancestor; see `clipBox` for the rect that
+   * limits what actually paints. Previously this field WAS the
+   * `clipTo`-intersected box, which fed both the camera framing and the
+   * paint clip from one shrinking rect — the bug this split fixes: a stage
+   * scrolling under the fixed `TopBar` had its camera aspect and FOV
+   * recomputed from the shrinking visible sliver every frame, so the lamp
+   * visibly squashed and shrank as it scrolled rather than staying framed
+   * and simply being clipped.
+   */
   box: ScreenRect | null;
+  /**
+   * `box` intersected with `clipTo`'s own rect (a copy of `box` when there
+   * is no `clipTo`), collapsed to zero area when there is no overlap at
+   * all — the same "no area, no draw" convention `isOnScreen`/`clampScissor`
+   * use elsewhere in this module. This is what actually limits painted
+   * pixels (a scissor rect derives from this, never from `box`), and it is
+   * also what `visible` below is computed from: a view scrolled entirely out
+   * from under its clipping ancestor must still draw nothing, even though
+   * its own unclipped `box` might nominally still overlap the render canvas.
+   */
+  clipBox: ScreenRect | null;
   lastVisibleAt: number;
   clipTo?: HTMLElement;
   /** Whether this plate held an `active` slot as of the most recent
@@ -243,11 +269,13 @@ export interface ViewRegistry {
   register(view: ViewRegistration): () => void;
   /**
    * Measures every registered element's `getBoundingClientRect()` against
-   * the canvas's current CSS-space size and updates `box`/`visible`
-   * accordingly. When a view has `clipTo` set, its box is first intersected
-   * with the clip element's own rect (`intersectRect`); a view pushed
-   * entirely outside its clip box is measured as if it had zero area, so
-   * `isOnScreen` — and everything downstream — treats it as not visible.
+   * the canvas's current CSS-space size and updates `box`/`clipBox`/
+   * `visible` accordingly. `box` is always the FULL element rect, untouched
+   * by `clipTo`. When a view has `clipTo` set, `clipBox` is that full box
+   * intersected with the clip element's own rect (`intersectRect`); a view
+   * pushed entirely outside its clip box gets a `clipBox` of zero area, so
+   * `isOnScreen` — and everything downstream, including `visible` — treats
+   * it as not visible. A view with no `clipTo` gets `clipBox` equal to `box`.
    *
    * `nowMs` is stamped onto `lastVisibleAt` only on the transition from
    * off-screen (or never-yet-measured) to on-screen — a view that has
@@ -318,6 +346,7 @@ export function createViewRegistry(): ViewRegistry {
         tier: registration.tier,
         visible: false,
         box: null,
+        clipBox: null,
         lastVisibleAt: 0,
         clipTo: registration.clipTo,
         active: false,
@@ -343,12 +372,17 @@ export function createViewRegistry(): ViewRegistry {
     readBoxes(canvas: CssSize, nowMs: number): void {
       for (const view of views.values()) {
         const rect = view.element.getBoundingClientRect();
-        let box: ScreenRect = {
+        const box: ScreenRect = {
           left: rect.left,
           top: rect.top,
           width: rect.width,
           height: rect.height,
         };
+        // `clipBox` is the paint/visibility rect; `box` above stays the full,
+        // unclipped element rect so the camera framing derived from it (see
+        // `renderer.ts`'s `computeFrameRects`) never shrinks just because a
+        // scrolling ancestor is covering part of the view.
+        let clipBox: ScreenRect = box;
         if (view.clipTo) {
           const clipRect = view.clipTo.getBoundingClientRect();
           const intersected = intersectRect(box, {
@@ -360,10 +394,11 @@ export function createViewRegistry(): ViewRegistry {
           // No overlap with the clip box: keep the box's position (for
           // diagnostics) but zero its area so `isOnScreen` reports false,
           // the same "no area, no draw" rule the rest of this module uses.
-          box = intersected ?? { left: box.left, top: box.top, width: 0, height: 0 };
+          clipBox = intersected ?? { left: box.left, top: box.top, width: 0, height: 0 };
         }
-        const onScreen = isOnScreen(box, canvas);
+        const onScreen = isOnScreen(clipBox, canvas);
         view.box = box;
+        view.clipBox = clipBox;
         if (onScreen && !view.visible) {
           view.lastVisibleAt = nowMs;
         }

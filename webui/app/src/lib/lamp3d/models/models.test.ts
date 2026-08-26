@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, it, beforeEach } from "vitest";
-import type { BufferGeometry } from "three";
+import { Box3, Vector3, type BufferGeometry, type Mesh } from "three";
 import { h6022Source } from "./h6022";
 import { h6056Source } from "./h6056";
 import { h6008Source } from "./h6008";
@@ -113,6 +113,16 @@ function vRange(geometry: BufferGeometry): { vMin: number; vMax: number } {
     if (v > vMax) vMax = v;
   }
   return { vMin, vMax };
+}
+
+/** A mesh's own geometry bounds, computed on demand. `Box3.setFromObject`
+ *  would bake in the world transform; these tests want the untransformed
+ *  bounds so they can apply exactly the matrix they mean to. */
+function boundsOf(mesh: Mesh): Box3 {
+  mesh.geometry.computeBoundingBox();
+  const box = mesh.geometry.boundingBox;
+  if (!box) throw new Error("mesh geometry has no bounding box");
+  return box;
 }
 
 describe("h6022Source", () => {
@@ -245,24 +255,90 @@ describe("h6056Source", () => {
     }
   });
 
-  it("places every LED ON its own bar's actual rendered capsule surface", () => {
-    // model.diffusers is [leftBar, rightBar] (see h6056.ts's build()), each
-    // with its own BufferGeometry as of the per-bar UV fix. Reading each
-    // bar's real geometry and its real mesh.position.x — rather than
-    // placeLeds' own LEFT_X/RIGHT_X/BAR_RADIUS constants — is what catches a
-    // rendered bar moving or resizing while LED placement stays put.
+  it("places every LED ON the plane of its own bar's actual rendered face, inside that face's bounds", () => {
+    // The bars stopped being capsules: each is now a flat diffuser panel set
+    // into a shell, pitched back in its yoke and toed in toward its partner
+    // (h6056.ts). "Same radius from the bar's axis" no longer describes the
+    // lit surface at all, so this asserts the property that does — and it is
+    // a strictly stronger one than the radius check it replaces, because a
+    // plane plus bounds pins all three coordinates rather than just two.
+    //
+    // Everything here is read out of the rendered mesh: its world matrix, its
+    // real geometry's local bounds. `placeLeds` derives its positions from
+    // that same world matrix via `localToWorld`, which is exactly why this
+    // test cannot be satisfied by a placement that merely agrees with the
+    // model's own constants — there is no constant left to agree with.
     for (const row of [0, 1]) {
-      const barMesh = model.diffusers[row];
-      const barX = barMesh.position.x;
-      const band = findMaxRadiusBand(barMesh.geometry, 0, 0);
-      expect(band.radius).toBeGreaterThan(0);
+      const faceMesh = model.diffusers[row];
+      faceMesh.updateMatrixWorld(true);
+      faceMesh.geometry.computeBoundingBox();
+      const bounds = faceMesh.geometry.boundingBox;
+      if (!bounds) throw new Error("face geometry has no bounding box");
+
       const rowLeds = model.leds.filter((p) => p.row === row);
-      expect(rowLeds.length).toBeGreaterThan(0);
+      expect(rowLeds.length).toBe(H6056_LAYOUT.cols);
+
+      const inverse = faceMesh.matrixWorld.clone().invert();
       for (const p of rowLeds) {
-        const r = Math.hypot(p.position[0] - barX, p.position[2]);
-        expect(Math.abs(r - band.radius)).toBeLessThan(EPS);
-        expect(p.position[1]).toBeGreaterThanOrEqual(band.yMin - EPS);
-        expect(p.position[1]).toBeLessThanOrEqual(band.yMax + EPS);
+        // Back into the face's own local space: a point ON the panel must
+        // land at local z = 0 (the plane) and inside the panel's rectangle.
+        const local = new Vector3(p.position[0], p.position[1], p.position[2]).applyMatrix4(inverse);
+        expect(Math.abs(local.z)).toBeLessThan(1e-9);
+        expect(local.x).toBeGreaterThanOrEqual(bounds.min.x - EPS);
+        expect(local.x).toBeLessThanOrEqual(bounds.max.x + EPS);
+        expect(local.y).toBeGreaterThanOrEqual(bounds.min.y - EPS);
+        expect(local.y).toBeLessThanOrEqual(bounds.max.y + EPS);
+      }
+    }
+  });
+
+  it("aims every LED along its own bar's rendered face normal, toed in rather than straight ahead", () => {
+    // The normal is what `cast-light.ts` throws spill along, so it has to
+    // follow the bar's actual orientation. Both bars yaw toward the centre
+    // line, so the left bar's normal must have a positive x component and the
+    // right bar's a negative one — and neither may be the un-rotated (0, 0, 1)
+    // that a placement ignoring the transform would produce.
+    const leftNormal = model.leds.find((p) => p.row === 0)?.normal;
+    const rightNormal = model.leds.find((p) => p.row === 1)?.normal;
+    if (!leftNormal || !rightNormal) throw new Error("missing bar normals");
+    expect(leftNormal[0]).toBeGreaterThan(0);
+    expect(rightNormal[0]).toBeLessThan(0);
+    // Pitched back in the yoke, so both tilt slightly upward too.
+    expect(leftNormal[1]).toBeGreaterThan(0);
+    expect(rightNormal[1]).toBeGreaterThan(0);
+  });
+
+  it("leaves every lit face PROUD of the shell it sits in, not buried inside it", () => {
+    // The bug this exists to catch: `ExtrudeGeometry`'s `bevelSize` extends the
+    // contour outward from the shape's outline, so the shell's real half-depth
+    // is larger than the `BAR_DEPTH / 2` it was authored from. A face placed
+    // from that constant sat *inside* the shell, and both bars rendered as dark
+    // slabs — with the emission computed correctly, uploaded correctly, and
+    // completely invisible. No emission test can catch that; only geometry can.
+    //
+    // Compared in the SHARED PARENT's space, not in world space. The face and
+    // its shell are both children of the same pitched group, so "in front of"
+    // is unambiguous there and independent of how the bar is later pitched or
+    // toed in. A world-space comparison would be wrong in a way that looks
+    // right: the shell is taller than the face, so the pitch swings its top
+    // corner further along world +z than the face's corner without that corner
+    // occluding the face at all.
+    model.object3D.updateMatrixWorld(true);
+
+    for (const face of model.diffusers) {
+      const parent = face.parent;
+      expect(parent).toBeTruthy();
+      if (!parent) continue;
+
+      const faceBox = new Box3()
+        .copy(boundsOf(face))
+        .applyMatrix4(face.matrix);
+
+      const siblings = parent.children.filter((c) => c !== face && (c as Mesh).isMesh) as Mesh[];
+      expect(siblings.length).toBeGreaterThan(0);
+      for (const sibling of siblings) {
+        const shellBox = new Box3().copy(boundsOf(sibling)).applyMatrix4(sibling.matrix);
+        expect(faceBox.max.z).toBeGreaterThan(shellBox.max.z);
       }
     }
   });
