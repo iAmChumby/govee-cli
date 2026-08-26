@@ -141,8 +141,12 @@ export function reconcile<S extends DeviceState | DeviceSummary>(
       // (confidence always "assumed": this is a client claim about its own
       // just-issued command, never a server-verified fact — see §3.4).
       const wanted = intent.value as ActiveModeIntentValue | null;
+      // A null `live` means the sidecar could not read this device at all, so
+      // it cannot confirm anything — that is divergence, not agreement, and the
+      // client's own just-issued claim stands until a read succeeds. Only an
+      // explicit `wanted === null` (nothing was claimed) stands down here.
       const live = server.active;
-      if (wanted === null || sameValue({ mode: live.mode, label: live.label }, wanted)) {
+      if (wanted === null || (live != null && sameValue({ mode: live.mode, label: live.label }, wanted))) {
         confirmed.push(field);
         continue;
       }

@@ -978,12 +978,13 @@ export function DeviceStage({
   // §4.3: check active.mode FIRST, before building the instrument's own
   // emission colors — a non-basic/non-off/non-unknown mode must not let
   // `activeHsl` (a guess from possibly-stale `color`/`color_temp_k`) drive
-  // Halo/EmissionLayers/core. `active` is typed as required on both
-  // DeviceState/DeviceSummary, but read through a local `| undefined`
-  // binding anyway (no cast) so a defensively-missing field at runtime
-  // falls through to `motionMeta === null` — the same "keep today's
-  // rendering" path as basic/off/unknown, per the regression guard.
-  const active: DeviceState["active"] | undefined = state.active;
+  // Halo/EmissionLayers/core. `DeviceSummary.active` is genuinely nullable —
+  // the list route emits null for a device it could not read — so this binding
+  // admits null as well as undefined, and both fall through to
+  // `motionMeta === null`: the same "keep today's rendering" path as
+  // basic/off/unknown. The defensive read predated the honest type; it was
+  // right, and the type now says so.
+  const active: DeviceState["active"] | null | undefined = state.active;
   const motionMeta = motionModeMetaFor(active?.mode);
   const hasMotionTexture = motionMeta !== null;
   const chassisHsl = hasMotionTexture ? NEUTRAL_CHASSIS_HSL : activeHsl;

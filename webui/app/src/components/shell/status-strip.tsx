@@ -148,14 +148,17 @@ export function StatusStrip() {
   // never an average across devices, which would be exactly the dishonest
   // "muddy purple" §C rules out for multi-device color.
   const activeModeDevices = React.useMemo(
-    () => (devices.data ?? []).filter((d) => NON_BASIC_MODES.has(d.active.mode)),
+    // A device the sidecar could not read carries `active: null` — no record,
+    // so no claim. Excluded rather than counted as basic, for the same reason
+    // `mode: "unknown"` renders as unknown: absence is not evidence.
+    () => (devices.data ?? []).filter((d) => d.active != null && NON_BASIC_MODES.has(d.active.mode)),
     [devices.data],
   );
   const mostRecentActive = React.useMemo(() => {
     if (activeModeDevices.length === 0) return null;
     return [...activeModeDevices].sort((a, b) => {
-      const at = a.active.set_at ? Date.parse(a.active.set_at) : 0;
-      const bt = b.active.set_at ? Date.parse(b.active.set_at) : 0;
+      const at = a.active?.set_at ? Date.parse(a.active.set_at) : 0;
+      const bt = b.active?.set_at ? Date.parse(b.active.set_at) : 0;
       return bt - at;
     })[0];
   }, [activeModeDevices]);
@@ -303,7 +306,7 @@ export function StatusStrip() {
                 which lamp and which scene, with a count only when there
                 are others. */}
             {mostRecentActive.name}
-            {mostRecentActive.active.label ? ` · ${mostRecentActive.active.label}` : ""}
+            {mostRecentActive.active?.label ? ` · ${mostRecentActive.active.label}` : ""}
             {activeModeDevices.length > 1 ? ` +${activeModeDevices.length - 1}` : ""}
           </Chip>
         ) : null}

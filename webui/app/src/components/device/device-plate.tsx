@@ -74,7 +74,7 @@ export function activeHsl(device: DeviceSummary): Hsl {
 /** api.ts's ledger `mode` onto the motion engine's own kind; null when nothing
  *  is playing (off / basic / unknown), which is the no-motion, no-guess case. */
 function motionModeMetaFor(
-  mode: DeviceSummary["active"]["mode"] | undefined,
+  mode: NonNullable<DeviceSummary["active"]>["mode"] | undefined,
 ): MotionActiveMode["kind"] | null {
   switch (mode) {
     case "scene":
@@ -272,14 +272,14 @@ export function DevicePlate({ device }: { device: DeviceSummary }) {
   }, [device.power]);
 
   // Celebration #2 — "scene confirmed": the ledger catching up, assumed -> confirmed.
-  const prevConfidence = React.useRef(device.active.confidence);
+  const prevConfidence = React.useRef(device.active?.confidence);
   const [confirmId, setConfirmId] = React.useState(0);
   React.useEffect(() => {
-    if (prevConfidence.current === "assumed" && device.active.confidence === "confirmed") {
+    if (prevConfidence.current === "assumed" && device.active?.confidence === "confirmed") {
       setConfirmId((n) => n + 1);
     }
-    prevConfidence.current = device.active.confidence;
-  }, [device.active.confidence]);
+    prevConfidence.current = device.active?.confidence;
+  }, [device.active?.confidence]);
 
   const commitBrightness = (value: number) => {
     setScrub(null);

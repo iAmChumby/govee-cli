@@ -94,7 +94,22 @@ export interface DeviceSummary {
   brightness: number | null;
   color: LightColor | null;
   color_temp_k: number | null;
-  active: ActiveMode;
+  /**
+   * Absent or `null` whenever the sidecar could not speak for this device.
+   *
+   * Two separate causes, and the type has to admit both. `list_devices`
+   * swallows a failed read into `state = {}` so one offline lamp does not blank
+   * the grid — every field including `active` then comes back `null`. And a
+   * sidecar older than the commit that added `"active"` to that payload omits
+   * the key altogether, so it reads `undefined`. Typed as required, either one
+   * crashed the entire console on the first dereference, because TypeScript
+   * casts responses here rather than validating them and a compiler cannot see
+   * the wire.
+   *
+   * Missing means exactly what `mode: "unknown"` means: no record, so claim
+   * nothing. Guard with a truthiness check, never `!== null` alone.
+   */
+  active?: ActiveMode | null;
 }
 
 /** WEBUI_V3_SPEC.md §6.5 — replaces the old flat `scheduler: boolean`.
