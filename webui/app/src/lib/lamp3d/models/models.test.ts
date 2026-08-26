@@ -361,6 +361,27 @@ describe("h6056Source", () => {
     expect(() => disposable.dispose()).not.toThrow();
     expect(() => disposable.dispose()).not.toThrow();
   });
+
+  it("actually follows the reported layout rather than assuming 2x48", () => {
+    // `placeLeds`'s doc promises the model tracks whatever matrix capabilities
+    // report. It did not: the bar count was hardcoded to two, so a one-row
+    // layout still built a second bar whose `remapFaceUv` pinned v at
+    // (1 + 0.5) / 1 = 1.5 and sampled outside the texture entirely; and the
+    // face's segment count was fixed at 48 regardless of `cols`. Either the
+    // code follows the layout or the comment has to stop saying it does.
+    const single = h6056Source.build({ rows: 1, cols: 24, wrapCol: false });
+    expect(single.diffusers.length).toBe(1);
+    expect(single.leds.length).toBe(24);
+    expect(single.spill.length).toBe(1);
+
+    const { vMin, vMax } = vRange(single.diffusers[0].geometry);
+    // One row means one texel band, centred at 0.5 — and crucially inside
+    // [0, 1], which the hardcoded-two version was not.
+    expect(vMin).toBeCloseTo(0.5, 6);
+    expect(vMax).toBeCloseTo(0.5, 6);
+
+    expect(() => single.dispose()).not.toThrow();
+  });
 });
 
 describe("h6008Source", () => {

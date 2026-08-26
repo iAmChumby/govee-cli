@@ -175,6 +175,18 @@ export function createGestureCommit<T>(opts: GestureCommitOptions<T>): GestureCo
       // have fired can never send the same gesture's value twice.
       clearPointerTimer();
       pendingPointer = null;
+      // ...and it beats a still-buffered KEYBOARD run too. The two channels
+      // hold independent timers, and without this a wheel-then-drag sends the
+      // drag's value and then, up to `keyCommitDelayMs` later, the stale wheel
+      // value on top of it: the lamp ends up somewhere the control is not
+      // pointing. (A wheel over a control does not focus it, so there is no
+      // `blur` or `keyup` to flush the buffer either.) The newest COMPLETED
+      // interaction is the user's intent, so the older channel is dropped
+      // rather than flushed — dropping also spends one cloud request where
+      // flushing would spend two, on a device where every request is a real
+      // command. See `flushKeyRun` for the mirror image.
+      clearKeyTimer();
+      pendingKey = null;
       opts.send(value);
     },
     bufferKeyStep(value) {
@@ -191,6 +203,12 @@ export function createGestureCommit<T>(opts: GestureCommitOptions<T>): GestureCo
       clearKeyTimer();
       const v = pendingKey;
       pendingKey = null;
+      // The mirror of `commitPointerRelease`: a completed key run also
+      // invalidates a pointer gesture still sitting on its safety net. That
+      // net only holds a value when a drag ended WITHOUT a clean release, so
+      // anything still in it is older than the key run that just finished.
+      clearPointerTimer();
+      pendingPointer = null;
       if (v !== null) opts.send(v);
     },
     dispose() {

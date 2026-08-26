@@ -199,7 +199,8 @@ def _flush_to_disk(
 
     lock_fd = os.open(METER_LOCK_PATH, os.O_CREAT | os.O_RDWR, 0o644)
     try:
-        filelock.lock_exclusive(lock_fd)  # blocking — writes are microseconds
+        # blocking — writes are microseconds
+        filelock.lock_exclusive(lock_fd, str(METER_LOCK_PATH))
 
         data = _read_document()
 
@@ -240,7 +241,7 @@ def _flush_to_disk(
             f.flush()
         os.replace(tmp_path, METER_PATH)  # atomic on ext4: never a torn read
     finally:
-        filelock.unlock(lock_fd)
+        filelock.unlock(lock_fd, str(METER_LOCK_PATH))
         os.close(lock_fd)
 
 

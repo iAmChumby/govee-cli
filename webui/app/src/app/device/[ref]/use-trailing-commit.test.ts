@@ -194,3 +194,59 @@ test("dispose discards a pending pointer safety net without sending (unmount cas
 
   assert.deepEqual(sent, []);
 });
+
+/* ------------------------------------------------------------------
+   Cross-channel invalidation. The two commit channels hold independent
+   timers, and a completed gesture on one must not be overridden moments
+   later by a stale buffer on the other — the lamp would end up somewhere
+   the control is not pointing. Nothing above exercised both channels in
+   one interaction, which is how this shipped.
+   ------------------------------------------------------------------ */
+
+test("a pointer release drops a still-buffered keyboard run (wheel, then drag)", () => {
+  const sent: number[] = [];
+  const g = createGestureCommit<number>({
+    send: (v) => sent.push(v),
+    keyCommitDelayMs: 300,
+    pointerSafetyNetMs: 1500,
+  });
+
+  // Scroll-wheel nudges the dial to 60. A wheel does not focus the control,
+  // so no keyup or blur will ever flush this buffer.
+  g.bufferKeyStep(60);
+  vi.advanceTimersByTime(50);
+
+  // Within the key window the user grabs the dial and drags to 30.
+  g.trackPointerMove(45);
+  g.trackPointerMove(30);
+  g.commitPointerRelease(30);
+
+  assert.deepEqual(sent, [30]);
+
+  // The stale key timer must never land afterwards.
+  vi.advanceTimersByTime(5000);
+  assert.deepEqual(sent, [30]);
+});
+
+test("a keyboard flush drops a pointer gesture still sitting on its safety net", () => {
+  const sent: number[] = [];
+  const g = createGestureCommit<number>({
+    send: (v) => sent.push(v),
+    keyCommitDelayMs: 300,
+    pointerSafetyNetMs: 1500,
+  });
+
+  // A drag that never delivered its release event.
+  g.trackPointerMove(80);
+  vi.advanceTimersByTime(100);
+
+  // The user then arrows to 20 and lets go of the key.
+  g.bufferKeyStep(20);
+  g.flushKeyRun();
+
+  assert.deepEqual(sent, [20]);
+
+  // The orphaned safety net must not fire 80 on top of it.
+  vi.advanceTimersByTime(5000);
+  assert.deepEqual(sent, [20]);
+});

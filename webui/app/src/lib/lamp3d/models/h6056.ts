@@ -241,8 +241,14 @@ function remapFaceUv(geometry: BufferGeometry, row: number, rows: number): void 
  * blend what the rasteriser interpolates between, and a 1-segment quad gives
  * it two endpoints for 48 texels.
  */
-function buildFaceGeometry(row: number, rows: number): BufferGeometry {
-  const geometry = new PlaneGeometry(FACE_WIDTH, FACE_HEIGHT, 1, 48);
+function buildFaceGeometry(row: number, rows: number, cols: number): BufferGeometry {
+  // Segmented along its length by the emitter count the layout actually
+  // reports, not a hardcoded 48. `LinearFilter` magnification can only blend
+  // between values the rasteriser interpolates, and a 1-segment quad gives it
+  // two endpoints to span every texel with — so the segment count has to track
+  // `cols` or the bands stop lining up with the mesh the moment the sidecar
+  // reports a different matrix.
+  const geometry = new PlaneGeometry(FACE_WIDTH, FACE_HEIGHT, 1, Math.max(1, cols));
   remapFaceUv(geometry, row, rows);
   return geometry;
 }
@@ -273,7 +279,7 @@ interface BarParts {
  * point the yoke actually grips it, the way the real hinge does, rather than
  * about its own base or the world origin.
  */
-function buildBar(row: number, rows: number, side: -1 | 1, materials: BarMaterials): BarParts {
+function buildBar(row: number, rows: number, cols: number, side: number, materials: BarMaterials): BarParts {
   const group = new Group();
 
   const baseMesh = new Mesh(materials.baseGeometry, materials.shell);
@@ -292,7 +298,7 @@ function buildBar(row: number, rows: number, side: -1 | 1, materials: BarMateria
   const shellMesh = new Mesh(materials.shellGeometry, materials.shell);
   shellMesh.position.y = BAR_BOTTOM_Y - PIVOT_Y;
 
-  const faceMesh = new Mesh(buildFaceGeometry(row, rows), materials.diffuser);
+  const faceMesh = new Mesh(buildFaceGeometry(row, rows, cols), materials.diffuser);
   faceMesh.position.set(
     0,
     BAR_BOTTOM_Y + BAR_HEIGHT / 2 - PIVOT_Y,
@@ -451,12 +457,22 @@ export const h6056Source: ProceduralSource = {
       baseGeometry,
     };
 
-    const left = buildBar(0, layout.rows, -1, materials);
-    const right = buildBar(1, layout.rows, 1, materials);
-    const bars = [left, right];
+    // One bar per reported row, rather than exactly two. The capability for
+    // this model is 2x48 and realistically stays that way, but `placeLeds`'s
+    // own comment promises the model follows the layout, and hardcoding the
+    // pair made that promise false: at `rows === 1` the second bar's
+    // `remapFaceUv` pinned `v = 1.5` and sampled outside the texture entirely.
+    // `sideFor` spreads whatever number of bars there are symmetrically about
+    // the centre line, so the two-bar case is unchanged (-1 and +1).
+    const barCount = Math.max(1, layout.rows);
+    const sideFor = (row: number): number =>
+      barCount === 1 ? 0 : -1 + (2 * row) / (barCount - 1);
+    const bars = Array.from({ length: barCount }, (_, row) =>
+      buildBar(row, barCount, layout.cols, sideFor(row), materials),
+    );
 
     const group = new Group();
-    group.add(left.group, right.group);
+    group.add(...bars.map((b) => b.group));
     // Emitters are read back through the world matrix, so the whole graph has
     // to be current before placeLeds runs.
     group.updateMatrixWorld(true);
@@ -480,7 +496,7 @@ export const h6056Source: ProceduralSource = {
       object3D: group,
       leds,
       layout,
-      diffusers: [left.faceMesh, right.faceMesh],
+      diffusers: bars.map((b) => b.faceMesh),
       slots: { diffuser, shell },
       spill: buildSpill(leds, layout),
       fitRadius,
@@ -488,8 +504,7 @@ export const h6056Source: ProceduralSource = {
       dispose(): void {
         if (disposed) return;
         disposed = true;
-        left.faceMesh.geometry.dispose();
-        right.faceMesh.geometry.dispose();
+        for (const bar of bars) bar.faceMesh.geometry.dispose();
         shellGeometry.dispose();
         yokeGeometry.dispose();
         baseGeometry.dispose();

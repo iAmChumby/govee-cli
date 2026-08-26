@@ -130,10 +130,13 @@ export function Slider({
       step={step}
       disabled={disabled}
       onPointerDown={() => {
-        // A pointer grab flushes any keyboard commit still buffered from
-        // a prior tab-then-arrow-key interaction, so it can never be
-        // dropped by a fresh drag starting before its own keyup arrived.
-        flushKeyCommit();
+        // No explicit key-buffer flush here. `createGestureCommit` now drops a
+        // stale keyboard buffer when a pointer gesture commits (and vice
+        // versa), so the cross-channel guard lives in one place instead of
+        // being re-implemented per control — which is how `Dial` came to be
+        // missing it, and a wheel-then-drag there sent the drag's value and
+        // then the stale wheel value on top of it. Dropping rather than
+        // flushing also spends one cloud request instead of two.
         interactionRef.current = "pointer";
         setDragging(true);
       }}

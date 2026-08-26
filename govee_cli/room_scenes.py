@@ -168,7 +168,8 @@ def _save_scene_unsafe(name: str, devices: list[CapturedDevice]) -> None:
 
     lock_fd = os.open(ROOM_SCENES_LOCK_PATH, os.O_CREAT | os.O_RDWR, 0o644)
     try:
-        filelock.lock_exclusive(lock_fd)  # blocking — writes are microseconds
+        # blocking — writes are microseconds
+        filelock.lock_exclusive(lock_fd, str(ROOM_SCENES_LOCK_PATH))
 
         data = _read_document()
         data["scenes"][name] = {
@@ -183,7 +184,7 @@ def _save_scene_unsafe(name: str, devices: list[CapturedDevice]) -> None:
             os.fsync(f.fileno())
         os.replace(tmp_path, ROOM_SCENES_PATH)  # atomic on ext4: never a torn read
     finally:
-        filelock.unlock(lock_fd)
+        filelock.unlock(lock_fd, str(ROOM_SCENES_LOCK_PATH))
         os.close(lock_fd)
 
 
@@ -225,7 +226,7 @@ def _delete_scene_unsafe(name: str) -> bool:
 
     lock_fd = os.open(ROOM_SCENES_LOCK_PATH, os.O_CREAT | os.O_RDWR, 0o644)
     try:
-        filelock.lock_exclusive(lock_fd)
+        filelock.lock_exclusive(lock_fd, str(ROOM_SCENES_LOCK_PATH))
 
         data = _read_document()
         if name not in data.get("scenes", {}):
@@ -240,7 +241,7 @@ def _delete_scene_unsafe(name: str) -> bool:
         os.replace(tmp_path, ROOM_SCENES_PATH)
         return True
     finally:
-        filelock.unlock(lock_fd)
+        filelock.unlock(lock_fd, str(ROOM_SCENES_LOCK_PATH))
         os.close(lock_fd)
 
 

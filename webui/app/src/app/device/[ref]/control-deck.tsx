@@ -172,11 +172,19 @@ function LightTab({ refId, state }: ControlDeckProps) {
   const lastSent = React.useRef<number | null>(null);
   const commitBrightness = React.useCallback(
     (value: number) => {
-      if (value === lastSent.current || value === state.brightness) return;
+      // Deliberately does NOT also skip when `value === state.brightness`.
+      // That looks like a free saving and is not: `state.brightness` is the
+      // optimistically-updated cache, not the device. If a command was applied
+      // optimistically but never actually landed, the cache reads the value the
+      // user asked for while the lamp sits at the old one — and skipping on it
+      // would leave no way to re-issue that exact value at all, short of moving
+      // the dial away and back. One redundant request is the cheaper mistake,
+      // and it only happens when a person deliberately re-commits a value.
+      if (value === lastSent.current) return;
       lastSent.current = value;
       void controls.brightness({ ref: refId, vars: value });
     },
-    [controls, refId, state.brightness],
+    [controls, refId],
   );
   // once the cache confirms a value, stop pinning the scrub
   React.useEffect(() => {

@@ -142,7 +142,8 @@ def _record_mode_unsafe(
 
     lock_fd = os.open(LEDGER_LOCK_PATH, os.O_CREAT | os.O_RDWR, 0o644)
     try:
-        filelock.lock_exclusive(lock_fd)  # blocking — writes are microseconds
+        # blocking — writes are microseconds
+        filelock.lock_exclusive(lock_fd, str(LEDGER_LOCK_PATH))
 
         data = _read_document()
         data["devices"][device_id] = asdict(entry)
@@ -154,7 +155,7 @@ def _record_mode_unsafe(
             os.fsync(f.fileno())
         os.replace(tmp_path, LEDGER_PATH)  # atomic on ext4: never a torn read
     finally:
-        filelock.unlock(lock_fd)
+        filelock.unlock(lock_fd, str(LEDGER_LOCK_PATH))
         os.close(lock_fd)
 
 
@@ -200,7 +201,7 @@ def _clear_mode_unsafe(device_id: str) -> None:
 
     lock_fd = os.open(LEDGER_LOCK_PATH, os.O_CREAT | os.O_RDWR, 0o644)
     try:
-        filelock.lock_exclusive(lock_fd)
+        filelock.lock_exclusive(lock_fd, str(LEDGER_LOCK_PATH))
 
         data = _read_document()
         if device_id in data.get("devices", {}):
@@ -213,5 +214,5 @@ def _clear_mode_unsafe(device_id: str) -> None:
                 os.fsync(f.fileno())
             os.replace(tmp_path, LEDGER_PATH)
     finally:
-        filelock.unlock(lock_fd)
+        filelock.unlock(lock_fd, str(LEDGER_LOCK_PATH))
         os.close(lock_fd)

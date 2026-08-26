@@ -52,6 +52,14 @@ is precisely the failure that module exists to prevent. A process-local
 OS primitive. That is also strictly cheaper on Linux, where threads now queue on
 a userspace mutex instead of a blocking syscall.
 
+That mutex is **per lock file**, not one for the module. A single shared mutex
+would be held across a ``flock`` that blocks indefinitely, so a CLI invocation
+holding the meter's lock on disk would stall a sidecar thread inside ``flock``
+while it still held the process mutex — and every other thread trying to write
+the *ledger* or *room scenes* would queue behind it, on files nobody is
+contending for. The three state files were independent before this module
+existed and they stay independent.
+
 """
 
 from __future__ import annotations
@@ -89,14 +97,30 @@ _HAVE_FCNTL = _fcntl is not None
 _HAVE_MSVCRT = _msvcrt is not None
 
 
-_process_lock = threading.RLock()
+# One RLock per lock-file key, created on demand under `_registry_lock`. The
+# registry only ever grows, and it grows by exactly the number of distinct state
+# files this process touches — three.
+_registry_lock = threading.Lock()
+_process_locks: dict[str, threading.RLock] = {}
 
 
-def lock_exclusive(fd: int) -> None:
+def _lock_for(key: str) -> threading.RLock:
+    with _registry_lock:
+        existing = _process_locks.get(key)
+        if existing is None:
+            existing = threading.RLock()
+            _process_locks[key] = existing
+        return existing
+
+
+def lock_exclusive(fd: int, key: str) -> None:
     """Take an exclusive lock on ``fd``, blocking until it is available.
 
     ``fd`` is an open file descriptor for the ``.lock`` sibling file, exactly
     as the three callers already open it with ``os.open(..., O_CREAT | O_RDWR)``.
+    ``key`` identifies WHICH state file this is — pass the lock file's path —
+    so threads only ever queue behind others contending for the same file; see
+    the module docstring for why one shared mutex was wrong.
 
     Two layers, in order: the process-local mutex first (so sibling threads
     queue in userspace and only one of them ever reaches the OS), then the
@@ -105,7 +129,8 @@ def lock_exclusive(fd: int) -> None:
     wedge every other thread in this process forever, converting one lost write
     into a permanent hang.
     """
-    _process_lock.acquire()
+    process_lock = _lock_for(key)
+    process_lock.acquire()
     try:
         if _HAVE_FCNTL:
             _fcntl.flock(fd, _fcntl.LOCK_EX)  # blocking — writes are microseconds
@@ -115,12 +140,12 @@ def lock_exclusive(fd: int) -> None:
         else:
             raise RuntimeError("no file-locking primitive available on this platform")
     except BaseException:
-        _process_lock.release()
+        process_lock.release()
         raise
 
 
-def unlock(fd: int) -> None:
-    """Release the lock taken by :func:`lock_exclusive`.
+def unlock(fd: int, key: str) -> None:
+    """Release the lock taken by :func:`lock_exclusive` for the same ``key``.
 
     Never raises: the callers all run this from a ``finally`` block on their way
     out of a critical section, and a failure to unlock an fd that is about to be
@@ -141,7 +166,7 @@ def unlock(fd: int) -> None:
         # mutex — the fd is closed by the caller immediately after this, and
         # closing releases the OS lock on both platforms anyway.
         try:
-            _process_lock.release()
+            _lock_for(key).release()
         except RuntimeError:
             # Not held by this thread: `unlock` was called without a matching
             # successful `lock_exclusive`. Nothing to release, and raising here
