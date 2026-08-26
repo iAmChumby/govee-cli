@@ -50,15 +50,51 @@ export function singleEmitterLayout(): LedLayout {
  * emitter. `matrix_rows`/`matrix_cols` are 0 on the H6008 and absent entirely
  * on a `DeviceSummary` that predates the field, so both are handled here once.
  */
+/**
+ * The matrix each model has, mirroring `MODEL_SPECS` in
+ * `govee_cli/transport.py` — the same three numbers the sidecar reports as
+ * capabilities.
+ *
+ * This exists because the capabilities are not always on the wire.
+ * `GET /devices` returns summaries with no `capabilities` field at all, so
+ * every dashboard plate would otherwise resolve to a single emitter and stay
+ * there: a flat colour where the whole point is 132 emitters. The matrix is a
+ * property of the MODEL, not of the device instance, so a per-model table is a
+ * legitimate answer to "what shape is an H6022" rather than a guess about this
+ * particular lamp. Capabilities still win whenever they are present, so a
+ * device that genuinely reports something else is believed over this table.
+ */
+const MODEL_MATRIX: Readonly<Record<string, LedLayout>> = {
+  H6022: { rows: 11, cols: 12, wrapCol: true },
+  H6056: { rows: 2, cols: 48, wrapCol: false },
+  H6008: { rows: 1, cols: 1, wrapCol: false },
+};
+
 export function layoutFromCapabilities(
   caps: { matrix_rows?: number; matrix_cols?: number; matrix_wrap_col?: boolean } | null | undefined,
+  model?: string | null,
 ): LedLayout {
   const rows = caps?.matrix_rows ?? 0;
   const cols = caps?.matrix_cols ?? 0;
   if (rows > 0 && cols > 0) {
     return { rows, cols, wrapCol: caps?.matrix_wrap_col === true };
   }
+  // A model that reports 0x0 capabilities genuinely has no matrix (the H6008
+  // bulb), so an explicit zero is respected rather than overridden here; the
+  // table is consulted only when the fields are absent entirely.
+  const capsPresent = caps?.matrix_rows !== undefined && caps?.matrix_cols !== undefined;
+  if (!capsPresent && model) {
+    const known = MODEL_MATRIX[model];
+    if (known) return known;
+  }
   return singleEmitterLayout();
+}
+
+/** A value that changes exactly when the LED grid does — for keying a mounted
+ *  view, whose texture is sized from the layout and must be rebuilt if the
+ *  layout changes (capabilities can arrive after the first render). */
+export function layoutKey(layout: LedLayout): string {
+  return [layout.rows, layout.cols, layout.wrapCol ? "wrap" : "flat"].join("x");
 }
 
 /**

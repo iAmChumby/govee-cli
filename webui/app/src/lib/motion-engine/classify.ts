@@ -226,8 +226,9 @@ const MUSIC_MODE_ARCHETYPES: Record<string, MusicModeEntry> = {
   strike: { archetype: "chase", periodSec: 4 },
   rhythm: { archetype: "wave", periodSec: 3 },
   // "sparkle + flicker (composited)" — MotionSpec carries one archetype, so
-  // this resolves to sparkle; drawSparkle's own flicker-in/flicker-out
-  // alpha jitter (canvas-renderer.ts) is what supplies the flicker half.
+  // this resolves to sparkle; the sparkle evaluator's own flicker-in/
+  // flicker-out brightness jitter (`lamp3d/led-field.ts`, ported from the
+  // deleted canvas renderer's identical curve) supplies the flicker half.
   vibrate: { archetype: "sparkle", periodSec: 2 },
   beat: { archetype: "breathe", periodSec: 0.55 }, // ~110bpm
   torch: { archetype: "flicker", periodSec: 3 },

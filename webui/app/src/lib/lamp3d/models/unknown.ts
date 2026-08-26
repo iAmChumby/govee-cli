@@ -56,7 +56,11 @@ export const unknownSource: ProceduralSource = {
     const geometry = buildGeometry();
 
     const diffuser = new MeshPhysicalMaterial({
-      color: 0xcfcfcf,
+      // A diffuser that is near-white before the LEDs turn on saturates under
+      // any environment and leaves emission with nowhere to go — see
+      // renderer.ts's exposure-budget comment. A dimmer base still reads as a
+      // white shade in a dark room and leaves the bright end to the emitters.
+      color: 0x6e6e73,
       roughness: 0.55,
       transmission: 0.6,
       thickness: 0.4,

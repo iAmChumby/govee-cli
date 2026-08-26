@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "motion/react";
 
 import { Chip, Odometer, Panel, Slider, StatusDot, Switch } from "@/components/ui";
-import { DeviceStage } from "@/components/stage/stage";
+import { LampStage } from "@/lib/lamp3d/LampStage";
 import { prefersColorTemp, type Hsl } from "@/components/stage/color";
 import type { DeviceSummary } from "@/lib/api";
 import { useDeviceBleed } from "@/lib/device-bleed";
@@ -22,7 +22,7 @@ import { cn } from "@/lib/cn";
    for the card surface (useDeviceBleed drives --dev-hue/sat/light/alpha
    on the card root so background/border/ambient-shadow tint toward the
    live device color, §C), SIGNAL-PRIME for the instrument itself
-   (DeviceStage, unmodified — owned by T12).
+   (LampStage, the shared-canvas 3D stage — unmodified here).
    ================================================================== */
 
 /** Compact temperature presets — inside every registered model's range. */
@@ -346,7 +346,7 @@ export function DevicePlate({ device }: { device: DeviceSummary }) {
           aria-label={`Open ${name} console`}
           className="group/stage relative mt-3 block aspect-[4/3] rounded-stage focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:aspect-[16/10]"
         >
-          <DeviceStage
+          <LampStage
             state={device}
             variant="mini"
             className="h-full transition-colors duration-200 group-hover/stage:border-hairline-strong"

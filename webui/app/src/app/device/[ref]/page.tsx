@@ -7,7 +7,7 @@ import { motion } from "motion/react";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 
 import { Button, Panel, Skeleton } from "@/components/ui";
-import { DeviceStage } from "@/components/stage/stage";
+import { LampStage } from "@/lib/lamp3d/LampStage";
 import { useDeviceState } from "@/lib/queries";
 import { ApiError } from "@/lib/api";
 import { panelIn, staggerParent } from "@/lib/motion";
@@ -123,7 +123,7 @@ function DeviceConsoleContent({ ref }: { ref: string }) {
                 is the stage's contribution to T34's fold budget; the rest
                 comes from the max-md: chassis trims around it.
               */}
-              <DeviceStage state={state.data} className="h-[260px] sm:h-[380px] lg:h-[480px]" />
+              <LampStage state={state.data} className="h-[260px] sm:h-[380px] lg:h-[480px]" />
               <p className="mt-3 max-md:mt-1.5 px-1 font-mono text-[10px] leading-relaxed max-md:leading-snug text-low">
                 {state.data.id}
                 {state.data.model === "H6022" ? " · 132-led 12×11 wrapped matrix" : ""}

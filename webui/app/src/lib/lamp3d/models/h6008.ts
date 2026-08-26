@@ -91,7 +91,11 @@ export const h6008Source: ProceduralSource = {
     const socketGeometry = buildSocketGeometry();
 
     const diffuser = new MeshPhysicalMaterial({
-      color: 0xf5f5f0,
+      // A diffuser that is near-white before the LEDs turn on saturates under
+      // any environment and leaves emission with nowhere to go — see
+      // renderer.ts's exposure-budget comment. A dimmer base still reads as a
+      // white shade in a dark room and leaves the bright end to the emitters.
+      color: 0x6e6e73,
       roughness: 0.55,
       transmission: 0.6,
       thickness: 0.4,

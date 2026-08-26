@@ -5,12 +5,17 @@
  * its `startedAt` wall-clock anchor — no guessing when real per-segment
  * color/time data already exists.
  *
- * Pure functions of `(effect, wallClockMs)`; the hook (`use-motion-stage.ts`)
- * calls `frameAt` once per tick and hands the result to `drawEffectFrame`.
+ * Pure functions of `(effect, wallClockMs)`. The consumer is now
+ * `lamp3d/led-field.ts`'s `writeEffectFrame`, which calls `frameAt` once
+ * per tick and spreads the returned per-segment colours across the model's
+ * real LED placements. The 2D `drawEffectFrame` that used to live here went
+ * with the Canvas2D stage: it painted normalized `geometry.ts` regions, and
+ * those normalized 2D bounds have no meaning once the light leaves actual
+ * emitters in 3D. Everything below is GL-free and stays that way — a pure
+ * sampler is what makes the honesty rules unit-testable in the Node env.
  */
 
-import { clipToRegion, regionRectPx } from "./geometry";
-import type { DeviceGeometry, EffectDescriptor } from "./types";
+import type { EffectDescriptor } from "./types";
 
 type Rgb = [number, number, number];
 type Keyframes = EffectDescriptor["segments"][number]["keyframes"];
@@ -81,42 +86,4 @@ export function frameAt(effect: EffectDescriptor, nowMs: number): Record<number,
     colors[seg.id] = colorAt(seg.keyframes, t);
   }
   return colors;
-}
-
-/**
- * Paints a sampled effect frame onto the canvas: each geometry region is
- * split into even bands across the segment ids assigned to it (by id
- * order), one flat color fill per band. Coarser than the paint studio's own
- * per-cell rendering (T13, not this task) but a real, literal rendering of
- * the actual keyframe data rather than an archetype guess.
- */
-export function drawEffectFrame(
-  ctx: CanvasRenderingContext2D,
-  geometry: DeviceGeometry,
-  width: number,
-  height: number,
-  colors: Record<number, Rgb>,
-): void {
-  const ids = Object.keys(colors)
-    .map(Number)
-    .sort((a, b) => a - b);
-  if (ids.length === 0 || geometry.regions.length === 0) return;
-
-  const perRegion = Math.max(1, Math.ceil(ids.length / geometry.regions.length));
-
-  geometry.regions.forEach((region, regionIndex) => {
-    const slice = ids.slice(regionIndex * perRegion, (regionIndex + 1) * perRegion);
-    if (slice.length === 0) return;
-
-    ctx.save();
-    clipToRegion(ctx, region, width, height);
-    const rect = regionRectPx(region, width, height);
-    const bandW = rect.w / slice.length;
-    slice.forEach((id, i) => {
-      const [r, g, b] = colors[id]!;
-      ctx.fillStyle = `rgb(${r} ${g} ${b})`;
-      ctx.fillRect(rect.x + i * bandW, rect.y, bandW + 0.5, rect.h);
-    });
-    ctx.restore();
-  });
 }

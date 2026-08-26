@@ -5,27 +5,34 @@
  * subscriber and stops on the last (nothing spins while nothing is
  * mounted).
  *
- * Nothing here owns a canvas. Each stage's own `use-motion-stage.ts` closes
- * over its own 2D context (obtained from its own `canvasRef`, re-acquired
- * on resize) inside the `draw` closure it registers, so the `ctx` argument
- * this module threads through `tick()` is a shared placeholder that real
- * subscribers ignore in favor of their own — it exists only so
+ * Nothing here owns a canvas. The `ctx` argument this module threads
+ * through `tick()` is a shared placeholder that real subscribers ignore in
+ * favour of whatever surface they actually draw to; it exists only so
  * `MotionFrameSubscriber.draw`'s signature matches §4.4 exactly without
  * every call site needing a fake non-null context of its own.
  *
- * Concurrency tier (§4.1): the hero stage always ticks; "plate" (dashboard
- * mini) subscribers are capped so a long dashboard grid doesn't spin up
- * dozens of simultaneous canvas contexts on one iPhone Safari session.
- * `canSubscribePlate()` lets a caller check the cap *before* mounting a
- * canvas at all — a plate beyond the cap should never even acquire a 2D
- * context, per §4.1's "fall back to the existing cheap CSS Breath/Halo loop
- * instead of a redundant canvas context."
+ * Since the Canvas2D stage was deleted
+ * (`docs/superpowers/specs/2026-08-25-3d-lamp-stage-design.md`) there is
+ * exactly ONE subscriber in the app: `lamp3d/renderer.ts` registers once
+ * and walks its own view registry inside that tick. So the tiering below no
+ * longer decides which stages get a context — one shared `WebGLRenderer`
+ * serves every mounted stage, whatever the count. `PLATE_CONCURRENCY_CAP`
+ * survives as the *redraw budget* `renderer.ts` passes to `drawSets()`:
+ * how many plates animate per frame, not how many contexts exist.
+ *
+ * `canSubscribePlate()` is therefore test-only at present. It is kept
+ * because the property it guards — a bounded number of plate-priority
+ * subscribers — is the ticker's own invariant, and a second WebGL-free
+ * subscriber (a future sparkline, a meter needle) would need it again.
  */
 
 import type { MotionFrameSubscriber } from "./types";
 
 /** Start conservative; tune empirically against a real iPhone Safari
- *  session with the full dashboard grid visible, per §4.1. */
+ *  session with the full dashboard grid visible, per §4.1. Now read as a
+ *  redraw budget by `lamp3d/renderer.ts` (see this module's doc comment):
+ *  the 4 most recently visible plates animate, the rest hold their last
+ *  frame. */
 export const PLATE_CONCURRENCY_CAP = 4;
 
 const subscribers = new Map<string, MotionFrameSubscriber>();
