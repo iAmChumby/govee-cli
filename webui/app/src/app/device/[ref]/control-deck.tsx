@@ -23,7 +23,6 @@ import { prefersColorTemp } from "@/components/stage/color";
 import { panelIn } from "@/lib/motion";
 import { PaintStudioPanel } from "./paint-studio/paint-studio-panel";
 import { HexField, NativeColorInput, SwatchRow } from "./color-picker";
-import { useTrailingCommit } from "./use-trailing-commit";
 import {
   DiyPanel,
   EffectsPanel,
@@ -159,25 +158,40 @@ function LightTab({ refId, state }: ControlDeckProps) {
   const caps = state.capabilities;
 
   /* --- brightness dial ---
-     The Dial emits continuously and has no commit event, so display
-     value tracks every change locally while the mutation rides a
-     ~150ms trailing-edge throttle: drags emit at most one request per
-     quiet window, and the final value always lands after release. */
+     `onValueChange` fires on every tick of a drag and only ever updates
+     `scrub` — the dial, the odometer and the 3D stage all read from it,
+     so the instrument tracks the finger with zero lag, but nothing here
+     reaches the network. The Dial's `onValueCommit` (see dial.tsx) is
+     the one real "send it" event: it fires once per settled gesture
+     (drag release, or a coalesced keyboard/wheel run), so this needs no
+     debounce of its own — that used to live here as a bare ~150ms
+     trailing-edge throttle fed by `onValueChange`, which is exactly what
+     let a mid-drag pause (routine on a 3-second drag) fire early and
+     send a real command to a real light before the user let go. */
   const [scrub, setScrub] = React.useState<number | null>(null);
   const lastSent = React.useRef<number | null>(null);
-  const commitBrightness = useTrailingCommit((value: number) => {
-    if (value === lastSent.current) return;
-    lastSent.current = value;
-    void controls.brightness({ ref: refId, vars: value });
-  });
+  const commitBrightness = React.useCallback(
+    (value: number) => {
+      if (value === lastSent.current || value === state.brightness) return;
+      lastSent.current = value;
+      void controls.brightness({ ref: refId, vars: value });
+    },
+    [controls, refId, state.brightness],
+  );
   // once the cache confirms a value, stop pinning the scrub
   React.useEffect(() => {
     if (scrub !== null && state.brightness === scrub) setScrub(null);
   }, [state.brightness, scrub]);
 
   /* --- temperature ---
-     Radix gives us a real commit event here (drag end / keyboard);
-     the kelvin ramp underlay shows what the numbers mean. */
+     `onValueCommit` fires once per settled gesture — a real drag release
+     from Radix, or a coalesced keyboard run now that `slider.tsx` itself
+     buffers repeated keystep commits and flushes on keyup (audited: this
+     call site never needed its own debounce, because it only ever wired
+     the commit event, never `onValueChange`, to the network — the bug
+     was Radix firing that event once per keydown-repeat, fixed once,
+     inside `Slider`, for every consumer at once). The kelvin ramp
+     underlay shows what the numbers mean. */
   const tempMin = caps?.temp_min ?? 2700;
   const tempMax = caps?.temp_max ?? 6500;
   const [tempScrub, setTempScrub] = React.useState<number | null>(null);
@@ -231,10 +245,8 @@ function LightTab({ refId, state }: ControlDeckProps) {
           unit="%"
           label={`${state.name ?? refId} brightness`}
           className="max-md:shrink-0"
-          onValueChange={(v) => {
-            setScrub(v);
-            commitBrightness(v);
-          }}
+          onValueChange={setScrub}
+          onValueCommit={commitBrightness}
         />
 
         <div className="min-w-[140px] max-md:min-w-[120px] space-y-4">

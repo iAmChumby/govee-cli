@@ -12,6 +12,11 @@ import * as SliderPrimitive from "@radix-ui/react-slider";
 
 import { cn } from "@/lib/cn";
 import { springSnappy, springStandard } from "@/lib/motion";
+import {
+  KEY_COMMIT_COALESCE_MS,
+  POINTER_SAFETY_NET_MS,
+  useGestureCommit,
+} from "@/app/device/[ref]/use-trailing-commit";
 
 export interface SliderProps {
   value?: number;
@@ -20,7 +25,22 @@ export interface SliderProps {
   max?: number;
   step?: number;
   onValueChange?: (value: number) => void;
-  /** fired when the drag ends / keyboard commit — the "send it" moment */
+  /**
+   * The "send it" moment. For a pointer drag this fires exactly once,
+   * synchronously, on release — Radix's own `onSlideEnd`/pointerup
+   * contract, trusted as-is here (pointer capture makes it reliable even
+   * when the release lands outside the track).
+   *
+   * For keyboard it is NOT that simple: reading `@radix-ui/react-slider`
+   * (`SliderImpl`'s `onStepKeyDown` → `updateValues(..., {commit:true})`)
+   * shows Radix calls this once per discrete keydown, including every OS
+   * auto-repeat while an arrow key is held — a two-second hold is a dozen
+   * or more commits with a dozen or more different values. This component
+   * buffers those internally and only forwards the *last* one, once the
+   * key run actually ends (`keyup`/`blur`), so a caller always sees "at
+   * most one commit per gesture" regardless of which input drove it. See
+   * `use-trailing-commit.ts`'s `createGestureCommit` for the mechanism.
+   */
   onValueCommit?: (value: number) => void;
   /** accessible name for the thumb */
   ariaLabel: string;
@@ -65,6 +85,19 @@ export function Slider({
   const [dragging, setDragging] = React.useState(false);
   const reduced = useReducedMotion();
 
+  // Which input is driving the current interaction — decides whether a
+  // Radix onValueCommit call ships immediately (pointer: fires once, by
+  // Radix's own contract) or gets buffered until the run's real end
+  // (keyboard: Radix fires once per keystep, see the onValueCommit doc
+  // above). Reset on every pointerdown/keydown; harmless to set on every
+  // OS auto-repeat keydown since it is already "keyboard".
+  const interactionRef = React.useRef<"pointer" | "keyboard">("pointer");
+  const gesture = useGestureCommit<number>(
+    (v) => onValueCommit?.(v),
+    { keyCommitDelayMs: KEY_COMMIT_COALESCE_MS, pointerSafetyNetMs: POINTER_SAFETY_NET_MS },
+  );
+  const flushKeyCommit = React.useCallback(() => gesture.flushKeyRun(), [gesture]);
+
   const fraction = (current - min) / (max - min || 1);
   const fillWidth = useSpring(fraction * 100, springStandard);
   const fillWidthStyle = useMotionTemplate`${fillWidth}%`;
@@ -85,14 +118,31 @@ export function Slider({
       onValueChange={handleChange}
       onValueCommit={(values) => {
         setDragging(false);
-        onValueCommit?.(values[0] ?? min);
+        const v = values[0] ?? min;
+        if (interactionRef.current === "keyboard") {
+          gesture.bufferKeyStep(v);
+        } else {
+          gesture.commitPointerRelease(v);
+        }
       }}
       min={min}
       max={max}
       step={step}
       disabled={disabled}
-      onPointerDown={() => setDragging(true)}
-      onKeyDown={() => setDragging(false)}
+      onPointerDown={() => {
+        // A pointer grab flushes any keyboard commit still buffered from
+        // a prior tab-then-arrow-key interaction, so it can never be
+        // dropped by a fresh drag starting before its own keyup arrived.
+        flushKeyCommit();
+        interactionRef.current = "pointer";
+        setDragging(true);
+      }}
+      onKeyDown={() => {
+        interactionRef.current = "keyboard";
+        setDragging(false);
+      }}
+      onKeyUp={flushKeyCommit}
+      onBlur={flushKeyCommit}
       className={cn(
         "relative flex h-6 w-full touch-none select-none items-center",
         disabled && "opacity-40",

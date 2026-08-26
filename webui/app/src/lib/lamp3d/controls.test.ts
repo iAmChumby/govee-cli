@@ -7,7 +7,16 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { MAX_ELEVATION, MIN_ELEVATION, clampElevation, dragToAngles, shouldClaimGesture, sphericalOffset } from "./controls";
+import {
+  INERTIA_STOP_THRESHOLD_RAD_PER_S,
+  MAX_ELEVATION,
+  MIN_ELEVATION,
+  clampElevation,
+  decayAngularVelocity,
+  dragToAngles,
+  shouldClaimGesture,
+  sphericalOffset,
+} from "./controls";
 
 describe("clampElevation", () => {
   it("passes through values already inside the range", () => {
@@ -80,20 +89,85 @@ describe("dragToAngles", () => {
   });
 });
 
-describe("shouldClaimGesture", () => {
+describe("shouldClaimGesture — touch (horizontal must dominate, page scroll wins ties)", () => {
   it("does not claim a drag shorter than the threshold, even if perfectly horizontal", () => {
-    expect(shouldClaimGesture(3, 0)).toBe(false);
+    expect(shouldClaimGesture(3, 0, "touch")).toBe(false);
   });
 
   it("claims a clearly horizontal drag past the threshold", () => {
-    expect(shouldClaimGesture(20, 2)).toBe(true);
+    expect(shouldClaimGesture(20, 2, "touch")).toBe(true);
   });
 
   it("does not claim a vertical-dominant drag — left to the page's own scroll", () => {
-    expect(shouldClaimGesture(2, 20)).toBe(false);
+    expect(shouldClaimGesture(2, 20, "touch")).toBe(false);
   });
 
   it("does not claim a perfectly diagonal (equal) drag — horizontal must strictly dominate", () => {
-    expect(shouldClaimGesture(20, 20)).toBe(false);
+    expect(shouldClaimGesture(20, 20, "touch")).toBe(false);
+  });
+});
+
+describe("shouldClaimGesture — mouse and pen (claim in any direction past the threshold)", () => {
+  // This is the regression the task asked for: before the split, a mouse
+  // drag ran through the exact same "horizontal must dominate" rule as
+  // touch, so a user dragging straight up to tilt the camera got no
+  // response — `shouldClaimGesture(2, 20)` was `false` for every pointer
+  // type. A vertical-dominant mouse drag must now claim, because nothing
+  // on the page competes with a mouse drag the way scroll competes with a
+  // touch drag.
+  it("claims a vertical-dominant mouse drag past the threshold", () => {
+    expect(shouldClaimGesture(2, 20, "mouse")).toBe(true);
+  });
+
+  it("claims a vertical-dominant pen drag past the threshold", () => {
+    expect(shouldClaimGesture(1, 15, "pen")).toBe(true);
+  });
+
+  it("claims a horizontal mouse drag past the threshold too", () => {
+    expect(shouldClaimGesture(20, 2, "mouse")).toBe(true);
+  });
+
+  it("does not claim a mouse drag whose total magnitude is still under the threshold", () => {
+    expect(shouldClaimGesture(2, 3, "mouse")).toBe(false);
+  });
+
+  it("claims a perfectly diagonal mouse drag once its magnitude clears the threshold", () => {
+    // Touch requires strict horizontal dominance and would reject this
+    // (adx === ady); mouse has no such requirement.
+    expect(shouldClaimGesture(20, 20, "mouse")).toBe(true);
+  });
+});
+
+describe("decayAngularVelocity", () => {
+  it("halves the velocity after exactly one half-life, well above the stop threshold", () => {
+    const start = 3;
+    const after = decayAngularVelocity(start, 0.35);
+    expect(after).toBeCloseTo(1.5, 5);
+  });
+
+  it("leaves velocity unchanged for a zero or negative dt", () => {
+    expect(decayAngularVelocity(1.2, 0)).toBe(1.2);
+    expect(decayAngularVelocity(1.2, -1)).toBe(1.2);
+  });
+
+  it("snaps to exactly zero once decay drops it below the stop threshold", () => {
+    // A tiny velocity decays to something below the threshold almost
+    // immediately, and must read as a hard zero rather than an
+    // imperceptible-but-nonzero tail that keeps an inertia loop alive.
+    const result = decayAngularVelocity(INERTIA_STOP_THRESHOLD_RAD_PER_S * 1.5, 2);
+    expect(result).toBe(0);
+  });
+
+  it("preserves sign while decaying — a leftward coast stays leftward", () => {
+    const after = decayAngularVelocity(-3, 0.1);
+    expect(after).toBeLessThan(0);
+  });
+
+  it("eventually reaches exactly zero given enough elapsed time", () => {
+    let velocity = 5;
+    for (let i = 0; i < 200; i++) {
+      velocity = decayAngularVelocity(velocity, 0.05);
+    }
+    expect(velocity).toBe(0);
   });
 });

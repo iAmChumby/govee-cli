@@ -12,6 +12,11 @@ import {
 
 import { cn } from "@/lib/cn";
 import { springStandard } from "@/lib/motion";
+import {
+  KEY_COMMIT_COALESCE_MS,
+  POINTER_SAFETY_NET_MS,
+  useGestureCommit,
+} from "@/app/device/[ref]/use-trailing-commit";
 
 /** Total sweep of the dial: 270°, gap at the bottom like a real pot. */
 const SWEEP = 270;
@@ -23,6 +28,17 @@ export interface DialProps {
   max?: number;
   step?: number;
   onValueChange: (value: number) => void;
+  /**
+   * The "send it" moment — fires once, synchronously, on a clean drag
+   * release (pointerup/pointercancel) or once a keyboard/wheel run
+   * settles (keyup, or a short fallback timer for wheel input, which has
+   * no keyup of its own). Mirrors `Slider`'s `onValueCommit` contract so
+   * both instruments give a caller the same guarantee: at most one
+   * commit per gesture, not one per `onValueChange` tick. See
+   * `use-trailing-commit.ts`'s `createGestureCommit` for the mechanism
+   * and exactly what "clean release" covers.
+   */
+  onValueCommit?: (value: number) => void;
   /** accessible name */
   label: string;
   /** rendered under the center readout ("%", "K") */
@@ -99,6 +115,7 @@ export function Dial({
   max = 100,
   step = 1,
   onValueChange,
+  onValueCommit,
   label,
   unit,
   format,
@@ -108,6 +125,11 @@ export function Dial({
   className,
 }: DialProps) {
   const range = max - min || 1;
+
+  const gesture = useGestureCommit<number>(
+    (v) => onValueCommit?.(v),
+    { keyCommitDelayMs: KEY_COMMIT_COALESCE_MS, pointerSafetyNetMs: POINTER_SAFETY_NET_MS },
+  );
 
   const valueToT = React.useCallback(
     (v: number) => clamp01((v - min) / range),
@@ -152,9 +174,13 @@ export function Dial({
       if (v !== lastEmittedRef.current) {
         lastEmittedRef.current = v;
         onValueChange(v);
+        // Feeds the pointer safety net (see `use-trailing-commit.ts`) —
+        // a no-op in the ordinary case, since `endDrag` below sends via
+        // `commitPointerRelease` and clears this before it could fire.
+        gesture.trackPointerMove(v);
       }
     },
-    [onValueChange, tToValue],
+    [onValueChange, tToValue, gesture],
   );
 
   const pointerToT = React.useCallback(
@@ -194,6 +220,13 @@ export function Dial({
   };
 
   const endDrag = () => {
+    if (draggingRef.current) {
+      // The real release event — sends immediately, no timer. Also
+      // clears the pointer safety net `emit` above has been feeding, so
+      // a safety-net timer that was still armed can never also fire and
+      // send this same gesture's value a second time.
+      gesture.commitPointerRelease(lastEmittedRef.current);
+    }
     draggingRef.current = false;
     setDragging(false);
   };
@@ -204,9 +237,16 @@ export function Dial({
       const next = Math.min(max, Math.max(min, value + deltaSteps * step));
       lastEmittedRef.current = next;
       onValueChange(next);
+      // Buffered, not sent — `onKeyUp` flushes it when the run (a single
+      // tap or a held-key auto-repeat) actually ends. See
+      // `createGestureCommit`'s doc for why a per-keydown send would
+      // reintroduce the drag-storm bug for anyone who holds the key.
+      gesture.bufferKeyStep(next);
     },
-    [disabled, max, min, onValueChange, step, value],
+    [disabled, max, min, onValueChange, step, value, gesture],
   );
+
+  const flushKeyCommit = React.useCallback(() => gesture.flushKeyRun(), [gesture]);
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (disabled) return;
@@ -234,11 +274,13 @@ export function Dial({
         e.preventDefault();
         lastEmittedRef.current = min;
         onValueChange(min);
+        gesture.bufferKeyStep(min);
         break;
       case "End":
         e.preventDefault();
         lastEmittedRef.current = max;
         onValueChange(max);
+        gesture.bufferKeyStep(max);
         break;
       default:
         break;
@@ -288,6 +330,11 @@ export function Dial({
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
       onKeyDown={onKeyDown}
+      onKeyUp={flushKeyCommit}
+      // Blur is the fallback for a keyboard run that ends by focus
+      // leaving rather than a keyup reaching us (alt-tab mid-hold, a
+      // click landing elsewhere) — same reasoning as `Slider`'s onBlur.
+      onBlur={flushKeyCommit}
       className={cn(
         "relative select-none touch-none",
         disabled

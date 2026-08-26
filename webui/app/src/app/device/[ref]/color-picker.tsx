@@ -3,7 +3,7 @@
 import * as React from "react";
 
 import { cn } from "@/lib/cn";
-import { useTrailingCommit } from "./use-trailing-commit";
+import { COLOR_DIALOG_COALESCE_MS, useTrailingCommit } from "./use-trailing-commit";
 
 /* ==================================================================
    Color well controls — curated swatches, a minimal native picker,
@@ -98,7 +98,7 @@ interface NativeColorInputProps {
  * so commits ride the trailing throttle like the dial.
  */
 export function NativeColorInput({ value, onPick, className }: NativeColorInputProps) {
-  const commit = useTrailingCommit(onPick);
+  const commit = useTrailingCommit(onPick, COLOR_DIALOG_COALESCE_MS);
   return (
     // WEBUI_V3_SPEC.md §11.3/T35: a 28x28 native `<input type="color">`.
     // Unlike `SwatchRow`'s buttons, there is no separate decorative child

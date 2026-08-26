@@ -27,6 +27,7 @@ import type { DeviceState, DeviceSummary } from "@/lib/api";
 import { useDeleteActiveMode } from "@/lib/queries";
 import { UnknownModeChooser } from "@/components/stage/mode-picker";
 import { brightnessGlow, type ResolvedLampState } from "./active-mode";
+import { type PointerInputKind, shouldClaimGesture } from "./controls";
 import { useLampStage } from "./use-lamp-stage";
 
 export interface LampStageProps {
@@ -105,11 +106,139 @@ function ActiveModeReset({ deviceRef }: { deviceRef: string }) {
   );
 }
 
+/** Persists across sessions ("fade out permanently") rather than per-mount
+ *  React state, which would forget the moment the device page is left and
+ *  reopened. `localStorage` can throw in private-browsing/quota-exceeded
+ *  states in some browsers; every access below is wrapped so a storage
+ *  failure degrades to "the hint shows again next time", a cosmetic
+ *  nuisance, never a thrown error that would take the whole stage down. */
+const ROTATE_HINT_DISMISSED_KEY = "lamp3d.rotate-hint-dismissed";
+
+function readRotateHintDismissed(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.localStorage.getItem(ROTATE_HINT_DISMISSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeRotateHintDismissed(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(ROTATE_HINT_DISMISSED_KEY, "1");
+  } catch {
+    // Best-effort only — see the block comment above.
+  }
+}
+
+/**
+ * Detects the hero's first successful rotate gesture so the drag
+ * affordance can disappear once it has done its job — a hint that never
+ * goes away is worse than no hint at all.
+ *
+ * This runs a second, independent set of pointer listeners on the exact
+ * element `attachOrbitControls` (`renderer.ts` → `controls.ts`) already
+ * listens on, rather than getting a callback from that module directly:
+ * `AttachOrbitControlsOptions` is a fixed object `renderer.ts` alone
+ * constructs, and `renderer.ts` is out of scope for this change, so there
+ * is no call site able to hand this component a "gesture claimed" callback.
+ * Reusing `shouldClaimGesture` (the exact predicate `controls.ts` itself
+ * uses to decide the same question) keeps this listener asking "did a real
+ * rotate happen" the identical way the orbit control does, rather than
+ * inventing a second, looser threshold that could disagree with it. This
+ * listener never calls `preventDefault()` or `setPointerCapture()`, so it
+ * only observes — it cannot compete with or interfere with the orbit
+ * control's own listeners on the same node.
+ */
+function useDismissRotateHintOnFirstDrag(
+  containerRef: React.RefObject<HTMLDivElement | null>,
+  active: boolean,
+  onDismiss: () => void,
+): void {
+  React.useEffect(() => {
+    if (!active) return;
+    const el = containerRef.current;
+    if (!el) return;
+
+    let down = false;
+    let startX = 0;
+    let startY = 0;
+    let pointerType: PointerInputKind = "mouse";
+
+    function onPointerDown(e: PointerEvent): void {
+      down = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      pointerType = e.pointerType === "touch" ? "touch" : e.pointerType === "pen" ? "pen" : "mouse";
+    }
+
+    function onPointerMove(e: PointerEvent): void {
+      if (!down) return;
+      if (!shouldClaimGesture(e.clientX - startX, e.clientY - startY, pointerType)) return;
+      down = false;
+      onDismiss();
+    }
+
+    function onPointerUp(): void {
+      down = false;
+    }
+
+    el.addEventListener("pointerdown", onPointerDown);
+    el.addEventListener("pointermove", onPointerMove);
+    el.addEventListener("pointerup", onPointerUp);
+    el.addEventListener("pointercancel", onPointerUp);
+    return () => {
+      el.removeEventListener("pointerdown", onPointerDown);
+      el.removeEventListener("pointermove", onPointerMove);
+      el.removeEventListener("pointerup", onPointerUp);
+      el.removeEventListener("pointercancel", onPointerUp);
+    };
+  }, [containerRef, active, onDismiss]);
+}
+
+/**
+ * The quiet corner hint advertising that the hero rotates — same register
+ * as the honesty caption chip (small, mono, low-contrast, corner-anchored),
+ * anchored to the opposite corner so the two never collide. `aria-hidden`
+ * and `pointer-events-none` for the same reason: this is advice about a
+ * gesture, not a control surface, and must never itself intercept the drag
+ * it is describing.
+ */
+function RotateHint() {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute bottom-2 right-2 rounded-chip border border-hairline bg-bg/80 px-1.5 py-0.5 font-mono text-[9px] leading-none tracking-micro text-low"
+    >
+      drag to rotate
+    </div>
+  );
+}
+
 export function LampStage({ state, variant = "full", className }: LampStageProps) {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
   const { resolved, webglAvailable } = useLampStage({ containerRef, state, variant });
   const mini = variant === "mini";
   const name = state.name ?? state.ref;
+
+  // Starts `true` (hint hidden) on both server and client for the same
+  // hydration reason `useLampStage`'s own `webglAvailable` starts `true`:
+  // `localStorage` is unavailable during SSR, so evaluating the real value
+  // during render would make the server's markup and the client's first
+  // hydration pass disagree. The effect below corrects it to the real,
+  // persisted value one tick after mount; a browser that has never
+  // dismissed the hint sees it appear a frame late rather than never
+  // matching hydration at all.
+  const [hintDismissed, setHintDismissed] = React.useState(true);
+  React.useEffect(() => {
+    if (!mini) setHintDismissed(readRotateHintDismissed());
+  }, [mini]);
+  const dismissHint = React.useCallback(() => {
+    writeRotateHintDismissed();
+    setHintDismissed(true);
+  }, []);
+  useDismissRotateHintOnFirstDrag(containerRef, !mini && !hintDismissed, dismissHint);
 
   // Both controls are full-stage only: a plate is nested inside a `<Link>`
   // on the dashboard, and a second interactive element in there is both
@@ -134,13 +263,60 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
       )}
     >
       {/* The shared renderer.ts canvas lives elsewhere in the DOM — a
-          single fixed, aria-hidden element behind every mounted stage
-          (decision 1). This div exists only to be measured: its
-          `getBoundingClientRect()` becomes the scissor rect that canvas
-          draws this device's model into. It must stay exactly this box —
-          no padding, no inset — because that box is also what
-          `scripts/viewport_audit.py` gates as unmoved. */}
-      <div ref={containerRef} aria-hidden className="pointer-events-none absolute inset-0" />
+          single fixed element behind every mounted stage (decision 1). This
+          div exists only to be measured: its `getBoundingClientRect()`
+          becomes the scissor rect that canvas draws this device's model
+          into. It must stay exactly this box — no padding, no inset —
+          because that box is also what `scripts/viewport_audit.py` gates as
+          unmoved. Changing `pointer-events`/`role`/`tabIndex` below changes
+          what events and assistive tech this box accepts, never its
+          geometry.
+
+          Root cause of "cannot be rotated on any device": this div carried
+          `pointer-events-none` unconditionally, so the `pointerdown`/
+          `pointermove`/`pointerup` listeners `attachOrbitControls`
+          (`renderer.ts` → `controls.ts`) registers on it were never once
+          invoked by the browser — on desktop or mobile. Only the hero
+          (`variant === "full"`) gets `pointer-events-auto` here: a mini
+          plate is nested inside a `<Link>` on the dashboard, and a drag
+          there would fight navigation (the design doc's own non-goal).
+          `cn()` does not merge conflicting Tailwind classes (no
+          `tailwind-merge`), so the two variants emit one whole
+          `pointer-events-*` value each rather than trying to have
+          `pointer-events-auto` win over `pointer-events-none` on the same
+          element.
+
+          `role="img"` + `tabIndex` + `aria-label` (hero only) is a
+          deliberate, imperfect fit rather than an oversight: no ARIA role
+          precisely models "a draggable 3D viewport". `role="application"`
+          would suppress the screen reader's own navigation entirely, which
+          is worse for a control with no discrete value to report; `role=
+          "slider"` implies exactly one bounded value with `aria-valuenow`,
+          and orbit has two (an azimuth that wraps and a clamped elevation).
+          `role="img"` with a label describing both what is shown and how to
+          drive it is the same trade-off major 3D-viewer accessibility
+          implementations settle on. Arrow-key rotation is wired inside
+          `attachOrbitControls` itself (`controls.ts`'s own `keydown`
+          listener) — reachable from this file's own owned files without
+          touching `renderer.ts`. */}
+      <div
+        ref={containerRef}
+        {...(mini
+          ? { "aria-hidden": true as const }
+          : {
+              role: "img" as const,
+              "aria-label": `${name} — 3D view. Drag, or focus and use arrow keys, to rotate.`,
+              tabIndex: 0,
+            })}
+        className={cn(
+          "absolute inset-0",
+          mini
+            ? "pointer-events-none"
+            : "pointer-events-auto touch-pan-y outline-none focus-visible:ring-2 focus-visible:ring-accent",
+        )}
+      />
+
+      {!mini && !hintDismissed ? <RotateHint /> : null}
 
       {!webglAvailable ? <StaticSilhouette resolved={resolved} /> : null}
 
