@@ -153,6 +153,42 @@ wrapped, H6056 = 2x48, H6008 = none). The paint studio draws on that canvas and
 downsamples to the 15 segments cloud v2 actually exposes, showing both — the lamp
 cannot render what you drew, and the UI says so rather than implying otherwise.
 
+### The 3D stage
+
+Every device renders as a real model in `webui/app/src/lib/lamp3d/`, not a
+silhouette with a gradient over it. **One** `WebGLRenderer` for the whole app,
+mounted as a single fixed canvas and scissored per stage box, driven by
+`motion-engine/driver.ts` — still the only `requestAnimationFrame` in the app.
+`led-field.ts` is the seam: `(MotionSpec, layout, t) -> RGB per LED`, pure and
+GL-free, so every archetype is testable in Node.
+
+Things that cost a round to learn, all of which look correct in code:
+
+- **three multiplies viewport/scissor by the pixel ratio itself**, so pass it CSS
+  pixels. Device pixels double-apply. At dpr 1 that is invisible; on a phone the
+  lamp draws off-screen and the stage is an empty box while a "does the canvas
+  animate" check still passes, because the canvas is animating somewhere else.
+  **Check a phone, not just a desktop.**
+- **An sRGB texture must be RGBA.** WebGL2 has no three-channel sRGB format.
+  `RGBFormat` + `SRGBColorSpace` is rejected on every upload and the lamp renders
+  unlit.
+- **Do not light the lamp with its own spill.** A spill centroid averages a
+  drum's twelve columns onto the cylinder axis, i.e. inside the shade. The spill
+  lights live on `SPILL_LIGHT_LAYER` and reach the ground only.
+- **Emission cannot compete with a blown-out surface.** The body has to sit dark
+  before the LEDs turn on, and tone mapping has to be on, or every bright LED
+  clips to the same white.
+- **`GET /devices` sends no `capabilities`**, so a plate cannot learn its matrix
+  from the wire; `MODEL_MATRIX` in `models/types.ts` mirrors `transport.py`.
+  Capabilities still win when present.
+- The canvas sits **above** the app frame (z-10, below dialogs at z-50): the
+  frame's background is opaque, so behind it nothing is visible. Views clip to
+  their scrolling ancestor or they paint over the TopBar.
+
+`scripts/verify_ui.py` asserts motion by screenshotting the canvas element.
+It cannot use `toDataURL` — a WebGL drawing buffer is cleared after compositing
+and returns blank, so the check would fail on working code.
+
 ### The request meter, and what it may not claim
 
 `govee_cli/request_meter.py` counts every outbound cloud request, hooked **inside
