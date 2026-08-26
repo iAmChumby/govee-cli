@@ -75,6 +75,40 @@ export interface MotionSpec {
   intensity: number;
   /** stable key for the hash fallback / debug overlay */
   sourceName?: string;
+  /**
+   * Set only by name-driven classification (`classify.ts`'s
+   * `classifyByNamedMode`, covering firmware scenes, DIY scenes, and any
+   * music mode name unmapped by `MUSIC_MODE_ARCHETYPES`) — undefined for
+   * `classifySolid`/`classifyEffectPreview`, which read the device's own
+   * live colour or its own measured keyframe colours and need no caveat.
+   *
+   * "curated" — the palette came from `scene-appearance.ts`'s researched
+   * table, a keyword match, or a literal colour word in the name: real
+   * signal about this specific name, still an assumption per project law
+   * (the v2 API returns no colour data for any scene), but a grounded one.
+   *
+   * "indeterminate" — the name matched none of the above. The archetype
+   * still varies by a hash of the name (so unrelated unknown names don't
+   * all move identically), but the palette is the fixed neutral
+   * `INDETERMINATE_PALETTE` (palette.ts) — never a confident-looking hue
+   * invented from characters that happen to sum to a particular bucket.
+   */
+  paletteBasis?: "curated" | "indeterminate";
+  /**
+   * How strong the signal behind a `"curated"` palette is, verbatim from
+   * `scene-appearance.ts`'s own confidence column (or `"medium"` for a
+   * keyword/colour-word match). Absent when `paletteBasis` is absent or
+   * `"indeterminate"`.
+   *
+   * This exists because "curated" alone flattens two very different things:
+   * `aurora` is photographed ground truth from this project's own H6022,
+   * while `karst cave` is a bare reading of the name with, in that entry's
+   * own words, "no corroboration at all". Rendering both under one
+   * "colour assumed" caption would present the second with the first's
+   * authority — the same class of over-claim as reporting 2700K for a lamp
+   * running a blue scene.
+   */
+  paletteConfidence?: "high" | "medium" | "low";
 }
 
 export interface GeometryRegion {

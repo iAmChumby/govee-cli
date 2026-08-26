@@ -68,6 +68,24 @@ export const STROBE_FLASH_PALETTE: Palette = { colors: ["#ffffff", "#ff003c", "#
 export const RAIN_BLUE_PALETTE: Palette = { colors: ["#4fa3ff", "#0d2b52"] };
 export const WARM_BREATHE_PALETTE: Palette = { colors: ["#ffb26b"] };
 
+/**
+ * The layer-4 fallback palette (classify.ts's `resolveByName`) for a name
+ * with NO curated table match and NO keyword match — genuinely zero signal.
+ *
+ * The bug this replaced: that layer used to hand back one of the archetype
+ * defaults above (e.g. `GENERIC_LAVA_PALETTE`), chosen purely by
+ * `sum(charCode) % 4` on the name. "Aurora" summed to a bucket that picked
+ * lava-orange — a name with no relation to lava at all — and rendered with
+ * exactly the same visual confidence as a real curated match. A desaturated
+ * neutral can't be mistaken for a confident guess: it reads as "the console
+ * does not know", which is the truth for these names. Used by BOTH the 3D
+ * stage (via `classify.ts`) and the scene/DIY library thumbnails (via
+ * `panels/shared.tsx`'s `nameToGradient`), so an indeterminate name renders
+ * the same "unknown" grey everywhere instead of a confident hue in one place
+ * and a different confident hue in the other.
+ */
+export const INDETERMINATE_PALETTE: Palette = { colors: ["#8a8a8a", "#5a5a5a"] };
+
 /** One reasonable default palette per archetype, used whenever the resolver
  *  reaches an archetype without a more specific named/color-word palette. */
 export const DEFAULT_PALETTE_FOR_ARCHETYPE: Record<MotionArchetype, Palette> = {
@@ -131,12 +149,11 @@ export function paletteForColorWord(word: string): Palette {
   return COLOR_WORD_PALETTES[word] ?? WARM_BREATHE_PALETTE;
 }
 
-/**
- * Applies the layer-1.5 override on top of whatever palette layer 1/2/3/4
- * already picked for the archetype — independent of and after that choice,
- * per §4.5 ("regardless of what layer 1/2/3/4 picked for the archetype").
- */
-export function applyColorWordOverride(name: string, fallback: Palette): Palette {
-  const word = colorWordInName(name);
-  return word ? paletteForColorWord(word) : fallback;
-}
+/* The old `applyColorWordOverride(name, fallback)` wrapper lived here and
+ * was left behind, exported and uncalled, when classify.ts moved to
+ * `colorWordInName`/`paletteForColorWord` directly. It is deleted rather
+ * than kept "just in case": a second, unused path applying layer 1.5 is
+ * exactly how the stage and the library thumbnail drifted apart in the
+ * first place — one caller gets updated, the forgotten one does not, and
+ * the two disagree about the same scene again. Layer 1.5 has one call
+ * site: `paletteForResolution` in classify.ts. */

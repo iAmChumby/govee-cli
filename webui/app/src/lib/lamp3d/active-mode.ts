@@ -157,14 +157,48 @@ export function formatAgeShort(seconds: number | null): string | null {
   return `${d}d ago`;
 }
 
-/** e.g. `"sleep — DIY scene, assumed, 3h ago"`. Confidence is always spelled
- *  out verbatim (never softened, never omitted) so "assumed"/"external"/
- *  "unknown" can never be mistaken for "confirmed" at a glance. Ported
- *  verbatim from stage.tsx. */
-export function activeModeCaption(active: LedgerActive, kindLabel: string): string {
+/**
+ * e.g. `"sleep — DIY scene, assumed, 3h ago"`. Confidence is always spelled
+ * out verbatim (never softened, never omitted) so "assumed"/"external"/
+ * "unknown" can never be mistaken for "confirmed" at a glance. Ported
+ * verbatim from stage.tsx, plus one addition: `active.confidence` is the
+ * LEDGER's confidence that this MODE is really running — it says nothing
+ * about whether the rendered COLOUR is right, because the v2 API never
+ * reports colour for a scene/DIY/music mode at all (project law). `spec`
+ * carries that second, independent axis (`classify.ts`'s `paletteBasis`),
+ * so a scene the ledger is fully "confirmed" to be running can still need a
+ * colour caveat, and the two must never be conflated into one word. The
+ * indeterminate wording is deliberately stronger than the curated one: a
+ * curated guess has real signal behind it, an indeterminate one has none —
+ * and a curated row the table itself marks "low" (a bare reading of the
+ * name) is worded apart again from one backed by photography or a standard
+ * convention.
+ */
+export function activeModeCaption(active: LedgerActive, kindLabel: string, spec?: MotionSpec | null): string {
   const head = active.label ? `${active.label} — ${kindLabel}` : kindLabel;
   const age = formatAgeShort(active.age_seconds);
-  return [head, active.confidence, age].filter((part): part is string => Boolean(part)).join(", ");
+  const paletteNote =
+    spec?.paletteBasis === "indeterminate"
+      ? "colour unknown"
+      : spec?.paletteBasis === "curated"
+        ? // A "low" curated row is, in scene-appearance.ts's own words, read
+          // off the name "with no corroboration at all" — saying "assumed"
+          // for that and for the photographed aurora row alike would lend a
+          // bare guess the authority of ground truth.
+          spec.paletteConfidence === "low"
+          ? "colour guessed from the name"
+          : // Deliberately NOT the word "assumed". `active.confidence` is
+            // already one of confirmed/assumed/external/unknown and sits
+            // immediately before this clause, so reusing it rendered
+            // "Aurora — scene, assumed, colour assumed, 7s ago" — the same
+            // word twice for two different questions (do we know which mode
+            // is running; do we know what colour it is), which reads as a
+            // duplicated string rather than two claims.
+            "colour approximated"
+        : null;
+  return [head, active.confidence, paletteNote, age]
+    .filter((part): part is string => Boolean(part))
+    .join(", ");
 }
 
 /** Brightness as a 0..1 emission factor with a visible floor. Ported
@@ -242,7 +276,7 @@ export function resolveLampState(state: DeviceState | DeviceSummary): ResolvedLa
   return {
     spec,
     effect: null,
-    caption: restricted ? activeModeCaption(active, restricted.label) : null,
+    caption: restricted ? activeModeCaption(active, restricted.label, spec) : null,
     showUnknownChooser: false,
     showResetControl: restricted !== null,
     power,

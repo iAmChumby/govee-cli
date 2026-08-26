@@ -1,11 +1,15 @@
 /**
- * `classifyActiveMode()` — the 4-layer name resolver (WEBUI_V3_SPEC.md §4.5)
+ * `classifyActiveMode()` — the layered name resolver (WEBUI_V3_SPEC.md §4.5)
  * plus the non-name-driven `ActiveModeKind`s (`solid`, `segment_paint`,
  * `music_mode`, `effect`) that sit alongside it.
  *
- * Layer order, first match wins (§4.5):
- *   1   curated exact-name override table (§4.6) — only layer allowed to
- *       override the *archetype*.
+ * Layer order, first match wins (§4.5, extended):
+ *   1   curated exact-name table (`scene-appearance.ts`) — real-world
+ *       research on what a NAMED scene/DIY mode actually looks like, keyed
+ *       on the exact normalized name. Every entry is a human research pass,
+ *       never device truth (the v2 API returns no colour data for any
+ *       scene, ever — see that file's own doc comment). Only layer allowed
+ *       to override the *archetype*.
  *   1.5 color-word palette override — applied independently of which
  *       archetype layer 1/2/3/4 picked (palette.ts owns the word table).
  *   2   keyword classifier, fixed priority.
@@ -13,14 +17,27 @@
  *       `kind === "effect"` — handled by `classifyEffectPreview` here and
  *       literally by `effect-playback.ts` at render time for the hero
  *       stage).
- *   4   deterministic hash fallback.
+ *   4   INDETERMINATE fallback. Previously (the bug this replaced): an
+ *       unmatched name hashed via `sum(charCode) % 4` into one of the
+ *       archetypes' normal vivid default palettes — "aurora" summed to a
+ *       bucket that happened to pick the lava-orange palette, a name with
+ *       zero relation to lava, and rendered it with the same visual
+ *       confidence as a real curated match (layer 1's `aurora` entry is the
+ *       photographed-ground-truth fix: green/cyan). The hash is kept ONLY
+ *       to vary the *motion* so unrelated unknown names don't all move
+ *       identically — the palette it returns is now the fixed, desaturated
+ *       `INDETERMINATE_PALETTE`, and `NameResolution.indeterminate`/
+ *       `MotionSpec.paletteBasis` mark the result so callers (the caption,
+ *       the library thumbnail) can say "we do not know" instead of implying
+ *       a confident guess.
  */
 
 import {
-  applyColorWordOverride,
+  colorWordInName,
   DEFAULT_PALETTE_FOR_ARCHETYPE,
+  INDETERMINATE_PALETTE,
   normalizeName,
-  SLEEP_BLOB_PALETTE,
+  paletteForColorWord,
   tokenizeName,
   VIVID_CHASE_PALETTE,
   WARM_BREATHE_PALETTE,
@@ -28,24 +45,9 @@ import {
   paletteFromColorTempK,
   rgbToHex,
 } from "./palette";
+import { lookupSceneAppearance, type SceneAppearanceConfidence } from "./scene-appearance";
 import { prefersColorTemp } from "@/components/stage/color";
 import type { ActiveMode, EffectDescriptor, MotionArchetype, MotionSpec, Palette } from "./types";
-
-/* ------------------------------------------------------------------ layer 1 */
-
-interface CuratedEntry {
-  archetype: MotionArchetype;
-  palette: Palette;
-  periodSec: number;
-}
-
-/** §4.6's full table, row for row, for every name resolved at layer 1
- *  (exact, case-insensitive, whitespace-trimmed match). Only `sleep`
- *  qualifies for layer 1 today — every other §4.6 row resolves through
- *  layer 2 or layer 4, asserted verbatim in classify.test.ts. */
-const CURATED_OVERRIDES: Record<string, CuratedEntry> = {
-  sleep: { archetype: "blob", palette: SLEEP_BLOB_PALETTE, periodSec: 60 },
-};
 
 /**
  * §4.6 gives a handful of named ground-truth rows a literal `periodSec` that
@@ -125,18 +127,42 @@ export interface NameResolution {
   palette: Palette;
   periodSec: number;
   layer: ResolverLayer;
+  /** true only for layer 4: no curated table entry and no keyword matched
+   *  this name at all — the palette above is `INDETERMINATE_PALETTE`, not a
+   *  guess dressed up as a confident one. Layers 1 and 2 both rest on real
+   *  signal (a researched name match, or a keyword actually present in the
+   *  name) and are never indeterminate, even though — per project law —
+   *  they are still assumptions, not device truth. */
+  indeterminate: boolean;
+  /** How good the *colour* signal behind `palette` is, on
+   *  scene-appearance.ts's own axis. A curated row carries its researched
+   *  value verbatim ("high" = photographed/standard convention, "low" =
+   *  read off the name with no corroboration); a keyword match is "medium"
+   *  (the word really is in the name, but the palette is the archetype's
+   *  generic default); layer 4 is `null` because `indeterminate` already
+   *  says everything there is to say. Callers must not flatten a "low" row
+   *  into the same wording as a "high" one — that is the distinction this
+   *  table was written to carry, and dropping it would present a bare
+   *  name-guess with photographed-ground-truth confidence. */
+  paletteConfidence: SceneAppearanceConfidence | null;
 }
 
-/** Layers 1, 2 and 4 only (layer 1.5's palette override is applied by the
- *  caller via `applyColorWordOverride`, and layer 3 is the separate
- *  effect-only path — `classifyEffectPreview`). Exported for direct testing
- *  against §4.6's table without going through the full `ActiveMode` shape. */
+/** Layers 1, 2 and 4 only (layer 1.5's palette override is applied by
+ *  `resolveNamedPalette` below, and layer 3 is the separate effect-only
+ *  path — `classifyEffectPreview`). Exported for direct testing against
+ *  scene-appearance.ts and §4.6's table without going through the full
+ *  `ActiveMode` shape. */
 export function resolveByName(name: string): NameResolution {
-  const normalized = normalizeName(name);
-
-  const curated = CURATED_OVERRIDES[normalized];
+  const curated = lookupSceneAppearance(name);
   if (curated) {
-    return { archetype: curated.archetype, palette: curated.palette, periodSec: curated.periodSec, layer: 1 };
+    return {
+      archetype: curated.archetype,
+      palette: curated.palette,
+      periodSec: curated.periodSec,
+      layer: 1,
+      indeterminate: false,
+      paletteConfidence: curated.confidence,
+    };
   }
 
   const tokens = tokenizeName(name);
@@ -147,6 +173,8 @@ export function resolveByName(name: string): NameResolution {
         palette: DEFAULT_PALETTE_FOR_ARCHETYPE[row.archetype],
         periodSec: DEFAULT_PERIOD_FOR_ARCHETYPE[row.archetype],
         layer: 2,
+        indeterminate: false,
+        paletteConfidence: "medium",
       };
     }
   }
@@ -155,17 +183,63 @@ export function resolveByName(name: string): NameResolution {
   const archetype = HASH_ARCHETYPES[bucket];
   return {
     archetype,
-    palette: DEFAULT_PALETTE_FOR_ARCHETYPE[archetype],
+    palette: INDETERMINATE_PALETTE,
     periodSec: DEFAULT_PERIOD_FOR_ARCHETYPE[archetype],
     layer: 4,
+    indeterminate: true,
+    paletteConfidence: null,
   };
+}
+
+export interface NamedPaletteResolution {
+  palette: Palette;
+  /** false whenever a colour word (layer 1.5) or a curated/keyword match
+   *  (layer 1/2) gave real signal about this name, even if the archetype
+   *  itself came from the layer-4 hash — a colour word is real signal on
+   *  its own, independent of which archetype it's paired with. */
+  indeterminate: boolean;
+  /** Same axis as `NameResolution.paletteConfidence`, describing the
+   *  palette actually returned here — so a colour word that overrode a
+   *  curated row reports the colour word's own standing, never the
+   *  overridden row's. */
+  paletteConfidence: SceneAppearanceConfidence | null;
+}
+
+/** Layer 1.5 applied to an already-resolved name. Split out from
+ *  `resolveNamedPalette` so `classifyByNamedMode` resolves the name exactly
+ *  once — calling both would run the whole layer stack twice and leave two
+ *  places that could drift on what "indeterminate" means for one name. */
+function paletteForResolution(name: string, resolved: NameResolution): NamedPaletteResolution {
+  const colorWord = colorWordInName(name);
+  if (colorWord) {
+    // A literal colour word in the name is direct signal about hue,
+    // stronger than a genre reading but never device truth — "medium".
+    return { palette: paletteForColorWord(colorWord), indeterminate: false, paletteConfidence: "medium" };
+  }
+  return {
+    palette: resolved.palette,
+    indeterminate: resolved.indeterminate,
+    paletteConfidence: resolved.paletteConfidence,
+  };
+}
+
+/**
+ * The exact palette + indeterminate flag `classifyByNamedMode` uses for a
+ * name, factored out so `panels/shared.tsx`'s thumbnail gradient
+ * (`nameToGradient`) can call the identical logic the 3D stage does — the
+ * seam that fixes "Aurora renders green/cyan on the stage but a magenta
+ * thumbnail in the library", two independent guesses that never agreed with
+ * each other because they used to be two independent hashes.
+ */
+export function resolveNamedPalette(name: string): NamedPaletteResolution {
+  return paletteForResolution(name, resolveByName(name));
 }
 
 function classifyByNamedMode(mode: ActiveMode): MotionSpec {
   const name = mode.name;
   if (!name) return classifySolid(mode);
   const resolved = resolveByName(name);
-  const palette = applyColorWordOverride(name, resolved.palette);
+  const { palette, indeterminate, paletteConfidence } = paletteForResolution(name, resolved);
   const periodSec = PERIOD_OVERRIDES[normalizeName(name)] ?? resolved.periodSec;
   return {
     archetype: resolved.archetype,
@@ -173,6 +247,8 @@ function classifyByNamedMode(mode: ActiveMode): MotionSpec {
     periodSec,
     intensity: resolved.archetype === "strobe" ? 1 : 0.7,
     sourceName: name,
+    paletteBasis: indeterminate ? "indeterminate" : "curated",
+    ...(paletteConfidence ? { paletteConfidence } : {}),
   };
 }
 

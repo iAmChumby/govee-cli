@@ -11,6 +11,7 @@ import { test } from "vitest";
 
 import type { DeviceState, DeviceSummary, LightColor } from "@/lib/api";
 import { paletteFromColor, paletteFromColorTempK } from "@/lib/motion-engine/palette";
+import type { MotionSpec } from "@/lib/motion-engine/types";
 import {
   activeModeCaption,
   brightnessGlow,
@@ -227,15 +228,23 @@ test("rule 4: off/basic get a spec (for the LED field) but no caption, chooser o
 });
 
 test("rule 4: every restricted mode gets a caption and the reset control, never the chooser", () => {
-  const table: Array<[DeviceState["active"]["mode"], string]> = [
-    ["scene", "scene"],
-    ["diy", "DIY scene"],
-    ["music", "music mode"],
-    ["snapshot", "snapshot"],
-    ["segments", "segments"],
-    ["effect", "effect"],
+  // "sleep" is a curated scene-appearance.ts entry, so any mode that
+  // classifies BY NAME (scene/diy/music, once music falls through its own
+  // unmapped-name check) picks up the "colour approximated" caveat — the name
+  // gave real signal, but per project law it is still an assumption, never
+  // device truth. snapshot/segments/effect classify via `classifySolid`
+  // instead (no live color/temp is set on this fixture, and `effect` has no
+  // keyframe data to classify from), which never reads the name at all and
+  // so carries no colour caveat.
+  const table: Array<[DeviceState["active"]["mode"], string, boolean]> = [
+    ["scene", "scene", true],
+    ["diy", "DIY scene", true],
+    ["music", "music mode", true],
+    ["snapshot", "snapshot", false],
+    ["segments", "segments", false],
+    ["effect", "effect", false],
   ];
-  for (const [mode, label] of table) {
+  for (const [mode, label, expectColourNote] of table) {
     const state = makeState({
       active: {
         mode,
@@ -247,7 +256,10 @@ test("rule 4: every restricted mode gets a caption and the reset control, never 
       },
     });
     const resolved = resolveLampState(state);
-    assert.equal(resolved.caption, `sleep — ${label}, assumed, 2m ago`);
+    const expected = expectColourNote
+      ? `sleep — ${label}, assumed, colour approximated, 2m ago`
+      : `sleep — ${label}, assumed, 2m ago`;
+    assert.equal(resolved.caption, expected);
     assert.equal(resolved.showResetControl, true);
     assert.equal(resolved.showUnknownChooser, false);
   }
@@ -288,6 +300,83 @@ test("caption spells out confidence verbatim, never softened", () => {
       age_seconds: 10,
     };
     assert.equal(activeModeCaption(active, "scene"), `sleep — scene, ${confidence}, 10s ago`);
+  }
+});
+
+test("caption's colour caveat distinguishes curated from indeterminate with different, stronger wording", () => {
+  const active: DeviceState["active"] = {
+    mode: "diy",
+    label: "madisonnnn",
+    confidence: "confirmed",
+    source: "cli",
+    set_at: null,
+    age_seconds: 5,
+  };
+  const curatedSpec: MotionSpec = {
+    archetype: "blob",
+    palette: { colors: ["#1de9b6", "#00c896"] },
+    periodSec: 50,
+    intensity: 0.7,
+    paletteBasis: "curated",
+  };
+  const indeterminateSpec: MotionSpec = {
+    archetype: "gradient-drift",
+    palette: { colors: ["#8a8a8a", "#5a5a5a"] },
+    periodSec: 45,
+    intensity: 0.7,
+    paletteBasis: "indeterminate",
+  };
+  // Ledger confidence ("confirmed" — this IS the mode really running) is a
+  // different axis from palette confidence (whether the colour guess for
+  // its NAME has any basis) — a confirmed mode can still need a colour
+  // caveat, and the two words must never collapse into one.
+  assert.equal(
+    activeModeCaption(active, "DIY scene", curatedSpec),
+    "madisonnnn — DIY scene, confirmed, colour approximated, 5s ago",
+  );
+  assert.equal(
+    activeModeCaption(active, "DIY scene", indeterminateSpec),
+    "madisonnnn — DIY scene, confirmed, colour unknown, 5s ago",
+  );
+  // No spec at all (or a measured/literal spec with no paletteBasis) adds
+  // no colour caveat — unchanged from before this axis existed.
+  assert.equal(
+    activeModeCaption(active, "DIY scene"),
+    "madisonnnn — DIY scene, confirmed, 5s ago",
+  );
+  // A curated row the table itself marks "low" is a bare reading of the
+  // name with no corroboration — it must not borrow the wording used for
+  // the photographed rows. Flattening the two is the same over-claim as
+  // reporting 2700K for a lamp running a blue scene.
+  const lowConfidenceSpec: MotionSpec = { ...curatedSpec, paletteConfidence: "low" };
+  assert.equal(
+    activeModeCaption(active, "DIY scene", lowConfidenceSpec),
+    "madisonnnn — DIY scene, confirmed, colour guessed from the name, 5s ago",
+  );
+  const highConfidenceSpec: MotionSpec = { ...curatedSpec, paletteConfidence: "high" };
+  assert.equal(
+    activeModeCaption(active, "DIY scene", highConfidenceSpec),
+    "madisonnnn — DIY scene, confirmed, colour approximated, 5s ago",
+  );
+
+  // The property behind the wording above, asserted directly so a future
+  // rename cannot quietly undo it: the palette caveat may never reuse the
+  // ledger-confidence word sitting immediately before it. When it did, an
+  // "assumed" ledger entry rendered "…, assumed, colour assumed, …" — one
+  // word twice for two unrelated questions, which reads as a duplicated
+  // string rather than as two separate claims.
+  for (const confidence of ["confirmed", "assumed", "external", "unknown"] as const) {
+    const caption = activeModeCaption(
+      { ...active, confidence },
+      "DIY scene",
+      curatedSpec,
+    );
+    const words = caption.split(", ");
+    assert.equal(
+      new Set(words).size,
+      words.length,
+      `caption repeats a clause verbatim: ${caption}`,
+    );
   }
 });
 

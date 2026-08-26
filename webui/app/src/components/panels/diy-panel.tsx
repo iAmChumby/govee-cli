@@ -4,7 +4,10 @@
  * DiyPanel — DIY scenes (WEBUI_SPEC §4 GET/PUT diy).
  *
  * Same card family as the scene library but visually distinct: a left
- * gradient edge strip derived from the name instead of a full thumb.
+ * gradient edge strip instead of a full thumb. That gradient comes from
+ * `nameToGradient`, which is the 3D stage's own resolver — a curated
+ * appearance table, never a hash of the name — so a DIY name it has no
+ * signal for reads as neutral grey rather than a confident invented hue.
  * DIY styles are authored on the phone; the panel only applies them.
  */
 

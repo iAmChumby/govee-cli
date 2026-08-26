@@ -15,6 +15,8 @@ import { motion } from "motion/react";
 import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/cn";
 import { fadeUp, staggerParent } from "@/lib/motion";
+import { resolveNamedPalette } from "@/lib/motion-engine/classify";
+import { INDETERMINATE_PALETTE } from "@/lib/motion-engine/palette";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { Panel } from "@/components/ui/panel";
@@ -23,25 +25,30 @@ import { Skeleton } from "@/components/ui/skeleton";
 /* ------------------------------------------------------------- gradient */
 
 /**
- * Deterministic name → two-stop CSS gradient. FNV-1a over the name, split
- * into analogous hue pairs with bounded saturation/lightness so every thumb
- * reads as vivid light content rather than mud. "Aurora" renders the same
- * gradient on every mount, in both themes, forever.
+ * Name → CSS gradient thumb, driven by the SAME curated appearance table and
+ * resolver the 3D stage uses (`motion-engine/classify.ts`'s
+ * `resolveNamedPalette`, itself backed by `scene-appearance.ts`) — not an
+ * independent hash.
+ *
+ * The bug this replaced: this function used to hash the name with FNV-1a
+ * into an HSL pair with zero relation to what `classify.ts`'s OWN, entirely
+ * separate, `sum(charCode) % 4` hash chose for the same name. "Aurora"
+ * thumbed magenta here while the 3D stage rendered the lava-orange palette —
+ * two independent guesses for the same scene that didn't even agree with
+ * each other, and neither one was the green/cyan the real lamp shows
+ * running Aurora. Routing both through one resolver makes that
+ * disagreement structurally impossible, not just coincidentally rare.
+ *
+ * A name the resolver has no real signal for (`resolveNamedPalette`'s
+ * `indeterminate: true`) renders `INDETERMINATE_PALETTE` — the same neutral
+ * grey used everywhere else that palette shows up — never a confident-
+ * looking hue invented for a name nobody has verified.
  */
 export function nameToGradient(name: string): string {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < name.length; i += 1) {
-    h ^= name.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  const u = h >>> 0;
-  const hue1 = u % 360;
-  const hue2 = (hue1 + 34 + ((u >>> 7) % 88)) % 360;
-  const sat = 64 + ((u >>> 13) % 24); // 64–87%
-  const lit1 = 54 + ((u >>> 19) % 12); // 54–65%
-  const lit2 = Math.max(lit1 - 24, 26);
-  const sat2 = Math.min(sat + 8, 96);
-  return `linear-gradient(135deg, hsl(${hue1} ${sat}% ${lit1}%), hsl(${hue2} ${sat2}% ${lit2}%))`;
+  const { palette, indeterminate } = resolveNamedPalette(name);
+  const colors = indeterminate ? INDETERMINATE_PALETTE.colors : palette.colors;
+  const stops = colors.length > 1 ? colors : [colors[0], colors[0]];
+  return `linear-gradient(135deg, ${stops.join(", ")})`;
 }
 
 /* ---------------------------------------------------------- panel frame */

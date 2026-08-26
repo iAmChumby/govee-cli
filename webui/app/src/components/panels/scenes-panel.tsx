@@ -3,8 +3,12 @@
 /**
  * ScenesPanel — the firmware scene library (WEBUI_SPEC §4 GET/PUT scenes).
  *
- * Searchable card grid; each thumb is a deterministic gradient derived from
- * the scene name (content, not chrome). Applying is optimistic: the clicked
+ * Searchable card grid; each thumb is a gradient from `nameToGradient`,
+ * which routes through the same curated appearance table and resolver the
+ * 3D stage uses (never an independent hash — that is how the library and
+ * the stage used to show two different colours for one scene). A name the
+ * table has no signal for thumbs neutral grey, on purpose. Applying is
+ * optimistic: the clicked
  * card highlights immediately and settles when the mutation resolves — the
  * device reports "" for the active scene, so local truth is all we have.
  */
