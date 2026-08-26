@@ -149,25 +149,31 @@ def _terminate_group(proc: subprocess.Popen[bytes]) -> None:
 def canvas_is_animating(page, selector: str = "canvas") -> tuple[bool, str]:
     """True when the instrument's pixels differ across a one-second gap.
 
-    Reads the canvas back with toDataURL rather than screenshotting the page, so
-    a CSS animation on some unrelated element cannot be mistaken for the motion
-    engine doing its job.
+    Screenshots the canvas ELEMENT, not the page, so a CSS animation on some
+    unrelated element still cannot be mistaken for the render doing its job —
+    the original reason this reads the canvas rather than the viewport.
+
+    It used to call ``toDataURL()``, which was right for Canvas2D and is wrong
+    for WebGL: the drawing buffer is cleared once it has been composited, so
+    ``toDataURL`` returns a blank image unless the context was created with
+    ``preserveDrawingBuffer: true``. Two blanks compare equal, so this check
+    would have reported "nothing is animating" about a lamp that was animating
+    perfectly. The tempting fix is that context flag — but it makes every frame
+    on the phone pay for a test, so the gate changed instead of the renderer.
+    An element screenshot reads the composited result and costs the app nothing.
     """
-    js = """(sel) => {
-      const c = document.querySelector(sel);
-      if (!c) return null;
-      try { return c.toDataURL(); } catch (e) { return 'ERR:' + e.message; }
-    }"""
-    first = page.evaluate(js, selector)
-    if first is None:
+    locator = page.locator(selector).first
+    if locator.count() == 0:
         return False, "no canvas element found"
-    if isinstance(first, str) and first.startswith("ERR:"):
-        return False, first
-    page.wait_for_timeout(1000)
-    second = page.evaluate(js, selector)
+    try:
+        first = locator.screenshot()
+        page.wait_for_timeout(1000)
+        second = locator.screenshot()
+    except Exception as e:  # a zero-size or detached canvas cannot be shot
+        return False, f"could not screenshot the canvas: {e}"
     if first == second:
         return False, "canvas pixels identical after 1s — nothing is animating"
-    return True, f"pixels changed ({len(first)} -> {len(second)} bytes of data URL)"
+    return True, f"pixels changed ({len(first)} -> {len(second)} bytes of PNG)"
 
 
 def _apply_a_scene(page) -> str | None:
