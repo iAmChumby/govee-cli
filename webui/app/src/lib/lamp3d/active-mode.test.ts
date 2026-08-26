@@ -265,6 +265,29 @@ test("rule 4: every restricted mode gets a caption and the reset control, never 
   }
 });
 
+test("rule 4: a MAPPED music mode carries the colour caveat too — silence would read as 'this blue is real'", () => {
+  // "rhythm" IS in `MUSIC_MODE_ARCHETYPES`, so it never reaches the name
+  // resolver; its palette is the wave archetype's generic ocean blue, and
+  // the device reports "" for `musicMode` and drives its own colours off
+  // the audio. Without a caveat this captioned "rhythm — music mode,
+  // confirmed, 5s ago" beside that invented blue, on the same screen as
+  // scenes that spell out "colour approximated".
+  const state = makeState({
+    active: {
+      mode: "music",
+      label: "rhythm",
+      confidence: "confirmed",
+      source: "webui",
+      set_at: null,
+      age_seconds: 5,
+    },
+  });
+  assert.equal(
+    resolveLampState(state).caption,
+    "rhythm — music mode, confirmed, colour approximated, 5s ago",
+  );
+});
+
 test("rule 4: chooser and reset are mutually exclusive across every reachable state", () => {
   const modes: DeviceState["active"]["mode"][] = [
     "off",

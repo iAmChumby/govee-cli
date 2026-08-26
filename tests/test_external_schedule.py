@@ -693,6 +693,11 @@ def test_snapshot_answers_last_and_reports_its_age(
     assert result.source == "snapshot"
     # A cached answer must never be indistinguishable from a live one.
     assert result.stale_seconds is not None
+    # >= 0 is the real assertion, and it used to fail intermittently: the wall
+    # clock and the filesystem's write timestamp are different sources, and on
+    # Windows `now - st_mtime` for a just-written file came out negative on
+    # 3152 of 4000 measured attempts. `_read_via_snapshot` floors it, because a
+    # cache cannot be newer than now and this number is shown to the user.
     assert result.stale_seconds >= 0
 
 

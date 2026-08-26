@@ -197,9 +197,13 @@ export function DualPreview({
             content is a `justify-between` header whose label span has no
             `truncate`, so at a narrow track the label rendered past this
             item's edge and overlapped the neighboring column's label and
-            its `{fps}` chip. `min-w-0` here plus `min-w-0 truncate` on the
-            label span below (and the header row between them) is the whole
-            fix; it is orthogonal to the width squeeze above and would
+            its `{fps}` chip. `min-w-0` here plus giving the label its own
+            grid row below is the whole fix. Do NOT "finish" it by adding
+            `truncate` to the label span: CLAUDE.md's own note on this
+            component measured "canvas · full resolution" at 178px in a
+            109px box, so truncating produces the same unreadable label by
+            another route, and `title=` cannot rescue it because touch has
+            no hover. It is orthogonal to the width squeeze above and would
             resurface even after that fix without this. */}
         <div className="grid min-w-0 grid-rows-[auto_auto_1fr_auto] gap-y-1.5">
           {/* Label and control on SEPARATE rows, not one `justify-between`

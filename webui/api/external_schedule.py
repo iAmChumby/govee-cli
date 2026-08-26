@@ -184,7 +184,21 @@ def _read_via_snapshot() -> CrontabResult:
     """A cached copy, with its age — never presented as a live read."""
     try:
         text = SNAPSHOT_PATH.read_text()
-        age = datetime.now(timezone.utc).timestamp() - SNAPSHOT_PATH.stat().st_mtime
+        # Clamped at 0: a cached file cannot be from the future, and this
+        # value is rendered to the user as "how stale is this read". The
+        # subtraction really does go negative — the wall clock and the
+        # filesystem's write timestamp are two different sources and they
+        # disagree by well under a microsecond. Measured on this Windows
+        # workstation: writing a file and immediately stat-ing it gave a
+        # negative age on 3152 of 4000 attempts (worst -1e-6s), which is
+        # what made `test_snapshot_answers_last_and_reports_its_age` fail
+        # intermittently under load. Without the floor a fresh snapshot can
+        # report a negative staleness, which reads as a console claiming a
+        # cached answer is newer than now.
+        age = max(
+            0.0,
+            datetime.now(timezone.utc).timestamp() - SNAPSHOT_PATH.stat().st_mtime,
+        )
     except OSError as e:
         return CrontabResult(readable=False, error=str(e), raw_lines=[], source="none")
     return CrontabResult(

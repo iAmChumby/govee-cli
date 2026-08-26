@@ -76,16 +76,20 @@ export interface MotionSpec {
   /** stable key for the hash fallback / debug overlay */
   sourceName?: string;
   /**
-   * Set only by name-driven classification (`classify.ts`'s
-   * `classifyByNamedMode`, covering firmware scenes, DIY scenes, and any
-   * music mode name unmapped by `MUSIC_MODE_ARCHETYPES`) — undefined for
-   * `classifySolid`/`classifyEffectPreview`, which read the device's own
-   * live colour or its own measured keyframe colours and need no caveat.
+   * Set by every classifier that INVENTS a palette rather than reading one:
+   * `classify.ts`'s `classifyByNamedMode` (firmware scenes, DIY scenes, and
+   * any music mode name unmapped by `MUSIC_MODE_ARCHETYPES`) and
+   * `classifyMusicMode`'s mapped branch. It is undefined for exactly two
+   * classifiers, `classifySolid` and `classifyEffectPreview`, which read the
+   * device's own live colour or its own measured keyframe colours and so
+   * need no caveat — an absent basis therefore MEANS "this colour is real",
+   * and a classifier that guesses must never leave it unset.
    *
    * "curated" — the palette came from `scene-appearance.ts`'s researched
-   * table, a keyword match, or a literal colour word in the name: real
-   * signal about this specific name, still an assumption per project law
-   * (the v2 API returns no colour data for any scene), but a grounded one.
+   * table, a keyword match, a literal colour word in the name, or the §4.7
+   * music-mode hand-map: real signal about this specific name, still an
+   * assumption per project law (the v2 API returns no colour data for any
+   * scene or music mode), but a grounded one.
    *
    * "indeterminate" — the name matched none of the above. The archetype
    * still varies by a hash of the name (so unrelated unknown names don't

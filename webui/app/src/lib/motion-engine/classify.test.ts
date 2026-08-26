@@ -278,6 +278,19 @@ test('kind "music_mode" classifies by resolved name, never a raw integer — Rhy
   assert.equal(h6056Rhythm.archetype, "wave");
 });
 
+test("a MAPPED music mode still declares its palette as invented — an absent basis means 'this colour is real'", () => {
+  // `types.ts` defines an undefined `paletteBasis` as "the classifier read
+  // the device's own live colour" (classifySolid / classifyEffectPreview).
+  // The music hand-map reads nothing: it pins an archetype and takes that
+  // archetype's generic default palette, and with autoColor on the device
+  // picks its own colours off the audio. Leaving the basis unset captioned
+  // "Rhythm — music mode, confirmed, 5s ago" next to a confident blue while
+  // every scene on the same screen said "colour approximated".
+  const rhythm = classifyActiveMode(namedMode("Rhythm", "music_mode"), "H6022");
+  assert.equal(rhythm.paletteBasis, "curated");
+  assert.equal(rhythm.paletteConfidence, "medium");
+});
+
 test('kind "effect" without effect data degrades to the solid/breathe fallback, never crashes', () => {
   const spec = classifyActiveMode(
     { kind: "effect", confidence: "assumed", ageSeconds: 0, source: "cli" },

@@ -322,6 +322,22 @@ function classifyMusicMode(mode: ActiveMode, model: string): MotionSpec {
       periodSec: entry.periodSec,
       intensity: 0.85,
       sourceName: mode.name,
+      // A mapped music mode's palette is invented here, exactly like a
+      // keyword match's: the table above pins an archetype and a cadence,
+      // and the colour is that archetype's generic default (only
+      // `rainbowcircle` names one). The device reports "" for `musicMode`
+      // and, with autoColor on, picks its own colours off the audio — so
+      // this is the LEAST grounded palette the resolver produces, not the
+      // most. Leaving `paletteBasis` unset would have said the opposite:
+      // `types.ts` defines an absent basis as "read the device's own live
+      // colour, no caveat needed", which is what `classifySolid` and
+      // `classifyEffectPreview` do. The concrete bug that omission caused:
+      // an H6022 on Rhythm captioned "Rhythm — music mode, confirmed, 5s
+      // ago" beside a confident generic blue, with every other name-driven
+      // mode on the same screen spelling out "colour approximated". The
+      // silence read as "this colour is known".
+      paletteBasis: "curated",
+      paletteConfidence: "medium",
     };
   }
   if (process.env.NODE_ENV !== "production" && mode.name) {
