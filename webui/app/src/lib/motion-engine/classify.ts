@@ -28,6 +28,7 @@ import {
   paletteFromColorTempK,
   rgbToHex,
 } from "./palette";
+import { prefersColorTemp } from "@/components/stage/color";
 import type { ActiveMode, EffectDescriptor, MotionArchetype, MotionSpec, Palette } from "./types";
 
 /* ------------------------------------------------------------------ layer 1 */
@@ -178,11 +179,17 @@ function classifyByNamedMode(mode: ActiveMode): MotionSpec {
 /* --------------------------------------------------------------- solid/segments */
 
 function classifySolid(mode: ActiveMode): MotionSpec {
-  const palette = mode.color
-    ? paletteFromColor(mode.color)
-    : mode.colorTempK != null
-      ? paletteFromColorTempK(mode.colorTempK)
-      : WARM_BREATHE_PALETTE;
+  // A device in colour-temperature mode reports a placeholder white alongside
+  // the temperature that is actually lighting the room, so the temperature
+  // wins that pair — see `basicHsl` in components/stage/color.ts.
+  const rgb = mode.color ? ([mode.color.r, mode.color.g, mode.color.b] as const) : null;
+  const tempK = mode.colorTempK ?? null;
+  const palette =
+    tempK !== null && prefersColorTemp(rgb, tempK)
+      ? paletteFromColorTempK(tempK)
+      : mode.color
+        ? paletteFromColor(mode.color)
+        : WARM_BREATHE_PALETTE;
   return {
     archetype: "breathe",
     // matches stage.tsx's existing Breath cadence (§4.1 zero-regression case)

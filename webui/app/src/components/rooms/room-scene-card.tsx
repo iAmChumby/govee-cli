@@ -12,7 +12,7 @@ import {
 } from "@/lib/api";
 import { useDeleteRoom, useDevices, useRestoreRoom } from "@/lib/queries";
 import { useDeviceBleed } from "@/lib/device-bleed";
-import { rgbToHsl, kelvinToRgb, WARM_HSL, type Hsl } from "@/components/stage/color";
+import { rgbToHsl, kelvinToRgb, prefersColorTemp, WARM_HSL, type Hsl } from "@/components/stage/color";
 import { cn } from "@/lib/cn";
 
 /* ==================================================================
@@ -25,11 +25,14 @@ import { cn } from "@/lib/cn";
 /** One captured device's colour as plain RGB, or null when it contributes
  *  nothing knowable (off, or captured with neither colour nor temp). */
 function effectiveRgb(device: CapturedDevice): [number, number, number] | null {
-  if (device.color) return device.color;
-  if (device.color_temp_k != null) {
-    const [r, g, b] = kelvinToRgb(device.color_temp_k);
+  // `prefersColorTemp` because a capture taken in colour-temperature mode
+  // records a placeholder white in `color` next to the live temperature.
+  const tempK = device.color_temp_k ?? null;
+  if (tempK !== null && prefersColorTemp(device.color ?? null, tempK)) {
+    const [r, g, b] = kelvinToRgb(tempK);
     return [r, g, b];
   }
+  if (device.color) return device.color;
   return null;
 }
 

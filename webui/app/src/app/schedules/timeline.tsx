@@ -38,10 +38,9 @@ import {
 import {
   type Hsl,
   WARM_HSL,
+  basicHsl,
   hslaCss,
   hslCss,
-  kelvinToRgb,
-  rgbToHsl,
 } from "@/components/stage/color";
 import { cn } from "@/lib/cn";
 import { springStandard } from "@/lib/motion";
@@ -111,9 +110,7 @@ function deviceHueFor(devices: DeviceSummary[], hint: string | null): Hsl {
   const wanted = hint.split(",").map((s) => s.trim().toLowerCase());
   const match = devices.find((d) => d.name && wanted.includes(d.name.toLowerCase()));
   if (!match) return WARM_HSL;
-  if (match.color) return rgbToHsl(match.color.rgb);
-  if (match.color_temp_k) return rgbToHsl(kelvinToRgb(match.color_temp_k));
-  return WARM_HSL;
+  return basicHsl(match.color?.rgb ?? null, match.color_temp_k ?? null);
 }
 
 /* ------------------------------------------------------------- markers */

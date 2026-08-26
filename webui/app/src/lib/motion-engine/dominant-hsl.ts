@@ -13,7 +13,7 @@
  * back to the cloud reading, which is trustworthy for plain colour/temp.
  */
 
-import { rgbToHsl, kelvinToRgb, WARM_HSL, type Hsl } from "@/components/stage/color";
+import { basicHsl, rgbToHsl, type Hsl } from "@/components/stage/color";
 
 import { classifyActiveMode } from "./classify";
 import type { ActiveMode as MotionActiveMode, Palette } from "./types";
@@ -71,7 +71,5 @@ export function dominantHsl({
     const fromPalette = paletteHsl(classifyActiveMode(motionMode, model).palette);
     if (fromPalette) return fromPalette;
   }
-  if (color) return rgbToHsl(color.rgb);
-  if (colorTempK !== null) return rgbToHsl(kelvinToRgb(colorTempK));
-  return WARM_HSL;
+  return basicHsl(color?.rgb ?? null, colorTempK);
 }

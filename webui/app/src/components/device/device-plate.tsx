@@ -7,7 +7,7 @@ import { motion, useReducedMotion } from "motion/react";
 
 import { Chip, Odometer, Panel, Slider, StatusDot, Switch } from "@/components/ui";
 import { DeviceStage } from "@/components/stage/stage";
-import { type Hsl } from "@/components/stage/color";
+import { prefersColorTemp, type Hsl } from "@/components/stage/color";
 import type { DeviceSummary } from "@/lib/api";
 import { useDeviceBleed } from "@/lib/device-bleed";
 import { dominantHsl } from "@/lib/motion-engine/dominant-hsl";
@@ -371,7 +371,12 @@ export function DevicePlate({ device }: { device: DeviceSummary }) {
         <div className="mt-2.5 flex items-center justify-between">
           <Odometer value={brightness} pad={3} suffix="%" size="lg" className="text-hi" />
           <span className="flex items-center gap-2 font-mono text-[20px] leading-none text-mid">
-            {device.color ? (
+            {device.color_temp_k !== null &&
+            prefersColorTemp(device.color?.rgb ?? null, device.color_temp_k) ? (
+              // Colour-temperature mode reports a placeholder white in
+              // `color`; the temperature is the half that carries the room.
+              <Odometer value={device.color_temp_k} suffix="K" size="lg" className="text-mid" />
+            ) : device.color ? (
               <>
                 <span
                   aria-hidden
@@ -380,8 +385,6 @@ export function DevicePlate({ device }: { device: DeviceSummary }) {
                 />
                 {device.color.hex.toUpperCase()}
               </>
-            ) : device.color_temp_k ? (
-              <Odometer value={device.color_temp_k} suffix="K" size="lg" className="text-mid" />
             ) : (
               "—"
             )}

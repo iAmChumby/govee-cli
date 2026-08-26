@@ -19,6 +19,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui";
+import { prefersColorTemp } from "@/components/stage/color";
 import { panelIn } from "@/lib/motion";
 import { PaintStudioPanel } from "./paint-studio/paint-studio-panel";
 import { HexField, NativeColorInput, SwatchRow } from "./color-picker";
@@ -311,6 +312,11 @@ function LightTab({ refId, state }: ControlDeckProps) {
 
 function ReadoutStrip({ state }: { state: DeviceState }) {
   const online = state.online !== false;
+  // A device in colour-temperature mode reports a placeholder white in
+  // `color`; printing that hex would contradict the stage beside it, which
+  // now paints the temperature (see `basicHsl`).
+  const asTemp =
+    state.color_temp_k !== null && prefersColorTemp(state.color?.rgb ?? null, state.color_temp_k);
   return (
     <div className="mt-5 flex items-center gap-4 border-t border-hairline pt-4">
       <span className="flex items-center gap-2">
@@ -323,7 +329,9 @@ function ReadoutStrip({ state }: { state: DeviceState }) {
       <span aria-hidden className="h-3 w-px bg-hairline" />
 
       <span className="flex items-center gap-2 font-mono text-[11px] text-mid">
-        {state.color ? (
+        {asTemp ? (
+          `${state.color_temp_k}K`
+        ) : state.color ? (
           <>
             <span
               aria-hidden
@@ -332,8 +340,6 @@ function ReadoutStrip({ state }: { state: DeviceState }) {
             />
             {state.color.hex.toUpperCase()}
           </>
-        ) : state.color_temp_k !== null ? (
-          `${state.color_temp_k}K`
         ) : (
           "—"
         )}

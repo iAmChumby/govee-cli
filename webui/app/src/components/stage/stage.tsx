@@ -18,12 +18,11 @@ import type { DeviceState, DeviceSummary } from "@/lib/api";
 import { useDeleteActiveMode } from "@/lib/queries";
 import { Button } from "@/components/ui/button";
 import {
+  basicHsl,
   clamp,
   emissionHsl,
   hslCss,
   hslaCss,
-  kelvinToRgb,
-  rgbToHsl,
   withLightness,
   WARM_HSL,
   type Hsl,
@@ -134,13 +133,10 @@ const NEUTRAL_CHASSIS_HSL: Hsl = [0, 0, 22];
  *  every other `active.mode` the texture layer below takes over instead of
  *  guessing a static color from possibly-stale `color`/`color_temp_k`. */
 function useActiveHsl(state: DeviceState | DeviceSummary): Hsl {
-  return React.useMemo<Hsl>(() => {
-    if (state.color) return rgbToHsl(state.color.rgb);
-    if (state.color_temp_k !== null && state.color_temp_k !== undefined) {
-      return rgbToHsl(kelvinToRgb(state.color_temp_k));
-    }
-    return WARM_HSL;
-  }, [state.color, state.color_temp_k]);
+  return React.useMemo<Hsl>(
+    () => basicHsl(state.color?.rgb ?? null, state.color_temp_k ?? null),
+    [state.color, state.color_temp_k],
+  );
 }
 
 /* --------------------------------------------------------- active mode texture

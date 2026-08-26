@@ -99,3 +99,60 @@ export function emissionHsl(hsl: Hsl, factor: number): Hsl {
   const scaled = hsl[2] * (0.58 + 0.42 * clamp(factor, 0, 1));
   return withLightness(hsl, scaled);
 }
+
+/**
+ * How far apart an RGB triple's channels may sit and still count as "the
+ * firmware's white", in 0..255. Deliberately tight: the device palette ships
+ * a genuine cool-white swatch at `#EAF2FF` (spread 21), and a person who
+ * picks that has commanded a colour, not a placeholder. 8 covers firmware
+ * rounding on a true white and nothing anyone chose on purpose.
+ */
+const PLACEHOLDER_WHITE_SPREAD = 8;
+
+/**
+ * True when a reported colour carries no hue worth believing.
+ *
+ * A device in colour-temperature mode reports `colorRgb` as a flat white
+ * rather than as the amber it is actually emitting — the temperature is the
+ * field carrying the information. Detecting that case is what lets the render
+ * take the temperature instead.
+ */
+export function isPlaceholderWhite(rgb: Rgb): boolean {
+  const max = Math.max(rgb[0], rgb[1], rgb[2]);
+  const min = Math.min(rgb[0], rgb[1], rgb[2]);
+  return max - min <= PLACEHOLDER_WHITE_SPREAD;
+}
+
+/**
+ * True when the colour temperature is the honest reading of the pair.
+ *
+ * Shared by the renders and by the textual readouts so a card cannot print
+ * `#FFFFFF` next to an instrument glowing 2000 K amber.
+ */
+export function prefersColorTemp(rgb: Rgb | null, colorTempK: number | null): boolean {
+  if (colorTempK === null) return false;
+  return rgb === null || isPlaceholderWhite(rgb);
+}
+
+/**
+ * The one colour a device reported as plain colour/temperature is emitting.
+ *
+ * `colorRgb` and `colorTemperatureK` are mutually exclusive modes on the
+ * hardware, but the cloud reports both fields on every read — a lamp sitting
+ * at 2000 K comes back as `colorRgb` white *plus* `colorTemperatureK: 2000`.
+ * Reading `color` first (as every call site here used to) throws the only
+ * informative half away and paints a flat neutral slab while the room is
+ * visibly amber. A saturated colour still outranks the temperature, because
+ * there the RGB is the commanded value and the temperature is the leftover.
+ *
+ * Only valid for `basic`/`off`/`unknown` modes: while a scene, DIY or music
+ * mode is running, both fields are stale and the motion engine's classified
+ * palette is the answer instead.
+ */
+export function basicHsl(rgb: Rgb | null, colorTempK: number | null): Hsl {
+  if (colorTempK !== null && prefersColorTemp(rgb, colorTempK)) {
+    return rgbToHsl(kelvinToRgb(colorTempK));
+  }
+  if (rgb) return rgbToHsl(rgb);
+  return WARM_HSL;
+}
