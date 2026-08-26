@@ -81,6 +81,60 @@ def _wait_for(url: str, timeout: float = 120.0) -> None:
     raise Failure(f"{url} never became ready ({last})")
 
 
+# ---------------------------------------------------------------------------
+# Cross-platform process plumbing.
+#
+# This script was written on Linux, where every server it starts is an ordinary
+# executable on PATH and a process group can be signalled as a unit. None of
+# those three assumptions holds on Windows, and each failed loudly rather than
+# subtly, which is the good case: `npm` is `npm.cmd` and CreateProcess will not
+# find a bare "npm"; the venv's interpreter lives in `Scripts/`, not `bin/`; and
+# `os.killpg`/`start_new_session` do not exist there at all.
+#
+# The Linux path through all three helpers is byte-for-byte what it was.
+# ---------------------------------------------------------------------------
+IS_WINDOWS = os.name == "nt"
+
+
+def _npm() -> str:
+    """The npm launcher's real path.
+
+    `subprocess` on Windows does not consult PATHEXT, so a bare "npm" raises
+    FileNotFoundError even with npm installed and on PATH. `shutil.which` does
+    consult it and returns `npm.cmd`; on Linux it returns the same `npm` the
+    bare string would have resolved to.
+    """
+    return shutil.which("npm") or "npm"
+
+
+def _python() -> str:
+    """The interpreter to run the mock sidecar with.
+
+    Prefers the project venv described in CLAUDE.md's Setup section, under
+    whichever layout this platform uses, and falls back to the interpreter
+    running this script — which is correct whenever the dependencies are
+    importable from it, and gives a clear ImportError rather than a confusing
+    missing-file error when they are not.
+    """
+    for candidate in (REPO / ".venv" / "bin" / "python", REPO / ".venv" / "Scripts" / "python.exe"):
+        if candidate.exists():
+            return str(candidate)
+    return sys.executable
+
+
+def _detached() -> dict:
+    """Popen kwargs that make a child killable as a whole tree.
+
+    `npm run start` execs a child next-server, and terminating npm alone
+    orphans it still holding the port, which makes the next run fail to start.
+    Unix gets its own session so the group can be signalled; Windows gets its
+    own process group, which is what `taskkill /T` walks.
+    """
+    if IS_WINDOWS:
+        return {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP}
+    return {"start_new_session": True}
+
+
 def start_stack(log_dir: pathlib.Path) -> list[subprocess.Popen[bytes]]:
     """Boot a mock sidecar and a production Next build on the scratch ports."""
     for port, what in ((API_PORT, "sidecar"), (WEB_PORT, "web")):
@@ -100,10 +154,23 @@ def start_stack(log_dir: pathlib.Path) -> list[subprocess.Popen[bytes]]:
         "GOVEE_WEBUI_DIST_DIR": DIST_DIR,
     }
     print("  building against the scratch sidecar (rewrites are baked in)...")
-    build = subprocess.run(
-        ["npm", "run", "build"], cwd=APP, env=build_env,
-        capture_output=True, text=True, timeout=900,
-    )
+    # `next build` REWRITES next-env.d.ts to reference whatever dist dir it was
+    # told to use, and this build deliberately uses a scratch one. That file is
+    # tracked, so a verification run otherwise leaves the working tree dirty with
+    # a change pointing the project's type references at `.next-verify` — wrong
+    # for every other use of the repo, and easy to commit by accident because it
+    # shows up alongside the very changes the run was verifying. Snapshot it and
+    # put it back.
+    next_env = APP / "next-env.d.ts"
+    next_env_before = next_env.read_text(encoding="utf-8") if next_env.exists() else None
+    try:
+        build = subprocess.run(
+            [_npm(), "run", "build"], cwd=APP, env=build_env,
+            capture_output=True, text=True, timeout=900,
+        )
+    finally:
+        if next_env_before is not None and next_env.read_text(encoding="utf-8") != next_env_before:
+            next_env.write_text(next_env_before, encoding="utf-8")
     if build.returncode != 0:
         raise Failure("next build failed:\n" + build.stdout[-3000:] + build.stderr[-2000:])
 
@@ -112,27 +179,40 @@ def start_stack(log_dir: pathlib.Path) -> list[subprocess.Popen[bytes]]:
     # `npm run start` execs a child next-server, and terminating npm alone
     # orphans it holding the port, which makes the next run fail to start.
     api = subprocess.Popen(
-        [str(REPO / ".venv" / "bin" / "python"), "-m", "webui.api.main"],
+        [_python(), "-m", "webui.api.main"],
         cwd=REPO, env=env, stdout=api_log, stderr=subprocess.STDOUT,
-        start_new_session=True,
+        **_detached(),
     )
     _wait_for(f"http://127.0.0.1:{API_PORT}/api/v1/health")
 
     web_log = (log_dir / "web.log").open("wb")
     web = subprocess.Popen(
-        ["npm", "run", "start", "--", "-p", str(WEB_PORT), "-H", "127.0.0.1"],
+        [_npm(), "run", "start", "--", "-p", str(WEB_PORT), "-H", "127.0.0.1"],
         cwd=APP,
         env={**env, "GOVEE_WEBUI_API": f"http://127.0.0.1:{API_PORT}",
              "GOVEE_WEBUI_DIST_DIR": DIST_DIR},
         stdout=web_log, stderr=subprocess.STDOUT,
-        start_new_session=True,
+        **_detached(),
     )
     _wait_for(f"http://127.0.0.1:{WEB_PORT}/")
     return [api, web]
 
 
 def _terminate_group(proc: subprocess.Popen[bytes]) -> None:
-    """Kill the whole process group, not just the launcher."""
+    """Kill the whole process tree, not just the launcher."""
+    if IS_WINDOWS:
+        # There is no killpg on Windows. `taskkill /T` walks the child tree
+        # from a PID, which is what actually reaches the next-server npm
+        # spawned; /F because next-server ignores the polite request.
+        subprocess.run(
+            ["taskkill", "/F", "/T", "/PID", str(proc.pid)],
+            capture_output=True, check=False,
+        )
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+        return
     try:
         os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
     except (ProcessLookupError, PermissionError):

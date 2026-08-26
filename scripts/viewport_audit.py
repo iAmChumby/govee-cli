@@ -708,6 +708,19 @@ def run(args: argparse.Namespace, base: str) -> int:
             browser.close()
 
 
+def _force_utf8_stdout() -> None:
+    """Windows consoles default to cp1252, which cannot encode this script's own
+    output (the desktop-diff lines use a literal delta). Without this the audit
+    dies with a UnicodeEncodeError *while reporting its findings* — the findings
+    are computed correctly and then lost on the way to the terminal, which reads
+    as a tool crash rather than as a result."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            pass
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     mode = ap.add_mutually_exclusive_group(required=True)
@@ -724,6 +737,7 @@ def main() -> int:
         help="skip the desktop invariance diff (only valid with --check)",
     )
     args = ap.parse_args()
+    _force_utf8_stdout()
 
     BASELINE_FILE.parent.mkdir(parents=True, exist_ok=True)
     if args.check:
