@@ -238,9 +238,19 @@ def test_diy(client: TestClient) -> None:
     listing = client.get(f"/api/v1/devices/{LAMP}/diy")
     assert listing.status_code == 200
     names = [s["name"] for s in listing.json()["scenes"]]
-    assert "Rainbow Flow" in names
-    applied = client.put(f"/api/v1/devices/{LAMP}/diy", json={"name": "rainbow flow"})
+    assert "Sunrise Circuit" in names
+    applied = client.put(f"/api/v1/devices/{LAMP}/diy", json={"name": "sunrise circuit"})
     assert applied.status_code == 200
+
+    # The fixture must keep at least one name a human chose for reasons of
+    # their own, with no colour signal in it. DIY names are user-authored, so
+    # this is the common real case, and it is the only one that exercises the
+    # console's indeterminate path — where it must render neutral grey and say
+    # the colour is unknown rather than hash the letters into a confident hue.
+    # An all-descriptive fixture resolves every entry, so the visual pass would
+    # never once render that state and the fabricated-palette bug could return
+    # unseen.
+    assert "madisonnnn" in names
 
 
 def test_snapshots(client: TestClient) -> None:

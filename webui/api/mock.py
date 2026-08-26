@@ -72,11 +72,20 @@ BULB_SCENES: list[str] = [
     "Relax", "Focus", "Party", "Romantic", "Sleep", "Wake Up",
 ]
 
+# DIY scenes are named by the user in the Govee app, so a real account's list is
+# a mix of descriptive names and names that carry no colour signal whatsoever.
+# The H6022's list mirrors that shape on purpose: "Sunrise Circuit" resolves
+# through the appearance table, while "madisonnnn" and "FRoesy2k" (both real
+# names off this project's own account) resolve to *indeterminate* and must
+# render neutral grey with "colour unknown". A fixture made only of tidy
+# descriptive names would let the fabricated-palette bug back in unseen — every
+# mock entry would resolve, so `verify_ui.py` would never once render the
+# unknown state that is the whole point of the honesty axis.
 DIY_SCENES: dict[str, list[tuple[str, int]]] = {
     "H6056": [("Sunrise Circuit", 1), ("Rainbow Flow", 2), ("Ember Fade", 3),
               ("Ocean Pulse", 4)],
-    "H6022": [("Sunrise Circuit", 1), ("Rainbow Flow", 2), ("Ember Fade", 3),
-              ("Ocean Pulse", 4)],
+    "H6022": [("Sunrise Circuit", 1), ("Ember Fade", 2), ("madisonnnn", 3),
+              ("FRoesy2k", 4), ("sleep", 5)],
     "H6008": [("Cozy Glow", 1), ("Deep Sleep", 2)],
 }
 

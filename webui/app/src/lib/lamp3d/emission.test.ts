@@ -358,3 +358,41 @@ describe("frameNormalizeGain", () => {
     expect(tex.texels[1]).toBe(0);
   });
 });
+
+describe("uploadLedFrame exposure opt-out (the indeterminate palette)", () => {
+  // `INDETERMINATE_PALETTE` is #8a8a8a / #5a5a5a — neutral grey, chosen so it
+  // asserts no hue at all for a scene name the resolver has no signal for.
+  const INDETERMINATE_PEAK = 0x8a;
+
+  it("normalizes an indeterminate grey straight to white when left on — the bug", () => {
+    // Documents why the opt-out has to exist. 255/0x8a is ~1.85, so the
+    // neutral grey lands on a fully saturated white: a state this hardware
+    // really can be in, so the render stops reading as "colour unknown" and
+    // starts reading as "the lamp is white".
+    const buffer = new Uint8ClampedArray([
+      INDETERMINATE_PEAK, INDETERMINATE_PEAK, INDETERMINATE_PEAK,
+    ]);
+    expect(INDETERMINATE_PEAK * frameNormalizeGain(buffer)).toBeCloseTo(255, 6);
+  });
+
+  it("leaves the frame at its authored level when normalization is opted out", () => {
+    const ledTex = createLedTexture(WRAPPED);
+    ledTex.buffer.fill(0);
+    ledTex.buffer[0] = INDETERMINATE_PEAK;
+    ledTex.buffer[1] = INDETERMINATE_PEAK;
+    ledTex.buffer[2] = INDETERMINATE_PEAK;
+
+    const gain = uploadLedFrame(ledTex, false);
+    expect(gain).toBe(1);
+    // Still visibly grey, and specifically NOT white: the whole point.
+    expect(ledTex.texels[0]).toBeLessThan(255);
+    expect(ledTex.texels[0]).toBeGreaterThan(0);
+  });
+
+  it("still normalizes by default, so every known palette is unaffected", () => {
+    const ledTex = createLedTexture(WRAPPED);
+    ledTex.buffer.fill(0);
+    ledTex.buffer[2] = 0x66; // #000066 — a dark saturated blue
+    expect(uploadLedFrame(ledTex)).toBeCloseTo(255 / 0x66, 6);
+  });
+});

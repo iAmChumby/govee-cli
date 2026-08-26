@@ -784,7 +784,18 @@ function drawView(view: ViewState, rects: FrameRects, tSeconds: number, nowMs: n
   // `emission.ts`'s `frameNormalizeGain`). Threading it into the cast light
   // and the halo below — rather than letting each recompute it — is what
   // keeps the light a lamp throws at the same exposure as the lamp itself.
-  const frameGain = applyEmission(view.model, view.ledTex, view.power, view.brightness);
+  // An indeterminate palette opts OUT of exposure normalization. Its whole
+  // point is to assert nothing, and normalizing its neutral grey lifts the
+  // peak to 255 — a bright white lamp, which is a state this hardware really
+  // can be in. The render would stop saying "we don't know what colour this
+  // scene is" and start saying "it is white". See `uploadLedFrame`.
+  const frameGain = applyEmission(
+    view.model,
+    view.ledTex,
+    view.power,
+    view.brightness,
+    view.spec?.paletteBasis !== "indeterminate",
+  );
   setDiffuserQuality(view.model, view.tier);
 
   const brightnessFactor = view.power ? brightnessGlow(view.brightness) : 0;

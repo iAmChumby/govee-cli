@@ -327,9 +327,30 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
           see `active-mode.ts`'s `resolveLampState` for the exact gating. */}
       {resolved.caption ? (
         <div className="pointer-events-none absolute inset-x-2 top-2 flex items-start justify-between gap-2">
+          {/* Wraps; deliberately NOT `truncate`. This caption is the honesty
+              statement — its whole job is to carry the qualifiers ("assumed",
+              "colour unknown", the age) that stop a render being read as
+              fact. Clipping it with an ellipsis drops those qualifiers from
+              the RIGHT, which is exactly where they live, and `title=` cannot
+              rescue them because touch has no hover (CLAUDE.md). Measured at
+              390px: "madisonnnn — DIY scene, assumed, colour unknown, 0s ago"
+              overflowed and lost its tail, so the one caption whose text may
+              never go missing was the one being cut. `max-w-[68%]` keeps it
+              clear of the chooser control sharing this row, and `leading-snug`
+              replaces `leading-none` so wrapped lines do not collide. */}
           <span
             className={cn(
-              "truncate rounded-chip border border-hairline bg-bg/80 px-1.5 py-0.5 font-mono leading-none tracking-micro text-low",
+              // `relative z-20` puts this ABOVE the shared WebGL canvas,
+              // which `renderer.ts` mounts on `document.body` at z-10. On a
+              // phone the stage is short and the lamp is centred, so a
+              // wrapped caption reaches the lamp's silhouette and the lamp —
+              // being the higher layer — painted over its last line. There is
+              // no clear corner to retreat to at that size: the body occupies
+              // the middle of the box vertically and horizontally. Raising the
+              // caption instead is what makes the honesty text unhideable at
+              // any stage size, and `bg-bg/95` gives it enough backing to stay
+              // legible where it does cross the lamp.
+              "relative z-20 min-w-0 max-w-[68%] rounded-chip border border-hairline bg-bg/95 px-1.5 py-0.5 font-mono leading-snug tracking-micro text-low",
               mini ? "text-[7px]" : "text-[9px]",
             )}
           >

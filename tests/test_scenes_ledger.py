@@ -61,7 +61,12 @@ def test_apply_scene_writes_ledger(client: TestClient) -> None:
 
 
 def test_apply_diy_writes_ledger(client: TestClient) -> None:
-    resp = client.put(f"/api/v1/devices/{LAMP}/diy", json={"name": "rainbow flow"})
+    # A signal-free, user-authored name on purpose: the ledger is the ONLY
+    # record that this DIY scene is running (the device reports "" for
+    # diyScene forever), and it has to round-trip a name the console can make
+    # no sense of just as faithfully as a descriptive one. "madisonnnn" is a
+    # real name off this project's own account.
+    resp = client.put(f"/api/v1/devices/{LAMP}/diy", json={"name": "madisonnnn"})
     assert resp.status_code == 200
     applied = resp.json()["applied"]
 

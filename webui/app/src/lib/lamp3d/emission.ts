@@ -211,9 +211,22 @@ export function frameNormalizeGain(buffer: Uint8ClampedArray): number {
   return Math.min(255 / peak, EMISSION_NORMALIZE_MAX_GAIN);
 }
 
-/** Returns the gain it applied, so the caller can drive the cast light and
- *  the halo at the same exposure as the body — see `applyEmission`. */
-export function uploadLedFrame(ledTex: LedTexture): number {
+/**
+ * Returns the gain it applied, so the caller can drive the cast light and
+ * the halo at the same exposure as the body — see `applyEmission`.
+ *
+ * `normalizeExposure` exists for exactly one case: a palette the resolver
+ * marked INDETERMINATE. Normalization is justified by colour and brightness
+ * being separate device fields — a lamp set to `#330066` at 100% is a bright
+ * purple, so its frame's peak has to be lifted or the render reads as grey.
+ * That argument needs a hue to preserve. The indeterminate palette has none;
+ * it is deliberately neutral grey precisely so it asserts nothing, and
+ * lifting its peak to 255 turns it into a *bright white lamp* — a state this
+ * hardware really can be in, so the render stops saying "unknown" and starts
+ * claiming "white". Passing false leaves it dim and colourless, which is the
+ * only honest picture of a scene nobody has verified.
+ */
+export function uploadLedFrame(ledTex: LedTexture, normalizeExposure = true): number {
   const { buffer, texels } = ledTex;
   const count = buffer.length / 3;
   if (count === 0) return 1;
@@ -234,7 +247,7 @@ export function uploadLedFrame(ledTex: LedTexture): number {
   // One scalar for the whole frame, so the scatter blend below still mixes
   // like-for-like — gaining the texel and its frame mean by the same factor
   // leaves the blend's proportions untouched.
-  const gain = frameNormalizeGain(buffer);
+  const gain = normalizeExposure ? frameNormalizeGain(buffer) : 1;
 
   for (let i = 0; i < count; i++) {
     const src = i * 3;
@@ -313,11 +326,12 @@ export function applyEmission(
   ledTex: LedTexture,
   power: boolean,
   brightness: number | null,
+  normalizeExposure = true,
 ): number {
   if (!power) {
     clearLedField(ledTex.buffer);
   }
-  const gain = uploadLedFrame(ledTex);
+  const gain = uploadLedFrame(ledTex, normalizeExposure);
 
   const diffuser = model.slots.diffuser;
   if (!(diffuser instanceof MeshPhysicalMaterial)) return gain;
