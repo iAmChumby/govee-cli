@@ -238,6 +238,78 @@ Things that cost a round to learn, all of which look correct in code:
 It cannot use `toDataURL` — a WebGL drawing buffer is cleared after compositing
 and returns blank, so the check would fail on working code.
 
+### What a scene looks like is curated, never derived
+
+The v2 API returns `{name, paramId, id}` for a firmware scene and
+`{name, value}` for a DIY scene. **There is no colour on the wire, ever.** So
+every palette the console shows for a scene is curated real-world knowledge,
+and `webui/app/src/lib/motion-engine/scene-appearance.ts` is the one place it
+lives — read by both the 3D stage and the library thumbnails.
+
+- **Do not derive a palette from the name.** The console used to hash the
+  characters: `sum(charCode) % 4` picked an archetype and you got that
+  archetype's generic palette. `"aurora"` sums to 650, `650 % 4 = 2` → `blob`
+  → lava orange. The real lamp photographed running Aurora is hue **140–180**
+  at saturation 0.6–0.9, with **zero** warm pixels — about 130° of hue away.
+  A hash is a coin flip wearing a classification's clothes.
+- **Two fabrications will not agree, and that is the tell.** `nameToGradient`
+  hashed the same name a second, different way for the thumbnail, so Aurora
+  thumbed magenta while the stage rendered orange. Both now go through one
+  resolver, so disagreement is impossible by construction rather than rare by
+  luck. If you add a third consumer, route it there too.
+- **An unmatched name is `INDETERMINATE`, not a guess.** The archetype may
+  still come from the hash — motion has to be *something*, and a gentle drift
+  claims nothing — but the palette must be the neutral grey and the caption
+  must say "colour unknown". A user-authored DIY name (`madisonnnn`,
+  `FRoesy2k`) carries no signal and is the common real case.
+- **The table's `confidence` column is load-bearing.** A row citing a
+  photograph and a row read off a word with no corroboration may not share
+  wording: "colour approximated" vs "colour guessed from the name". Flattening
+  them lends a bare guess the authority of ground truth.
+- **Do not reuse the ledger-confidence word for the palette clause.** They are
+  different axes (which mode is running; what colour it is) and sit adjacent,
+  so "…, assumed, colour assumed, …" reads as a duplicated string. A test
+  asserts no clause repeats verbatim.
+- **`frameNormalizeGain` must not touch the indeterminate palette.**
+  Normalization exists because colour and brightness are separate device
+  fields; it needs a hue to preserve. Neutral grey has none, so lifting its
+  peak produced a *bright white lamp* — a state the hardware really can be in,
+  which turns "unknown" into a claim.
+- **The honesty caption may never be `truncate`d.** Its qualifiers live at the
+  end of the string, which is exactly what an ellipsis eats, and `title=`
+  cannot rescue them because touch has no hover. It wraps, and it carries
+  `relative z-20` so it sits above the body-level canvas — on a short stage
+  the lamp owns the middle of the box both ways and there is no clear corner
+  to retreat to.
+- **The mock's DIY list must keep a signal-free name.** Every entry used to be
+  tidily descriptive, so every one resolved, so `verify_ui.py` never once
+  rendered the unknown state the honesty axis exists for.
+
+### Container queries, because the panel is not the window
+
+`sm:`/`md:`/`lg:` are **viewport** breakpoints. The device page pins its right
+column at roughly **467 CSS px** for every viewport ≥ 1024px, so a `sm:` rule
+inside a panel there is permanently on and answering a question about the
+window that nobody asked. The paint studio split that column with
+`sm:grid-cols-[minmax(0,1fr)_260px]`, leaving the canvas ~190px, and
+`dual-preview` nested `sm:grid-cols-2` inside *that* for two ~90px thumbnails.
+Use `@container` + `@sm:`/`@3xl:` for anything laid out inside a fixed column,
+and put `@container` on the component whose own slot the query is about — a
+query resolves against the nearest containment ancestor, so marking only the
+host panel silently measures the wrong rect.
+
+Two things that follow, both learned by measuring:
+
+- **`truncate` is not a fix for overlapping labels.** It is the same
+  unreadable label by another route. Measured: "canvas · full resolution"
+  needing 178px in a 109px box, at every desktop width. Give the label its own
+  row.
+- **Side-by-side comparisons need matching row tracks.** The two honest-preview
+  grids exist to be compared, and a one-line header beside a two-line one
+  offset them vertically. Declaring the same `grid-rows-[…]` on both makes the
+  alignment structural instead of a coincidence of how long the labels happen
+  to be.
+
 ### The request meter, and what it may not claim
 
 `govee_cli/request_meter.py` counts every outbound cloud request, hooked **inside
