@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import sys
 
 import pytest
 
@@ -29,7 +30,13 @@ class TestGoveeConfig:
     def test_load_config_defaults_when_no_file(self, config_path):
         cfg = load_config()
         assert cfg.default_mac is None
-        assert cfg.default_adapter == "hci0"
+        # `config._DEFAULT_ADAPTER` is already deliberately platform-aware —
+        # "hci0" is a BlueZ adapter name and means nothing off Linux, so the
+        # module resolves it to None elsewhere. This assertion hardcoded the
+        # Linux value and so could only ever pass on Linux; it now asserts the
+        # same rule the production code states, on whichever platform is
+        # running it.
+        assert cfg.default_adapter == ("hci0" if sys.platform == "linux" else None)
         assert cfg.default_timeout == 10.0
         assert cfg.groups == {}
 

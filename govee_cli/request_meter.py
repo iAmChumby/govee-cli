@@ -17,7 +17,8 @@ fresh `requests.request` per attempt, and each attempt calls `record()` once.
 
 Storage: one JSON file, `~/.config/govee-cli/request-meter.json`, sibling to
 `config.json`/`active-mode.json`. Concurrency and the never-raise contract mirror
-`ledger.py` exactly: `fcntl.flock` (exclusive, blocking) around a read-modify-write,
+`ledger.py` exactly: an exclusive, blocking advisory lock (`filelock.lock_exclusive`,
+which is `fcntl.flock` on POSIX) around a read-modify-write,
 a `.tmp` sibling + `os.replace` for an atomic swap (no `fsync` — see the flush
 itself for why this file diverges from the ledger there), and every
 failure caught, logged at WARNING, and swallowed — a meter write must never turn a
@@ -36,7 +37,6 @@ sum correctly instead of clobbering each other.
 from __future__ import annotations
 
 import atexit
-import fcntl
 import json
 import os
 import pathlib
@@ -47,6 +47,8 @@ from datetime import datetime, timedelta
 from typing import Literal
 
 import structlog
+
+from govee_cli import filelock
 
 logger = structlog.get_logger(__name__)
 
@@ -197,7 +199,7 @@ def _flush_to_disk(
 
     lock_fd = os.open(METER_LOCK_PATH, os.O_CREAT | os.O_RDWR, 0o644)
     try:
-        fcntl.flock(lock_fd, fcntl.LOCK_EX)  # blocking — writes are microseconds
+        filelock.lock_exclusive(lock_fd)  # blocking — writes are microseconds
 
         data = _read_document()
 
@@ -238,7 +240,7 @@ def _flush_to_disk(
             f.flush()
         os.replace(tmp_path, METER_PATH)  # atomic on ext4: never a torn read
     finally:
-        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        filelock.unlock(lock_fd)
         os.close(lock_fd)
 
 

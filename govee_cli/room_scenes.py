@@ -24,7 +24,6 @@ module (T22), not here.
 
 from __future__ import annotations
 
-import fcntl
 import json
 import os
 import pathlib
@@ -34,6 +33,7 @@ from typing import Optional
 
 import structlog
 
+from govee_cli import filelock
 from govee_cli.ledger import Mode
 
 logger = structlog.get_logger(__name__)
@@ -168,7 +168,7 @@ def _save_scene_unsafe(name: str, devices: list[CapturedDevice]) -> None:
 
     lock_fd = os.open(ROOM_SCENES_LOCK_PATH, os.O_CREAT | os.O_RDWR, 0o644)
     try:
-        fcntl.flock(lock_fd, fcntl.LOCK_EX)  # blocking — writes are microseconds
+        filelock.lock_exclusive(lock_fd)  # blocking — writes are microseconds
 
         data = _read_document()
         data["scenes"][name] = {
@@ -183,7 +183,7 @@ def _save_scene_unsafe(name: str, devices: list[CapturedDevice]) -> None:
             os.fsync(f.fileno())
         os.replace(tmp_path, ROOM_SCENES_PATH)  # atomic on ext4: never a torn read
     finally:
-        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        filelock.unlock(lock_fd)
         os.close(lock_fd)
 
 
@@ -225,7 +225,7 @@ def _delete_scene_unsafe(name: str) -> bool:
 
     lock_fd = os.open(ROOM_SCENES_LOCK_PATH, os.O_CREAT | os.O_RDWR, 0o644)
     try:
-        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        filelock.lock_exclusive(lock_fd)
 
         data = _read_document()
         if name not in data.get("scenes", {}):
@@ -240,7 +240,7 @@ def _delete_scene_unsafe(name: str) -> bool:
         os.replace(tmp_path, ROOM_SCENES_PATH)
         return True
     finally:
-        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        filelock.unlock(lock_fd)
         os.close(lock_fd)
 
 

@@ -13,7 +13,8 @@ Storage: one JSON file, `~/.config/govee-cli/active-mode.json`, sibling to
 `config.json`/`schedule.json`, keyed by the device's cloud id (not ref/alias — a device
 can have many aliases, but the ledger has exactly one entry per physical device).
 
-Concurrency: `fcntl.flock` (exclusive, blocking — writes are microseconds, so a brief
+Concurrency: an exclusive, blocking advisory lock via `filelock.lock_exclusive`
+(`fcntl.flock` on POSIX — writes are microseconds, so a brief
 wait beats a skipped write) around a read-modify-write, then an atomic `os.replace` so a
 concurrent reader always sees a fully-old or fully-new file, never a torn write. Reads
 take no lock at all — atomicity of `os.replace` makes that safe.
@@ -26,7 +27,6 @@ logged at WARNING and swallowed, never allowed to look like the command itself f
 
 from __future__ import annotations
 
-import fcntl
 import json
 import os
 import pathlib
@@ -35,6 +35,8 @@ from datetime import datetime, timezone
 from typing import Literal, Optional
 
 import structlog
+
+from govee_cli import filelock
 
 logger = structlog.get_logger(__name__)
 
@@ -140,7 +142,7 @@ def _record_mode_unsafe(
 
     lock_fd = os.open(LEDGER_LOCK_PATH, os.O_CREAT | os.O_RDWR, 0o644)
     try:
-        fcntl.flock(lock_fd, fcntl.LOCK_EX)  # blocking — writes are microseconds
+        filelock.lock_exclusive(lock_fd)  # blocking — writes are microseconds
 
         data = _read_document()
         data["devices"][device_id] = asdict(entry)
@@ -152,7 +154,7 @@ def _record_mode_unsafe(
             os.fsync(f.fileno())
         os.replace(tmp_path, LEDGER_PATH)  # atomic on ext4: never a torn read
     finally:
-        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        filelock.unlock(lock_fd)
         os.close(lock_fd)
 
 
@@ -198,7 +200,7 @@ def _clear_mode_unsafe(device_id: str) -> None:
 
     lock_fd = os.open(LEDGER_LOCK_PATH, os.O_CREAT | os.O_RDWR, 0o644)
     try:
-        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+        filelock.lock_exclusive(lock_fd)
 
         data = _read_document()
         if device_id in data.get("devices", {}):
@@ -211,5 +213,5 @@ def _clear_mode_unsafe(device_id: str) -> None:
                 os.fsync(f.fileno())
             os.replace(tmp_path, LEDGER_PATH)
     finally:
-        fcntl.flock(lock_fd, fcntl.LOCK_UN)
+        filelock.unlock(lock_fd)
         os.close(lock_fd)
