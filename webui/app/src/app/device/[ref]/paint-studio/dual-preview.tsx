@@ -173,44 +173,97 @@ export function DualPreview({
   const calibrated = calibration.data?.calibrated ?? false;
 
   return (
-    <div className={cn("space-y-3", className)}>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div>
-          <div className="mb-1.5 flex items-center justify-between gap-2">
-            <span className="font-mono text-[10px] uppercase tracking-micro text-low">
-              canvas · full resolution
-            </span>
+    // `@container` HERE, not just on the host panel: a container query
+    // resolves against the nearest containment ancestor, so without this
+    // the `@sm` below would be measuring paint-studio-panel.tsx's whole
+    // Panel — which is wider than this component's actual slot whenever
+    // that panel splits into canvas + palette columns, i.e. exactly the
+    // case where the two numbers diverge and the query answers about a box
+    // this grid is not in. With it, `@sm` (384px) reads this DualPreview's
+    // own render slot, which is what the split below is about.
+    //
+    // The old `sm:grid-cols-2` (viewport ≥640px) fired on every desktop
+    // even though the panel's real content width put each thumbnail at
+    // ~90px — this container query only splits into two columns once
+    // there's actually ~190px+ per thumbnail to give them (below @sm both
+    // preview grids stack full-width, same as the old sm: on a phone).
+    <div className={cn("@container space-y-3", className)}>
+      <div className="grid grid-cols-1 gap-4 @sm:grid-cols-2">
+        {/* `min-w-0` on this grid item is the fix for the overlapping-labels
+            bug: Tailwind's `grid-cols-2` sets each track to `minmax(0, 1fr)`,
+            but a grid ITEM's own default `min-width` is `auto` (content-
+            sized), independent of its track. Without this, the item can
+            never shrink below its content's natural width — and that
+            content is a `justify-between` header whose label span has no
+            `truncate`, so at a narrow track the label rendered past this
+            item's edge and overlapped the neighboring column's label and
+            its `{fps}` chip. `min-w-0` here plus `min-w-0 truncate` on the
+            label span below (and the header row between them) is the whole
+            fix; it is orthogonal to the width squeeze above and would
+            resurface even after that fix without this. */}
+        <div className="grid min-w-0 grid-rows-[auto_auto_1fr_auto] gap-y-1.5">
+          {/* Label and control on SEPARATE rows, not one `justify-between`
+              row. At the width this panel actually gets (~467px, so ~210px
+              per column) "canvas · full resolution" needs 178px and the
+              control needs the rest, so a shared row could only resolve by
+              truncating — which it did: measured 178px of text in a 109px
+              box, an ellipsis at every desktop width. Truncation is not a
+              fix for overlap here, it is the same unreadable label by
+              another route, and `title=` cannot rescue it because touch has
+              no hover (CLAUDE.md).
+              `grid-rows-[auto_auto_1fr_auto]` on BOTH columns is what keeps
+              the two grids aligned: these previews exist to be compared, and
+              a one-line header beside a two-line one offset them vertically
+              so the same LED row sat at two different heights. Explicit
+              matching tracks make the alignment structural rather than a
+              coincidence of how long the labels happen to be. */}
+          <span className="min-w-0 font-mono text-[10px] uppercase leading-snug tracking-micro text-low">
+            canvas · full resolution
+          </span>
+          <div className="flex min-w-0 items-center">
+            {/* Same hit-area/ink split as motion-controls.tsx: this toggle
+                measured 20px tall on a phone. The padding that makes it a
+                44px target goes on the button; the chip's border, fill and
+                20px height stay on the span. */}
             <button
               type="button"
               aria-pressed={showIntent}
               onClick={() => setShowIntent((v) => !v)}
-              className={cn(
-                "rounded-btn border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.06em] transition-colors duration-150",
-                showIntent
-                  ? "border-hairline-strong bg-accent-dim text-hi"
-                  : "border-hairline text-low hover:text-mid",
-              )}
+              className="group inline-flex cursor-pointer items-center justify-center pointer-coarse:min-h-11"
             >
-              artist&rsquo;s intent {showIntent ? "on" : "off"}
+              <span
+                className={cn(
+                  "flex items-center rounded-btn border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.06em] transition-colors duration-150",
+                  showIntent
+                    ? "border-hairline-strong bg-accent-dim text-hi"
+                    : "border-hairline text-low group-hover:text-mid",
+                )}
+              >
+                artist&rsquo;s intent {showIntent ? "on" : "off"}
+              </span>
             </button>
           </div>
-          <StaticGrid geometry={geometry} colors={canvasColors} />
-          <p className="mt-1.5 font-mono text-[9px] leading-relaxed text-low">
+          <StaticGrid geometry={geometry} colors={canvasColors} className="self-start" />
+          <p className="font-mono text-[9px] leading-relaxed text-low">
             {showIntent
               ? `smooth preview at ${INTENT_FPS}fps — not what the device will do.`
               : "exactly as drawn, unquantized."}
           </p>
         </div>
 
-        <div>
-          <div className="mb-1.5 flex items-center justify-between gap-2">
-            <span className="font-mono text-[10px] uppercase tracking-micro text-low">
-              hardware · {segmentCount} segments
-            </span>
+        {/* Row tracks identical to the canvas column above, so the two
+            grids start at the same y no matter how the labels wrap. This
+            label is the longer of the two and was the one most often seen
+            lapping the `{fps}` Chip. */}
+        <div className="grid min-w-0 grid-rows-[auto_auto_1fr_auto] gap-y-1.5">
+          <span className="min-w-0 font-mono text-[10px] uppercase leading-snug tracking-micro text-low">
+            hardware · {segmentCount} segments
+          </span>
+          <div className="flex min-w-0 items-center">
             <Chip tone="neutral">{exportFps}fps</Chip>
           </div>
-          <StaticGrid geometry={geometry} colors={hardwareColors} />
-          <p className="mt-1.5 font-mono text-[9px] leading-relaxed text-low">
+          <StaticGrid geometry={geometry} colors={hardwareColors} className="self-start" />
+          <p className="font-mono text-[9px] leading-relaxed text-low">
             what the lamp actually renders — stepped at the real playback rate.
           </p>
         </div>

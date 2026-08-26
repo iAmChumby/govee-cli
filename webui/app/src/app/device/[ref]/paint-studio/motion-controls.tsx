@@ -95,19 +95,32 @@ export function MotionControls({
           if (opt.id === "rotate" && !geometry.wrapCol) return null;
           const active = motion.type === opt.id;
           return (
+            // Hit area on the <button>, ink on the inner <span> — the split
+            // CLAUDE.md's §11.1 rule requires. The chip is 32px and measured
+            // as a sub-44px target on a phone; putting `min-h-11` on the
+            // element that also carries the border and background would have
+            // grown the visible chip into a 44px slab instead of giving the
+            // finger more room around a chip that stays 32px. `group` moves
+            // the hover rule onto the now-chrome-less button so it still
+            // paints on the span beneath. A mouse never matches
+            // `pointer-coarse:`, so desktop geometry is byte-identical.
             <button
               key={opt.id}
               type="button"
               aria-pressed={active}
               onClick={() => onChange(withDefaults(opt.id, motion, geometry.wrapCol))}
-              className={cn(
-                "h-8 cursor-pointer rounded-btn border px-3 font-mono text-[10px] uppercase tracking-[0.06em] transition-colors duration-150",
-                active
-                  ? "border-hairline-strong bg-accent-dim text-hi"
-                  : "border-hairline text-mid hover:border-hairline-strong hover:text-hi",
-              )}
+              className="group inline-flex cursor-pointer items-center justify-center pointer-coarse:min-h-11"
             >
-              {opt.label}
+              <span
+                className={cn(
+                  "flex h-8 items-center rounded-btn border px-3 font-mono text-[10px] uppercase tracking-[0.06em] transition-colors duration-150",
+                  active
+                    ? "border-hairline-strong bg-accent-dim text-hi"
+                    : "border-hairline text-mid group-hover:border-hairline-strong group-hover:text-hi",
+                )}
+              >
+                {opt.label}
+              </span>
             </button>
           );
         })}

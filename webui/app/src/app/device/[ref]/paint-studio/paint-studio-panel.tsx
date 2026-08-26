@@ -211,7 +211,20 @@ export function PaintStudioPanel({ refId, state }: PaintStudioPanelProps) {
   }
 
   return (
-    <Panel className="mt-5 space-y-5 p-5">
+    // `@container` makes this Panel the containment root for the `@3xl`
+    // split below. (DualPreview carries its own `@container` so its `@sm`
+    // split measures its own slot, not this whole panel — a nested
+    // container shadows this one for its own subtree, which is what that
+    // query wants.) At `lg` and up this panel lives inside the device
+    // page's ~470-520px CSS-px-wide fixed column
+    // (`lg:grid-cols-[minmax(0,11fr)_minmax(0,9fr)]` inside `max-w-[1200px]`
+    // in `device/[ref]/page.tsx`), which is narrower than Tailwind's `sm:`
+    // viewport breakpoint (640px) — so a `sm:` split here was permanently
+    // active on every desktop regardless of how little room this column
+    // actually had, squeezing the canvas to ~130px. A container query reads
+    // *this element's* rendered width instead of the viewport's, so the
+    // studio adapts to its own column.
+    <Panel className="mt-5 space-y-5 p-5 @container">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <SectionLabel
           index="01"
@@ -222,7 +235,27 @@ export function PaintStudioPanel({ refId, state }: PaintStudioPanelProps) {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-[minmax(0,1fr)_260px]">
+      {/* `@3xl` = 768px of CONTAINER content width, and the container is the
+          Panel above. Where that actually lands, measured off the real
+          chain (page `max-w-[1200px] px-6` -> ControlDeck Panel `sm:px-5`
+          -> this Panel's `p-5`), is `viewport - 128`:
+
+            viewport >= 1024  the page grid splits 11fr/9fr, this panel gets
+                              ~429px of content -> single column. The old
+                              `sm:` fired here and cost the canvas 260px it
+                              did not have; that is the bug this fixes.
+            896 <= vw < 1024  the page grid is still stacked, so this panel
+                              spans ~772px and the split DOES fire: ~492px
+                              of canvas beside the 260px palette column.
+                              That is the one width band where there is
+                              genuinely room for both, and it is live today
+                              — not a dormant future branch.
+            viewport < 896    single column.
+
+          PaletteBar is `flex-wrap` by its own design contract, so its
+          7-button row wrapping to two rows inside 260px is intended
+          behaviour in that band, not the squeeze this workstream fixed. */}
+      <div className="grid grid-cols-1 gap-5 @3xl:grid-cols-[minmax(0,1fr)_260px]">
         <div className="min-w-0 space-y-5">
           <CanvasGrid
             geometry={geometry}
@@ -242,7 +275,41 @@ export function PaintStudioPanel({ refId, state }: PaintStudioPanelProps) {
               {gradientPoint ? "tap the gradient's end point" : "tap the gradient's start point"}
             </p>
           ) : null}
+        </div>
 
+        {/* The tools/palette. In DOM order this sits immediately after the
+            canvas, not after the whole studio, because the `@3xl` sidebar is
+            the RARE layout: this panel is ~467px at every viewport >= 1024px
+            (measured), so the single-column stack is what a desktop actually
+            renders. With the palette as the grid's last child it landed ~800px
+            below the canvas in that stack — you could see the grid or pick a
+            colour, never both, which is a worse studio than the squeezed one
+            it replaced. Everything downstream of drawing moves into the
+            `@3xl:col-span-2` block below instead, so it stays beneath BOTH
+            columns in the sidebar layout rather than being crammed into the
+            canvas track while the sidebar sat empty beside it. */}
+        <div className="@3xl:sticky @3xl:top-4 @3xl:self-start">
+          <PaletteBar
+            tool={paint.tool}
+            onToolChange={(t) => {
+              paint.setTool(t);
+              setGradientPoint(null);
+            }}
+            primaryColor={paint.primaryColor}
+            onPrimaryChange={paint.setPrimaryColor}
+            secondaryColor={paint.secondaryColor}
+            onSecondaryChange={paint.setSecondaryColor}
+            symmetry={paint.symmetry}
+            onSymmetryChange={paint.setSymmetry}
+            canUndo={paint.canUndo}
+            canRedo={paint.canRedo}
+            onUndo={paint.undo}
+            onRedo={paint.redo}
+            onClear={paint.clear}
+          />
+        </div>
+
+        <div className="min-w-0 space-y-5 @3xl:col-span-2">
           <div className="flex flex-wrap items-center gap-3">
             <Button variant="ghost" size="sm" onClick={() => void runPreview()} disabled={previewSegmentCount <= 0}>
               {preview.active ? (
@@ -293,27 +360,6 @@ export function PaintStudioPanel({ refId, state }: PaintStudioPanelProps) {
               save as effect
             </Button>
           </div>
-        </div>
-
-        <div className="sm:sticky sm:top-4 sm:self-start">
-          <PaletteBar
-            tool={paint.tool}
-            onToolChange={(t) => {
-              paint.setTool(t);
-              setGradientPoint(null);
-            }}
-            primaryColor={paint.primaryColor}
-            onPrimaryChange={paint.setPrimaryColor}
-            secondaryColor={paint.secondaryColor}
-            onSecondaryChange={paint.setSecondaryColor}
-            symmetry={paint.symmetry}
-            onSymmetryChange={paint.setSymmetry}
-            canUndo={paint.canUndo}
-            canRedo={paint.canRedo}
-            onUndo={paint.undo}
-            onRedo={paint.redo}
-            onClear={paint.clear}
-          />
         </div>
       </div>
 
