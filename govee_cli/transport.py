@@ -144,6 +144,23 @@ MODEL_SPECS: dict[str, ModelSpec] = {
         cloud_segments=False,
         cloud_music=False,
     ),
+    "H6004": ModelSpec(
+        model="H6004",
+        # Same GVH-era single-zone bulb generation as the H6008 (OUI 5C:E7:53).
+        # Added 2026-08-29 from the live device's advertised capability list,
+        # which is identical to the H6008's: powerSwitch, brightness, colorRgb,
+        # colorTemperatureK 2700-6500, lightScene, diyScene.
+        transport=CLOUD_V2,
+        segment_count=0,
+        temp_min=2700,
+        temp_max=6500,
+        cloud_scenes=True,
+        cloud_diy=True,
+        # Neither segments nor music are advertised, and the sibling H6008
+        # hardware rejects both with 400 "devices not support this instance".
+        cloud_segments=False,
+        cloud_music=False,
+    ),
     "H6183": ModelSpec(
         model="H6183",
         # Left on v1: no hardware on hand to verify a v2 move against, and an

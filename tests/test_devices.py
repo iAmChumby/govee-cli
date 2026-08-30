@@ -3,9 +3,10 @@
 import pytest
 
 from govee_cli.devices import SUPPORTED_DEVICES, get_device_handler
-from govee_cli.devices.h6056 import H6056
+from govee_cli.devices.h6004 import H6004
 from govee_cli.devices.h6008 import H6008
 from govee_cli.devices.h6022 import H6022
+from govee_cli.devices.h6056 import H6056
 from govee_cli.exceptions import UnsupportedDevice
 
 
@@ -18,13 +19,17 @@ class TestSupportedDevices:
         assert "H6008" in SUPPORTED_DEVICES
         assert SUPPORTED_DEVICES["H6008"] == H6008
 
+    def test_h6004_in_registry(self) -> None:
+        assert "H6004" in SUPPORTED_DEVICES
+        assert SUPPORTED_DEVICES["H6004"] == H6004
+
     def test_h6022_in_registry(self) -> None:
         assert "H6022" in SUPPORTED_DEVICES
         assert SUPPORTED_DEVICES["H6022"] == H6022
 
     def test_registry_contains_all_known_models(self) -> None:
         # Membership rather than a count, so adding a model doesn't fail the suite.
-        assert set(SUPPORTED_DEVICES) == {"H6056", "H6008", "H6022", "H6183"}
+        assert set(SUPPORTED_DEVICES) == {"H6056", "H6008", "H6004", "H6022", "H6183"}
 
     def test_registry_keys_are_uppercase(self) -> None:
         assert all(key == key.upper() for key in SUPPORTED_DEVICES)
@@ -54,6 +59,10 @@ class TestGetDeviceHandler:
             get_device_handler("UNKNOWN")
         assert "H6056" in str(exc_info.value)
         assert "H6008" in str(exc_info.value)
+
+    def test_get_h6004(self) -> None:
+        assert get_device_handler("H6004") == H6004
+        assert get_device_handler("h6004") == H6004
 
 
 class TestH6056Device:
@@ -113,3 +122,36 @@ class TestH6008Device:
 
     def test_scenes_is_dict(self) -> None:
         assert isinstance(H6008.SCENES, dict)
+
+
+class TestH6004Device:
+    def test_model_constant(self) -> None:
+        assert H6004.MODEL == "H6004"
+
+    def test_segment_count(self) -> None:
+        assert H6004.SEGMENT_COUNT == 1
+
+    def test_segment_map_has_one_entry(self) -> None:
+        assert len(H6004.SEGMENT_MAP) == 1
+        assert H6004.SEGMENT_MAP[0] == "bulb"
+
+    def test_validate_segment_zero_is_valid(self) -> None:
+        device = H6004()
+        device.validate_segment_id(0)  # Should not raise
+
+    def test_validate_segment_one_raises(self) -> None:
+        device = H6004()
+        with pytest.raises(ValueError, match="Segment ID must be 0"):
+            device.validate_segment_id(1)
+
+    def test_validate_segment_negative_raises(self) -> None:
+        device = H6004()
+        with pytest.raises(ValueError, match="Segment ID must be 0"):
+            device.validate_segment_id(-1)
+
+    def test_scenes_is_dict(self) -> None:
+        assert isinstance(H6004.SCENES, dict)
+
+    def test_no_music_modes(self) -> None:
+        # No firmware music mode is advertised on this generation.
+        assert H6004.MUSIC_MODES == {}

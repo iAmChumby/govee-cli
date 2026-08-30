@@ -228,6 +228,8 @@ async def _detect_model_from_ble(mac: str, timeout: float) -> str:
             # Extract model from name patterns
             if "H6008" in name or "GVH6008" in name:
                 return "H6008"
+            elif "H6004" in name or "GVH6004" in name:
+                return "H6004"
             elif "H6056" in name:
                 return "H6056"
             elif "H7126" in name:

@@ -93,6 +93,30 @@ class TestModelSpecs:
         assert not spec.cloud_music
         assert spec.segment_count == 0
 
+    def test_h6004_mirrors_h6008_bulb_shape(self) -> None:
+        # Registered 2026-08-29 from the live device's advertised capability
+        # list (powerSwitch, brightness, colorRgb, colorTemperatureK 2700-6500,
+        # lightScene, diyScene) — identical to the H6008's. Segments and music
+        # are unadvertised, and sibling H6008 hardware rejects both.
+        spec = get_spec("H6004")
+        assert spec is not None
+        assert spec.transport == CLOUD_V2
+        assert (spec.temp_min, spec.temp_max) == (2700, 6500)
+        assert spec.cloud_scenes
+        assert spec.cloud_diy
+        assert not spec.cloud_segments
+        assert not spec.cloud_segment_brightness
+        assert not spec.cloud_music
+        assert spec.segment_count == 0
+        assert spec.toggles == ()
+
+    def test_h6004_has_no_matrix(self) -> None:
+        # The H6004 is a single-zone bulb, not a matrix device.
+        spec = get_spec("H6004")
+        assert spec.matrix_rows == 0
+        assert spec.matrix_cols == 0
+        assert spec.matrix_wrap_col is False
+
     def test_h6022_has_no_segment_brightness(self) -> None:
         # Verified rejected on the H6022 while the H6056 accepts it — the two
         # must not be conflated.

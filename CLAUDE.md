@@ -44,7 +44,7 @@ Three transports are in play, and which one carries a command depends on the
 
 | Transport | Endpoint | Used by | Reaches |
 |---|---|---|---|
-| `cloud-v2` | `openapi.api.govee.com/router/api/v1` | H6022, H6056, H6008 | everything: power/brightness/color/temp/state **plus** scenes, DIY, segments, music, toggles |
+| `cloud-v2` | `openapi.api.govee.com/router/api/v1` | H6022, H6056, H6008, H6004 | everything: power/brightness/color/temp/state **plus** scenes, DIY, segments, music, toggles |
 | `cloud-v1` | `developer-api.govee.com/v1` | H6183 only | power, brightness, color, temp, state |
 | `ble` | direct GATT | H6056 keyframe effects; anything unregistered | 0x33 packet protocol |
 
@@ -462,6 +462,22 @@ ground truth.
 - **Cloud/LAN API not viable** without a WPA2-Personal network for the bulbs.
 - **Unblocking requires**: nRF52840 passive BLE sniffer dongle (~$10) OR successful iOS sysdiag capture to see what the Govee app sends.
 - See `docs/H6008_PROTOCOL.md` for full investigation.
+
+## Device Notes (H6004 — single-zone bulb, cloud working)
+
+- **Cloud device ID**: `04:E2:5C:E7:53:CF:B8:8A` — paired in the Govee app as **"Hall Lamp"**.
+- **Registered + verified against hardware 2026-08-29**: power, brightness, color,
+  temp (2700–6500K advertised), **63 firmware scenes** and 2 DIY scenes all confirmed live.
+- **Same GVH-era generation as the H6008** (OUI `5C:E7:53`): identical advertised
+  capability list (`powerSwitch, brightness, colorRgb, colorTemperatureK, lightScene, diyScene`).
+- **No segments, segment brightness, music, or toggles** — unadvertised, and the sibling
+  H6008 rejects those instances with 400. The CLI refuses them locally without spending a request.
+- **BLE**: 0x33 protocol presumed dead on this generation (see H6008). Cloud v2 only.
+- A **second H6004 exists** but is not yet paired; pair it in the app, then re-run
+  `govee-cli scan-http` to register.
+- One bulb currently sits in **Lamp Front's socket** while the lamp is rebuilt — Lamp
+  Front (H6008 `82:1F:...`) is offline by consequence, and group commands targeting it
+  will error until bulb placement is settled.
 
 ## Device Notes (H6022 — RGBIC Table Lamp 2, FULLY WORKING)
 
