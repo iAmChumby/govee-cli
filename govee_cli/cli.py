@@ -1,12 +1,33 @@
 """Govee CLI — control Govee lights over Bluetooth BLE and HTTP API."""
 
 import logging
+import sys
 
 import click
 import structlog
 
 from govee_cli import __version__
 from govee_cli.config import load_config
+
+
+def _force_utf8_stdio() -> None:
+    """Make command output survive legacy console encodings.
+
+    Command output uses status emoji (state, group, daemon). Windows consoles
+    default to a legacy codepage such as cp1252, which cannot encode those
+    characters, so the first status line would raise UnicodeEncodeError —
+    after the device command had already succeeded. Reconfiguring stdout and
+    stderr to UTF-8 fixes every command at once; a stream that cannot be
+    reconfigured (e.g. a test's StringIO) is left alone.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (ValueError, OSError):
+            pass
 
 
 def setup_logging(verbose: bool = False) -> None:
@@ -31,6 +52,7 @@ def setup_logging(verbose: bool = False) -> None:
 @click.pass_context
 def main(ctx: click.Context, verbose: bool) -> None:
     """govee-cli — control Govee lights over Bluetooth BLE and HTTP API."""
+    _force_utf8_stdio()
     setup_logging(verbose)
     # Load config and inject default MAC so all commands can use it
     cfg = load_config()
