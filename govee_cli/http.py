@@ -31,6 +31,9 @@ class GoveeHTTP:
     def __init__(self, api_key: str | None = None):
         if not api_key:
             from govee_cli.config import load_config
+            from govee_cli.envfile import load_env_file
+
+            load_env_file()
             cfg = load_config()
             api_key = cfg.api_key or os.environ.get("GOVEE_API_KEY")
             if not api_key:
