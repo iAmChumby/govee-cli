@@ -524,7 +524,7 @@ def _seed_room_scenes() -> None:
     models = {d["id"]: d["model"] for d in MOCK_DEVICES}
     room_scenes_mod.save_authored_scene(
         "Evening",
-        [room_scenes_mod.captured_from_authored(d, models[d["device_id"]])
+        [room_scenes_mod.captured_from_authored(d, models[str(d["device_id"])])
          for d in authored],
     )
     room_scenes_mod.save_scene("Movie night", [
@@ -579,7 +579,8 @@ def _seed_owner(path: pathlib.Path) -> None:
     if mode == "stale":
         pid, started, cycle = 999999, now - dt.timedelta(hours=5), now - dt.timedelta(hours=2)
     else:
-        pid, started, cycle = os.getpid(), now - dt.timedelta(minutes=5), now - dt.timedelta(seconds=10)
+        pid = os.getpid()
+        started, cycle = now - dt.timedelta(minutes=5), now - dt.timedelta(seconds=10)
     record = {
         "kind": "daemon", "dry_run": False, "pid": pid,
         "host": socket.gethostname(),
