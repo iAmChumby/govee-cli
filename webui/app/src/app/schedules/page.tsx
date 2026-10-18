@@ -215,7 +215,7 @@ export default function SchedulesPage() {
   const [addOpen, setAddOpen] = React.useState(false);
   const [highlightId, setHighlightId] = React.useState<string | null>(null);
 
-  const rules = schedules.data ?? [];
+  const rules = schedules.data?.schedules ?? [];
   const enabledCount = rules.filter((r) => r.enabled).length;
 
   // Timeline markers are the only "edit a rule" entry point that isn't the

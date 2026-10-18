@@ -193,14 +193,87 @@ export interface PlayingEffect {
   started_at: string;
 }
 
+/** Issue #2. Every datetime string here is ISO-8601 carrying the offset of the
+ *  schedule's zone (NOT the browser's), floored to the minute. Never parse
+ *  these into a `Date` for display: `schedule-format.ts` slices the wall
+ *  time out of the string so the browser's zone cannot shift it. */
 export interface ScheduleRule {
   id: string;
   name: string;
+  /** Canonical: "06:30", "sunset", "sunset-1h15m". */
   time: string;
   days: string[];
   command: string;
   enabled: boolean;
   device: string | null;
+  room_scene: string | null;
+  next_run: string | null;
+  /** Set iff next_run is null: "paused", "no location", "room scene 'X' missing…". */
+  next_run_reason: string | null;
+  /** Today's computed fire minute, past or future (G3). The timeline plots this. */
+  today_fire: string | null;
+  today_reason: string | null;
+  target_problem: string | null;
+  last_result: "ok" | "error" | "missed" | "skipped" | "would_fire" | null;
+  last_detail: string | null;
+  last_at: string | null;
+  missed_minute: string | null;
+}
+
+export interface SchedulerOwner {
+  state: "running" | "stale" | "nobody" | "unknown";
+  kind: "sidecar" | "daemon" | null;
+  dry_run: boolean;
+  pid: number | null;
+  host: string | null;
+  started_at: string | null;
+  last_cycle_at: string | null;
+  poll_seconds: number | null;
+  stale_since: string | null;
+  detail: string | null;
+  /** This sidecar's relation to the lock. "waiting" = another process holds it. */
+  this_process: "owner" | "waiting" | "disabled";
+}
+
+export interface ScheduleLocation {
+  latitude: number | null;
+  longitude: number | null;
+  timezone: string;
+  timezone_source: "config" | "host";
+}
+
+export interface ScheduleList {
+  schedules: ScheduleRule[];
+  owner: SchedulerOwner;
+  location: ScheduleLocation;
+  /** Server "now" in the schedule's zone. Today/Tomorrow labels compare to this. */
+  now: string;
+  last_fire: { rule_id: string; rule_name: string; at: string; result: string } | null;
+  /** false -> last results render "unknown", never "none yet". */
+  state_readable: boolean;
+}
+
+/** POST /schedules and PUT /schedules/{id}. Exactly one target. */
+export interface ScheduleWrite {
+  name: string;
+  time: string;
+  days: string[];
+  command: string;
+  device?: string | null;
+  room_scene?: string | null;
+  enabled?: boolean;
+}
+
+export interface SchedulePreview {
+  canonical_time: string | null;
+  /** Grammar error, user-facing. */
+  error: string | null;
+  /** Today's raw sunrise/sunset for sun rules. */
+  event_time: string | null;
+  today_fire: string | null;
+  next_run: string | null;
+  reason: string | null;
+  location: ScheduleLocation;
 }
 
 export interface GroupRunResult {
@@ -348,6 +421,8 @@ export interface CapturedDevice {
 export interface RoomSceneSummary {
   name: string;
   created_at: string;
+  /** Issue #2. Captured from live state, or hand-authored in the Rooms editor. */
+  source: "captured" | "authored";
   device_count: number;
   unknown_count: number;
   devices: CapturedDevice[];
@@ -368,6 +443,26 @@ export interface RoomSceneRestoreStepResult {
   ok: boolean;
   skipped_reason?: string;
   error?: string;
+  /** Issue #2: "DIY 'old' is now named 'new'", "ledger cleared: partial apply". */
+  notes?: string[];
+}
+
+/** Issue #2, G7: one device row in a hand-authored room scene. */
+export interface AuthoredDeviceInput {
+  device_id: string;
+  power: boolean;
+  brightness: number;
+  mode: "colour" | "white" | "diy" | null;
+  color?: string | null;
+  color_temp_k?: number | null;
+  diy_value?: number | null;
+  diy_name?: string | null;
+}
+
+export interface RoomSceneReferences {
+  name: string;
+  /** Names of schedule rules whose room_scene is this scene. */
+  rules: string[];
 }
 
 /** `POST /rooms/{name}/restore` response. One failing or skipped device
@@ -559,18 +654,16 @@ export const api = {
       { command },
     ),
 
-  schedules: () =>
-    request<{ schedules: ScheduleRule[] }>("/schedules").then(
-      (r) => r.schedules,
-    ),
+  /** Issue #2: the whole envelope (owner, location, now), not just the rules. */
+  schedules: () => request<ScheduleList>("/schedules"),
 
-  createSchedule: (body: {
-    name: string;
-    time: string;
-    days: string[];
-    command: string;
-    device?: string;
-  }) => post<ScheduleRule>("/schedules", body),
+  createSchedule: (body: ScheduleWrite) => post<ScheduleRule>("/schedules", body),
+
+  updateSchedule: (id: string, body: ScheduleWrite) =>
+    put<ScheduleRule>(`/schedules/${encodeURIComponent(id)}`, body),
+
+  previewSchedule: (body: { time: string; days: string[] }) =>
+    post<SchedulePreview>("/schedules/preview", body),
 
   setScheduleEnabled: (id: string, enabled: boolean) =>
     request<ScheduleRule>(`/schedules/${encodeURIComponent(id)}`, {
@@ -641,6 +734,15 @@ export const api = {
 
   restoreRoom: (name: string) =>
     post<RoomSceneRestoreResult>(`/rooms/${encodeURIComponent(name)}/restore`),
+
+  createAuthoredRoom: (body: { name: string; devices: AuthoredDeviceInput[] }) =>
+    post<RoomSceneSummary>("/rooms/authored", body),
+
+  updateAuthoredRoom: (name: string, devices: AuthoredDeviceInput[]) =>
+    put<RoomSceneSummary>(`/rooms/${encodeURIComponent(name)}`, { devices }),
+
+  roomReferences: (name: string) =>
+    request<RoomSceneReferences>(`/rooms/${encodeURIComponent(name)}/references`),
 
   /** §10 T23 — corrects the record, never the light. The route actually
    *  returns the full merged device state (`overlay_active_mode`'s

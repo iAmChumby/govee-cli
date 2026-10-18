@@ -116,6 +116,12 @@ class GoveeConfig:
     request_budget_per_day: int | None = None
     groups: dict[str, list[str]] = field(default_factory=dict)  # group_name -> [mac, ...]
     devices: dict[str, DeviceConfig] = field(default_factory=dict)  # mac -> DeviceConfig
+    # Issue #2: where sun-relative schedule times are computed. No defaults —
+    # an unset location means sun rules have no next run, never a guessed one.
+    # timezone None means "the host's zone", labelled as such wherever shown.
+    latitude: float | None = None
+    longitude: float | None = None
+    timezone: str | None = None
 
 
 _CONFIG_PATH = pathlib.Path.home() / ".config" / "govee-cli" / "config.json"
@@ -290,6 +296,9 @@ def load_config() -> GoveeConfig:
             default_brightness=raw.get("default_brightness"),
             default_color=raw.get("default_color"),
             request_budget_per_day=raw.get("request_budget_per_day"),
+        latitude=raw.get("latitude"),
+        longitude=raw.get("longitude"),
+        timezone=raw.get("timezone"),
             groups=raw.get("groups", {}),
             devices={
                 mac.upper(): DeviceConfig(
@@ -327,6 +336,9 @@ def load_config() -> GoveeConfig:
         default_brightness=raw.get("default_brightness"),
         default_color=raw.get("default_color"),
         request_budget_per_day=raw.get("request_budget_per_day"),
+        latitude=raw.get("latitude"),
+        longitude=raw.get("longitude"),
+        timezone=raw.get("timezone"),
         groups=raw.get("groups", {}),
         devices=devices,
     )
@@ -364,6 +376,9 @@ def save_config(config: GoveeConfig) -> None:
         "default_brightness": config.default_brightness,
         "default_color": config.default_color,
         "request_budget_per_day": config.request_budget_per_day,
+        "latitude": config.latitude,
+        "longitude": config.longitude,
+        "timezone": config.timezone,
         "groups": config.groups,
         "devices": devices_data,
     }

@@ -29,7 +29,7 @@ import os
 import pathlib
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Literal, Optional
 
 import structlog
 
@@ -74,6 +74,9 @@ class RoomScene:
 
     created_at: str  # ISO-8601 UTC
     devices: list[CapturedDevice]
+    # Issue #2: "captured" (from live state) or "authored" (hand-written in the
+    # Rooms editor). Files written before this field existed load as "captured".
+    source: Literal["captured", "authored"] = "captured"
 
 
 @dataclass(frozen=True)

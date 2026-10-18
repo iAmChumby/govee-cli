@@ -7,6 +7,7 @@ No cloud dependency — all local using APScheduler.
 import json
 import pathlib
 from dataclasses import dataclass
+from typing import Literal
 
 import structlog
 
@@ -14,6 +15,10 @@ logger = structlog.get_logger(__name__)
 
 SCHEDULE_DIR = pathlib.Path.home() / ".config" / "govee-cli"
 SCHEDULE_FILE = SCHEDULE_DIR / "schedule.json"
+# Per-rule firing state (issue #2). Written by whichever scheduler owns the lock.
+# Module-level and read at call time so tests/conftest.py and mock.install() can
+# repoint it, exactly like SCHEDULE_FILE.
+SCHEDULE_STATE_PATH = SCHEDULE_DIR / "schedule-state.json"
 
 
 @dataclass
@@ -22,13 +27,52 @@ class ScheduleRule:
 
     id: str
     name: str
-    time: str  # HH:MM in 24h format
+    # Canonical time string per govee_cli.schedule.timespec: "06:30",
+    # "sunset", "sunset-1h15m". Old files hold plain HH:MM, which is canonical.
+    time: str
     days: list[str]  # Mon, Tue, Wed, Thu, Fri, Sat, Sun
     command: str  # e.g. "power on", "color FF5500"
     enabled: bool = True
     # Device name or id this rule targets. None falls back to the configured
     # default_mac, which is how every rule behaved before this field existed.
     device: str | None = None
+    # Name of a room scene in room-scenes.json. A rule has exactly one target:
+    # (device? + command) XOR room_scene. When set, command is "".
+    room_scene: str | None = None
+
+
+RuleResult = Literal["ok", "error", "missed", "skipped", "would_fire"]
+
+
+@dataclass
+class RuleState:
+    """What the owning scheduler last did with one rule (schedule-state.json)."""
+
+    last_fired_minute: str | None = None  # UTC ISO instant of the minute last fired
+    last_result: RuleResult | None = None
+    last_detail: str | None = None
+    last_at: str | None = None  # UTC ISO instant the result was recorded
+    missed_minute: str | None = None  # UTC ISO instant; set when a fire was missed
+
+
+def read_state() -> dict[str, RuleState]:
+    """Load schedule-state.json. Missing file -> {}. Raises on an unreadable file
+    so callers can report "unknown" rather than pretend nothing happened."""
+    raise NotImplementedError
+
+
+def write_state(state: dict[str, RuleState]) -> None:
+    """Atomic write (tmp + os.replace, under a filelock); no fsync."""
+    raise NotImplementedError
+
+
+def get_rule(rule_id: str) -> ScheduleRule | None:
+    raise NotImplementedError
+
+
+def update_rule(rule: ScheduleRule) -> bool:
+    """Replace the stored rule with the same id. Returns False if not found."""
+    raise NotImplementedError
 
 
 def _load_rules() -> list[ScheduleRule]:

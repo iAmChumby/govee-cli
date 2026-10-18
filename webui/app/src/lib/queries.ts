@@ -28,10 +28,12 @@ import {
   api,
   ApiError,
   type ActiveModeSetRequest,
+  type AuthoredDeviceInput,
   type DeviceState,
   type DeviceSummary,
   type EffectCreateRequest,
   type ExternalSchedule,
+  type ScheduleWrite,
   type SegmentCalibrationRequest,
 } from "@/lib/api";
 import {
@@ -173,10 +175,36 @@ export function useGroupState(name: string | null) {
   });
 }
 
+/** Issue #2: polls so the owner strip's "last cycle" and staleness stay true;
+ *  the owner record is the one thing on this page that changes on its own. */
 export function useSchedules() {
   return useQuery({
     queryKey: ["schedules"],
     queryFn: api.schedules,
+    refetchInterval: 30_000,
+  });
+}
+
+/** Create (id null) or full-edit (id set) a rule. Invalidates the list; the
+ *  server's canonical time and next run come back with the refetch. */
+export function useSaveSchedule() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string | null; body: ScheduleWrite }) =>
+      id === null ? api.createSchedule(body) : api.updateSchedule(id, body),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["schedules"] });
+    },
+  });
+}
+
+/** The rule dialog's resolved line. Server-side so the browser never does sun maths. */
+export function useSchedulePreview(time: string, days: string[], enabled: boolean) {
+  return useQuery({
+    queryKey: ["schedule-preview", time, [...days].sort().join(",")],
+    queryFn: () => api.previewSchedule({ time, days }),
+    enabled: enabled && time.trim() !== "",
+    staleTime: 60_000,
   });
 }
 
@@ -611,6 +639,34 @@ export function useRooms() {
   return useQuery({
     queryKey: ["rooms"],
     queryFn: api.rooms,
+  });
+}
+
+/** Issue #2: create (name new) or replace (existing authored) a hand-authored scene.
+ *  Zero device writes: authoring only stores a plan. Invalidates schedules too,
+ *  because a rule's target_problem depends on which scenes exist. */
+export function useSaveAuthoredRoom() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ name, devices, isNew }: {
+      name: string; devices: AuthoredDeviceInput[]; isNew: boolean;
+    }) =>
+      isNew
+        ? api.createAuthoredRoom({ name, devices })
+        : api.updateAuthoredRoom(name, devices),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["rooms"] });
+      void queryClient.invalidateQueries({ queryKey: ["schedules"] });
+    },
+  });
+}
+
+/** Which schedule rules target a scene, asked before a delete (spec: delete warns). */
+export function useRoomReferences(name: string | null) {
+  return useQuery({
+    queryKey: ["room-references", name],
+    queryFn: () => api.roomReferences(name as string),
+    enabled: name !== null,
   });
 }
 
