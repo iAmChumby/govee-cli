@@ -13,6 +13,7 @@ from fastapi import APIRouter
 
 from govee_cli.config import (
     DeviceConfig,
+    GoveeConfig,
     _validate_device_id,
     _validate_device_name,
     _validate_mac,
@@ -22,10 +23,11 @@ from govee_cli.config import (
     save_config,
 )
 from govee_cli.exceptions import DuplicateDeviceName
+from govee_cli.schedule import timespec
 from govee_cli.transport import is_cloud
 
 from ..deps import run_blocking
-from ..errors import bad_request, conflict, not_found
+from ..errors import ApiError, bad_request, conflict, not_found
 from ..schemas import ConfigPatchRequest, DeviceRegisterRequest
 
 router = APIRouter()
@@ -39,6 +41,7 @@ def _redact(api_key: str | None) -> str | None:
 
 def _config_out() -> dict[str, Any]:
     cfg = load_config()
+    loc = timespec.resolve_location(cfg)
     return {
         "api_key": _redact(cfg.api_key),
         "default_mac": cfg.default_mac,
@@ -47,6 +50,13 @@ def _config_out() -> dict[str, Any]:
         "default_brightness": cfg.default_brightness,
         "default_color": cfg.default_color,
         "groups": cfg.groups,
+        # Issue #2: the stored values (null when unset) and the zone sun times
+        # are actually computed in, with where that zone came from.
+        "latitude": cfg.latitude,
+        "longitude": cfg.longitude,
+        "timezone": cfg.timezone,
+        "timezone_effective": loc.timezone,
+        "timezone_source": loc.timezone_source,
         "devices": {
             mac: {"model": d.model or None, "name": d.name, "static_mac": d.static_mac}
             for mac, d in sorted(cfg.devices.items())
@@ -78,10 +88,41 @@ async def patch_config(body: ConfigPatchRequest) -> dict[str, Any]:
             cfg.default_brightness = body.default_brightness
         if body.default_color is not None:
             cfg.default_color = body.default_color.lstrip("#")
+        _apply_location(cfg, body)
         save_config(cfg)
         return _config_out()
 
     return cast("dict[str, Any]", await run_blocking(apply))
+
+
+def _apply_location(cfg: GoveeConfig, body: ConfigPatchRequest) -> None:
+    """Issue #2: set the sun-time location, or clear it. Omitted fields stay unchanged.
+
+    Latitude and longitude are a pair; a timezone may be set on its own (it
+    applies to the location, whenever one is set). ``clear_location`` removes
+    all three and refuses to be combined with any of them, because "clear and
+    also set" has no single honest reading.
+    """
+    provided = (
+        body.latitude is not None or body.longitude is not None or body.timezone is not None
+    )
+    if body.clear_location:
+        if provided:
+            raise ApiError(
+                422, "unprocessable",
+                "clear_location cannot be combined with latitude, longitude or timezone.",
+            )
+        cfg.latitude = None
+        cfg.longitude = None
+        cfg.timezone = None
+        return
+    if (body.latitude is None) != (body.longitude is None):
+        raise ApiError(422, "unprocessable", "Set latitude and longitude together.")
+    if body.latitude is not None and body.longitude is not None:
+        cfg.latitude = body.latitude
+        cfg.longitude = body.longitude
+    if body.timezone is not None:
+        cfg.timezone = body.timezone
 
 
 @router.post("/config/devices")
