@@ -357,7 +357,7 @@ export function ScheduleTimeline({
               // the box is >=44x44 (ink width + 19px each side, 44px tall at
               // y=44..88 of the 96px rail) while the ink stays 28px tall at
               // y=52..80, and the dot row's boxes end at y=44 so nothing overlaps.
-              className="group absolute bottom-1 top-8 w-[var(--band-w)] cursor-pointer pointer-coarse:bottom-2 pointer-coarse:top-11 pointer-coarse:-ml-[19px] pointer-coarse:w-[calc(var(--band-w)+38px)]"
+              className="group absolute bottom-1 top-8 w-[var(--band-w)] cursor-pointer pointer-coarse:bottom-0 pointer-coarse:top-11 pointer-coarse:-ml-[19px] pointer-coarse:w-[calc(var(--band-w)+38px)]"
               style={
                 {
                   left: `${bandStartPct}%`,

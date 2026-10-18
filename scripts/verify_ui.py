@@ -833,8 +833,8 @@ class Checker:
                     edit.first.click()
                     dialog = page.get_by_role("dialog")
                     if self.visible(dialog, f"[{tag}] Evening edit dialog"):
-                        note = dialog.get_by_text(re.compile(r"Sunset times need a location"))
-                        if self.visible(note, f"[{tag}] 'Sunset times need a location' in the Evening dialog"):
+                        note = dialog.get_by_text(re.compile(r"No location set: sun\w* times cannot be computed"))
+                        if self.visible(note, f"[{tag}] 'No location set' in the Evening dialog"):
                             text = note.first.text_content() or ""
                             if _HHMM.search(text):
                                 self.fail(f"[{tag}] the no-location line shows a time: {text.strip()!r}")
