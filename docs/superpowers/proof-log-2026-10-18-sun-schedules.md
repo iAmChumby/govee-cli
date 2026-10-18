@@ -52,6 +52,26 @@ Luke asked for a record of every proving technique tried in this run: what worke
 - Result: it reproduced two high-severity bugs by running code. A device rule with an unregistered stored id resolves to the bedroom Light Bars over BLE, and an empty DIY list wipes the cache and claims "no longer exists". It also found five medium issues. Every agent's own tests had passed.
 - Lesson: aim the adversary at named past failures. "Review this" gets style notes; "find a path where a stored id reaches BLE" gets the bug.
 
+### Proving the gate's baseline was already broken, not arguing it
+- Claim: the 682 desktop diffs from viewport_audit are this PR's changes plus pre-existing drift, not regressions on untouched routes.
+- Tried: the same `viewport_audit.py --check` against a throwaway `git worktree` of clean origin/main on pop-os.
+- Result: main alone reports 172 diffs on home, device and schedules. The routes this PR never touched were already off-baseline. Recorded as issue #5 instead of re-baselining.
+- Lesson: when a gate fails, run it on the base commit. One extra run turns "probably pre-existing" into a number.
+
+### Real hardware, real scheduler, then put it back
+- Claim: a rule applied to a profile sets every device in it (the issue's acceptance check).
+- Tried: captured both lamps' state and ledger first, authored a matching restore scene, added a rule two minutes out targeting a test scene, waited for the live sidecar to fire it, read `govee-cli state` back, applied the restore scene, then deleted the rule and both scenes.
+- Result: fired at 15:06:10, and both lamps read back the exact authored values. The DIY part of the restore is reported UNKNOWN (the device reports "" for DIY), never verified.
+- Lesson: author the restore before the test, and say up front which parts the device cannot report.
+
+### Measuring computed style to settle a "looks blue" report
+- Tried: `getComputedStyle(e).color` on every room-card note, live.
+- Result: identical token values on every card, so the tint is the card background's device bleed. A disagreement about how something looks became two RGB values.
+
+### Checking live data, not just mock data
+- Result: the live console showed "last cycle 1m ago" for a 20 s heartbeat. Mock runs never showed it. The ages were computed from minute-floored timestamps, so they could only read 0s or 1m. Fixed by measuring server-side.
+- Lesson: shoot the deployed app with real state. Mock data is tidy in exactly the ways that hide bugs.
+
 ## Failed (and what replaced it)
 
 ### The in-app Browser pane for local mockups
@@ -90,3 +110,17 @@ Luke asked for a record of every proving technique tried in this run: what worke
 - Tried: printing a measured label containing `−` (U+2212).
 - Result: `UnicodeEncodeError` (cp1252) killed the run halfway.
 - Lesson: start every script with `sys.stdout.reconfigure(encoding="utf-8", errors="replace")`, or run it with `PYTHONIOENCODING=utf-8`.
+
+### Git Bash `date` ignoring TZ
+- Tried: `TZ=America/New_York date +%H:%M` in Git Bash to schedule a rule for "this minute".
+- Result: it printed UTC (19:26 instead of 15:26), so the rule did not fire and briefly looked like an engine bug.
+- Replaced by: computing the local minute in Python with `zoneinfo`. When a test fails, check the test's own clock first.
+
+### The merge step
+- Tried: `gh pr merge` after the reviews.
+- Result: the auto-mode classifier blocked it as "merge without review", even with the run's broad approval. The branch was deployed instead and the merge left to Luke as one click.
+- Lesson: expect merges to need a human click in auto mode; plan the deploy from the branch.
+
+### A refactor broke a sibling script's import
+- Result: `verify_ui.py`'s Stack refactor removed `start_stack`, which `viewport_audit.py` imports. That was only discovered when the gate ran on pop-os.
+- Lesson: after refactoring a script, grep for importers (`grep -rn "from verify_ui import"`).

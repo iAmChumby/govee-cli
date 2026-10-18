@@ -1,5 +1,5 @@
 # Sunset-relative schedules and hand-authored room scenes
-Date: 2026-10-18 | Status: specced | Explored: docs/superpowers/explorations/2026-10-18-sun-schedules-explore.md | Issue: iAmChumby/govee-cli#2
+Date: 2026-10-18 | Status: walked (deployed to pop-os; PR #3 awaiting Luke's merge) | Explored: docs/superpowers/explorations/2026-10-18-sun-schedules-explore.md | Issue: iAmChumby/govee-cli#2
 
 Autonomous run: Luke's answers come from a Luke-proxy agent. Proxy answers marked medium/low confidence are listed under "Proxy defaults Luke may overturn" at the bottom.
 
@@ -237,3 +237,115 @@ Built by the main agent before any agent starts. Agents build against it and nev
 - Fixes mid-build: background agent, the same one that owns the file.
 - Gates (end pass, main agent): `pytest`, `ruff check govee_cli webui/api`, `mypy govee_cli`, `npm run typecheck`, `npm run lint`, `npm test`, `npm run build` (no dev server running), `scripts/verify_ui.py`, then a real-config mtime check around pytest.
 - Docs: after the end pass, CLAUDE.md (scheduler owner/lock, deploy-vs-wake-ramp window, time grammar, new state files in the redirect list) and the `webui/README.md` schedules section. Short and factual.
+
+## Build log
+Date: 2026-10-18 | Agents: 9 build areas (Sonnet: core, runners, room, test/mock, schedules UI, rooms UI; Haiku: config+schedule API/CLI, settings UI, verify_ui) + Haiku reviewers (1 adversarial, 2 screenshot sweeps) + Opus Luke-proxy
+
+### What landed
+- **Time + engine + owner** (`govee_cli/schedule/{timespec,engine,owner,scheduler}.py`, `govee_cli/filelock.py`): canonical time grammar, astral sun times, one due-rule engine with UTC minute keys, missed detection with `baseline_at`, non-blocking owner lock + heartbeat.
+- **Runners** (`govee_cli/commands/daemon.py`, `webui/api/scheduler_runner.py`, `main.py`, `deps.py`): one firing path for both; daemon refuses when the lock is held; sidecar waits; mock = dry run; unregistered stored ids never reach BLE.
+- **Room scenes** (`govee_cli/room_scenes.py`, `govee_cli/room_restore.py`, `webui/api/routers/rooms.py`, `govee_cli/commands/room.py`): shared executor, authored scenes, DIY verification, `room list|apply|import-profiles`.
+- **API/CLI** (`webui/api/routers/{schedules,config}.py`, `govee_cli/commands/{schedule,config_cmd}.py`): full edit (PUT), preview, owner/location in GET, `config location`.
+- **Console** (`webui/app/src/app/{schedules,rooms,settings}/*`, `components/rooms/*`, `lib/{api,queries,schedule-format}.ts`): one add/edit dialog with sun times, owner strip, server-timed timeline, authored scene editor, Location section, shared owner formatter.
+- **Verification** (`scripts/verify_ui.py`, `tests/conftest.py`, `webui/api/mock.py`): desktop + interaction + owner-state + no-location + touch-measure passes; every state file redirected.
+
+### Definition of done
+| Line | State | Evidence |
+|---|---|---|
+| Grammar parses/rejects/normalises | TRUE | `tests/test_timespec.py`; reviewer ran all 14 examples |
+| Canonical form stored | TRUE | CLI temp HOME: `--time sunset-75m` → stored `sunset-1h15m` |
+| NYC sunset-1h → 17:10 on 2026-10-18 | TRUE | `tests/test_schedule_engine.py`; mock UI "Today 17:10 (sunset 18:10)" |
+| Polar day: no fire, reason, no raise | TRUE | `tests/test_timespec.py` |
+| days apply to fire's local date across midnight | TRUE | `tests/test_schedule_engine.py` (Oslo cases) |
+| DST fall-back once / spring-forward gap reason / sun across DST | TRUE | `tests/test_schedule_engine.py` (20 s polling simulation) |
+| One engine decides due rules | TRUE | `grep -rn "rule.time ==" govee_cli webui/api` → empty |
+| At most once per minute (incl. failed state write) | TRUE | engine + runner tests (F7) |
+| Missed recorded, not caught up; no false "missed" | TRUE | engine/runner tests (F8, F9); mock screenshot shows "missed" |
+| Daemon reloads rules every cycle | TRUE | `tests/test_scheduler_runner.py` |
+| Second scheduler exits non-zero naming owner | TRUE | pop-os: `schedule owned by sidecar pid 560153 on pop-os since 15:02`, exit 1 |
+| Dead/old heartbeat reads stale, never running | TRUE | temp-HOME CLI run (`nobody (stale since 14:21)`); owner tests; screenshot |
+| `GOVEE_WEBUI_SCHEDULER=0` never takes the lock | TRUE | TestClient run: `this_process=disabled`, no lock or owner file created |
+| `source` on room scenes; old entries = captured | TRUE | pop-os `room list`: `Day Time source=captured` |
+| Authored POST/PUT; captured PUT 409 | TRUE | `tests/test_rooms_api.py::TestAuthored`; live POST on pop-os |
+| Per-device power/brightness/colour/white-in-range/DIY | TRUE | route validation tests; editor screenshots |
+| One executor; rooms router has no send logic | TRUE | reviewer grep |
+| `device_cfg` guard (scenes AND device rules) | TRUE | `tests/test_room_restore.py`; F1 test (8-octet id, BLE patched to raise) |
+| Ledger only after success; failure clears (G6) | TRUE | room_restore tests |
+| Acceptance 2 on real hardware | TRUE | pop-os 15:06: rule fired, Shelf 35%/4000K + Hall 40%/#00A0FF read back exactly; restored after |
+| ↳ DIY step of the restore scene | UNKNOWN | 200 accepted; device reports "" for DIY. Settler: Luke glances at Shelf Lamp (flame effect = Dark-soho) |
+| Exactly one target (CLI + API) | TRUE | CLI error text; `tests/test_schedules_api.py` |
+| Missing room scene message everywhere | TRUE | verify_ui text assertion; engine tests |
+| Delete warns with referencing rules | TRUE | references route test; card wiring (agent report, not screenshotted with references) |
+| PUT full edit; CLI edit/enable/disable | TRUE | `tests/test_schedules_api.py` (54) |
+| Multi-word scene/DIY names kept | TRUE | `tests/test_schedules_api.py` |
+| Location config/CLI/PATCH validation | TRUE | temp-HOME CLI run; API tests |
+| Unset tz labelled `host:` | TRUE | pop-os `schedule list`: `timezone: host: America/New_York` |
+| No location → no time, Settings link | TRUE | noloc screenshots + assertion; live strip |
+| `schedule list` header + per-rule next run on pop-os | TRUE | pop-os during hw test: `[✓] 6b64ffa6 15:06 Sun → room scene 'issue2-test' next: Sun 18 Oct 15:06` |
+| HH:MM only | TRUE | clock times only HH:MM; durations keep seconds (Guess G-a) |
+| One add/edit dialog | TRUE | `add-rule-dialog.tsx` deleted |
+| `sunset-1h10m` round-trips | TRUE | `when.test.ts` |
+| Rule rows, owner strip states, Settings location, Rooms new scene | TRUE | verify_ui screenshots (62) + live shots (12) |
+| verify_ui: zero console errors, no clipping, ≥44px on phone | TRUE | run 6 exit 0; measure 0 under 44px with `pointer:coarse=yes`; 2 Haiku sweeps |
+| Mobile changes only via max-*/pointer-coarse; viewport_audit on pop-os | TRUE (mobile) / see note | pop-os audit: mobile 0 hard failures both themes. Desktop diffs only on the 3 changed routes beyond pre-existing drift: clean origin/main already shows 172 diffs (home 79, device 68, schedules 25) |
+| All gates green | TRUE | pytest 664, ruff, mypy ×2, tsc, eslint, vitest 366, next build (pop-os deploy) |
+| crontab + wake-ramp diff identical; info Light Bars exit 0 | TRUE | pop-os pre/post captures |
+| New state files redirected; real config untouched by pytest | TRUE | conftest/mock; Windows mtime diff empty; pop-os: only the live sidecar heartbeat changed |
+| Mock sends nothing | TRUE | dry-run short-circuit tests; BLE refused in mock (F6) |
+
+### Gates
+pytest 664 passed (Windows and pop-os/Linux) · ruff clean · mypy govee_cli + webui/api clean · tsc clean · eslint clean · vitest 366 passed · `next build` (pop-os deploy) ok · verify_ui `--owner-states --no-location --tz America/New_York` all checks passed.
+
+### Guesses
+- G-a durations keep seconds; G-b sleep-mode Light Bars skipped as ambiguous; G-c location left unset (Luke's data); G-d DIY failure lets other steps run; G-e `--text-low` contrast is an app-wide follow-up; G-f desktop baseline already stale, not re-baselined; G-g merge blocked by the auto-mode classifier.
+- `next-fire.ts` kept (the external crontab panel still uses it).
+- `room import-profiles` uses the registry's model, not the file's.
+
+### Changed on request
+- Profiles dir found mid-build → `room import-profiles` (proxy, Luke's stand-in) and run on pop-os: day, relax, sleep mode imported.
+
+## Walk 1
+Date: 2026-10-18
+
+Later entries here win over everything above, including Grill choices. Walked on the live pop-os deployment from screenshots and measurements; the Luke-proxy answered.
+
+### W1. Guesses G-a..G-g
+- Shown: the build log's guesses, with live screenshots of Schedules, Rooms and Settings at 390 and 1440 in both themes.
+- Said: keep G-a, G-c, G-d, G-g. G-b change: keep the skip, but put the reason on the scene. G-e and G-f become follow-ups; "do not re-baseline in this PR".
+- Decided: imported scenes record skipped devices in their note. The viewport_audit DoD line stays UNKNOWN until issue #5 re-baselines. The contrast token is tracked as issue #4.
+- Fix: inline.
+
+### W2. Phone status strip
+- Shown: the poll chip was cut at the 390px edge on every route.
+- Said: "a clipped control fails the no-nits bar", fix under max-md.
+- Decided: below md the strip reads "sidecar" and "scheduler". Measured live: the poll chip spans x=244..312 inside 390, both themes, all routes. Desktop is unchanged.
+- Fix: inline.
+
+### W3. Status strip dot source
+- Shown: a green "native scheduler" dot.
+- Said: check that it reads the owner, not `alive`.
+- Decided: it already reads `owner.state === "running"` (`grep -rn "\.alive" webui/app/src` shows only a comment). No change.
+- Fix: none, it was right.
+
+### W4. Last fire of a deleted rule
+- Shown: Settings "LAST FIRE 15:06 deleted rule 6b64ffa6".
+- Said: record the name at fire time.
+- Decided: fires record `rule_name`. A deleted rule shows "<name> (rule deleted)". The 15:06 test fire predates the field and honestly keeps the id fallback. Proven by a dry-run cycle: `rule_name= named-fire`.
+- Fix: inline.
+
+### W5. Settings owner row repeats its label
+- Shown: label "SCHEDULE OWNER" followed by "Schedule owner: web console sidecar".
+- Decided: Settings uses `withoutOwnerSubject(formatOwner(...))`, still the one formatter. The Schedules strip keeps the prefix.
+- Fix: inline.
+
+### W6. Sleep mode note looked blue
+- Shown: light desktop Rooms.
+- Decided: measured computed colours. Every note is the same `text-low` (rgb 92,97,103 dark; 138,143,150 light). The tint is the card's device-colour bleed, which is intended light content. No change.
+- Fix: none, it was right.
+
+### Fixes applied
+- W1: skipped devices appended to imported notes (`govee_cli/commands/room.py`); live "sleep mode" re-imported through the command - inline
+- W2: phone-only labels (`webui/app/src/components/shell/status-strip.tsx`) - inline
+- W4: `RuleState.rule_name` (`govee_cli/schedule/scheduler.py`, `govee_cli/commands/daemon.py`, `webui/api/routers/schedules.py`) - inline
+- W5: `withoutOwnerSubject` (`webui/app/src/lib/schedule-format.ts`, `webui/app/src/app/settings/connection-owner.ts`) - inline
+- Also found live and fixed: the heartbeat age is now measured server-side (`last_cycle_age_seconds`), because minute-floored timestamps made it read "1m ago" for a 20s heartbeat
