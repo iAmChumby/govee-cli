@@ -67,7 +67,7 @@ export function OwnerStrip({ list }: { list: ScheduleList }) {
             <>
               no location set: sun rules have no next run.{" "}
               <Link href="/settings" className="whitespace-nowrap text-hi underline underline-offset-2">
-                Set one in Settings
+                Set it in Settings
               </Link>
             </>
           )}
