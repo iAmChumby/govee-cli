@@ -5,11 +5,14 @@ No cloud dependency — all local using APScheduler.
 """
 
 import json
+import os
 import pathlib
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 
 import structlog
+
+from govee_cli import filelock
 
 logger = structlog.get_logger(__name__)
 
@@ -55,24 +58,69 @@ class RuleState:
     missed_minute: str | None = None  # UTC ISO instant; set when a fire was missed
 
 
+def _atomic_write_json(path: pathlib.Path, payload: Any) -> None:
+    """tmp + os.replace under an exclusive lock on ``<path>.lock``; no fsync.
+
+    ``os.replace`` gives atomicity, which is all a schedule file needs; ``fsync``
+    would only add durability across a power cut. Paths are read by the callers
+    at call time so tests and mock mode can repoint the module globals.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = path.with_suffix(".json.lock")
+    key = str(lock_path)
+    lock_fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o644)
+    try:
+        filelock.lock_exclusive(lock_fd, key)
+        tmp_path = path.with_suffix(".json.tmp")
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2)
+        os.replace(tmp_path, path)
+    finally:
+        filelock.unlock(lock_fd, key)
+        os.close(lock_fd)
+
+
 def read_state() -> dict[str, RuleState]:
     """Load schedule-state.json. Missing file -> {}. Raises on an unreadable file
     so callers can report "unknown" rather than pretend nothing happened."""
-    raise NotImplementedError
+    path = SCHEDULE_STATE_PATH
+    if not path.exists():
+        return {}
+    with open(path, encoding="utf-8") as f:
+        raw = json.load(f)
+    if not isinstance(raw, dict):
+        raise ValueError(f"{path.name} must hold a JSON object, found {type(raw).__name__}")
+    known = RuleState.__dataclass_fields__.keys()
+    out: dict[str, RuleState] = {}
+    for rule_id, fields in raw.items():
+        if not isinstance(fields, dict):
+            raise ValueError(f"{path.name}: entry '{rule_id}' is not an object")
+        out[str(rule_id)] = RuleState(**{k: v for k, v in fields.items() if k in known})
+    return out
 
 
 def write_state(state: dict[str, RuleState]) -> None:
     """Atomic write (tmp + os.replace, under a filelock); no fsync."""
-    raise NotImplementedError
+    _atomic_write_json(SCHEDULE_STATE_PATH, {rid: vars(s) for rid, s in state.items()})
 
 
 def get_rule(rule_id: str) -> ScheduleRule | None:
-    raise NotImplementedError
+    for rule in _load_rules():
+        if rule.id == rule_id:
+            return rule
+    return None
 
 
 def update_rule(rule: ScheduleRule) -> bool:
     """Replace the stored rule with the same id. Returns False if not found."""
-    raise NotImplementedError
+    rules = _load_rules()
+    for i, existing in enumerate(rules):
+        if existing.id == rule.id:
+            rules[i] = rule
+            _save_rules(rules)
+            logger.info("rule_updated", id=rule.id, time=rule.time, days=rule.days)
+            return True
+    return False
 
 
 def _load_rules() -> list[ScheduleRule]:
@@ -91,10 +139,7 @@ def _load_rules() -> list[ScheduleRule]:
 
 def _save_rules(rules: list[ScheduleRule]) -> None:
     """Save schedule rules to disk."""
-    SCHEDULE_DIR.mkdir(parents=True, exist_ok=True)
-
-    with open(SCHEDULE_FILE, "w") as f:
-        json.dump([vars(r) for r in rules], f, indent=2)
+    _atomic_write_json(SCHEDULE_FILE, [vars(r) for r in rules])
 
 
 def list_rules() -> list[ScheduleRule]:

@@ -172,3 +172,33 @@ def unlock(fd: int, key: str) -> None:
             # successful `lock_exclusive`. Nothing to release, and raising here
             # would mask whatever sent us down that path.
             pass
+
+
+def try_lock_exclusive(fd: int, key: str) -> bool:
+    """Take an exclusive lock on ``fd`` without blocking; ``True`` if now held.
+
+    Same two layers as :func:`lock_exclusive` — the process-local mutex first,
+    then the OS lock — but each is tried non-blockingly. Returns ``False`` when
+    another thread of this process or another process holds it. On ``True`` the
+    caller owns the lock until :func:`unlock` (same ``key``) or until the fd is
+    closed / the process dies, which releases it on both platforms.
+    """
+    process_lock = _lock_for(key)
+    if not process_lock.acquire(blocking=False):
+        return False
+    try:
+        if _HAVE_FCNTL:
+            _fcntl.flock(fd, _fcntl.LOCK_EX | _fcntl.LOCK_NB)
+        elif _HAVE_MSVCRT:
+            os.lseek(fd, 0, os.SEEK_SET)
+            _msvcrt.locking(fd, _msvcrt.LK_NBLCK, 1)
+        else:
+            raise RuntimeError("no file-locking primitive available on this platform")
+    except OSError:
+        # Contended (EWOULDBLOCK / EACCES / EDEADLOCK): someone else holds it.
+        process_lock.release()
+        return False
+    except BaseException:
+        process_lock.release()
+        raise
+    return True
