@@ -64,6 +64,9 @@ def world(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
         lambda rules, now, loc, state: [(r, NOW.replace(second=0)) for r in w.due],
         raising=False,
     )
+    monkeypatch.setattr(daemon_mod.engine, "detect_missed", lambda *a: {}, raising=False)
+    monkeypatch.setattr(daemon_mod, "_FIRED_THIS_PROCESS", {})
+    monkeypatch.setattr(daemon_mod, "_last_cycle_start", None)
     return w
 
 
@@ -288,3 +291,81 @@ def test_stop_releases_lock_from_the_runner_thread(
         assert fresh.try_acquire() is True
     finally:
         fresh.release()
+
+
+# ---- adversarial-review fixes (F1, F3, F7, F8) -------------------------------
+
+
+def test_unregistered_stored_id_never_reaches_ble(monkeypatch: pytest.MonkeyPatch) -> None:
+    from govee_cli.config import GoveeConfig
+
+    def boom(*a: object, **k: object) -> None:
+        raise AssertionError("BLE or cloud touched for an unregistered device")
+
+    monkeypatch.setattr("govee_cli.config.load_config", lambda: GoveeConfig())
+    monkeypatch.setattr("govee_cli.ble.GoveeBLE", boom)
+    monkeypatch.setattr("govee_cli.http_v2.GoveeHTTPv2", boom)
+    r = rule("a", device="6D:19:DD:6E:86:46:44:0C")
+    result, detail = daemon_mod.fire_rule(r, dry_run=False)
+    assert result == "error"
+    assert detail == ("device '6D:19:DD:6E:86:46:44:0C' is not registered: "
+                      "rule will not fire")
+
+
+def test_room_scene_all_skipped_is_skipped_not_ok(monkeypatch: pytest.MonkeyPatch) -> None:
+    sk = [SimpleNamespace(ref="A", ok=True, skipped_reason="offline", error=None),
+          SimpleNamespace(ref="B", ok=True, skipped_reason="not registered", error=None)]
+    _fake_restore(monkeypatch, sk)
+    r = rule("r", room_scene="Movie", command="")
+    result, detail = daemon_mod.fire_rule(r, dry_run=False)
+    assert result == "skipped"
+    assert detail == ("room scene 'Movie': nothing applied "
+                      "(2 skipped: A: offline; B: not registered)")
+    ok = SimpleNamespace(ref="C", ok=True, skipped_reason=None, error=None)
+    _fake_restore(monkeypatch, [ok, sk[0]])
+    assert daemon_mod.fire_rule(r, dry_run=False) == (
+        "ok", "room scene 'Movie' applied to 1 of 2 devices (1 skipped)")
+
+
+def test_failed_state_write_cannot_double_fire(world: SimpleNamespace,
+                                               monkeypatch: pytest.MonkeyPatch) -> None:
+    a = rule("a")
+    world.rules, world.due = [a], [a]
+    calls = []
+
+    def fire(r: ScheduleRule, *, dry_run: bool):
+        calls.append(r.id)
+        return "ok", "ok"
+
+    def bad_write(s: dict) -> None:
+        raise OSError("disk full")
+
+    monkeypatch.setattr(daemon_mod, "write_state", bad_write)
+    lock = FakeLock()
+    assert daemon_mod.run_cycle(lock, dry_run=False, fire=fire) == 1  # type: ignore[arg-type]
+    assert daemon_mod.run_cycle(lock, dry_run=False, fire=fire) == 0  # type: ignore[arg-type]
+    assert calls == ["a"]
+
+
+def test_overlong_cycle_records_missed_and_keeps_baseline(
+    world: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    a, b = rule("a"), rule("b")
+    world.rules, world.due = [a, b], [a]
+    world.state = {"a": RuleState(baseline_at="2026-10-01T00:00:00+00:00")}
+    seen = {}
+
+    def missed(rules, now, loc, state, previous_last_cycle):
+        seen["prev"] = previous_last_cycle
+        return {"b": NOW - dt.timedelta(minutes=1)}
+
+    monkeypatch.setattr(daemon_mod.engine, "detect_missed", missed, raising=False)
+    daemon_mod._last_cycle_start = NOW - dt.timedelta(seconds=20)
+    daemon_mod.run_cycle(FakeLock(), dry_run=False,  # type: ignore[arg-type]
+                         fire=lambda r, *, dry_run: ("ok", "ok"))
+    assert seen["prev"] == NOW - dt.timedelta(seconds=20)
+    st = world.written[-1]
+    assert st["b"].last_result == "missed"
+    assert st["b"].missed_minute == "2026-10-19T10:29:00+00:00"
+    assert st["a"].baseline_at == "2026-10-01T00:00:00+00:00"  # copied forward
+    assert st["a"].last_result == "ok"

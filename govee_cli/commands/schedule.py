@@ -224,6 +224,7 @@ def add_cmd(
         room_scene=scene,
     )
     scheduler.add_rule(rule)
+    stamp_baseline(rule.id)
     click.echo(
         f"Added schedule {rule.id}: {name} at {canonical} on {_days_text(day_list)} "
         f"→ {_target_text(rule)}"
@@ -283,6 +284,8 @@ def edit_cmd(
 
     if not scheduler.update_rule(updated):
         raise click.ClickException(f"Schedule {rule_id} not found")
+    if starts_new_baseline(rule, updated):
+        stamp_baseline(rule_id)
     click.echo(
         f"Updated schedule {rule_id}: {updated.name} at {updated.time} on "
         f"{_days_text(updated.days)} → {_target_text(updated)}"
@@ -339,9 +342,25 @@ def disable_cmd(rule_id: str) -> None:
 
 
 def _set_enabled(rule_id: str, enabled: bool) -> None:
+    before = scheduler.get_rule(rule_id)
     if not scheduler.set_rule_enabled(rule_id, enabled):
         raise click.ClickException(f"Schedule {rule_id} not found")
+    if enabled and before is not None and not before.enabled:
+        stamp_baseline(rule_id)
     click.echo(f"{'Enabled' if enabled else 'Disabled'} schedule {rule_id}")
+
+
+def starts_new_baseline(before: ScheduleRule, after: ScheduleRule) -> bool:
+    """True when a save starts a new schedule baseline: enabled, time, or days changed."""
+    return (
+        (after.enabled and not before.enabled)
+        or before.time != after.time
+        or _day_set(before.days) != _day_set(after.days)
+    )
+
+
+def _day_set(days: list[str]) -> set[str]:
+    return {d.strip().title()[:3] for d in days}
 
 
 # ------------------------------------------------------------------ remove
@@ -422,3 +441,20 @@ def _check_device(device: str | None) -> None:
 def _check_room_scene(name: str) -> None:
     if name not in room_scenes.list_scenes():
         raise click.ClickException(f"Room scene '{name}' not found.")
+
+
+def stamp_baseline(rule_id: str) -> None:
+    """Record that a rule's schedule starts now, so a missed-fire check never reaches back past it.
+
+    Written whenever a rule is created, enabled, or has its time or days changed.
+    Every other field of the rule's state is preserved. Never raises: an
+    unreadable state file must not fail the save that triggered this.
+    """
+    try:
+        state = scheduler.read_state()
+        now = dt.datetime.now(dt.timezone.utc).replace(second=0, microsecond=0).isoformat()
+        current = state.get(rule_id, RuleState())
+        state[rule_id] = dataclasses.replace(current, baseline_at=now)
+        scheduler.write_state(state)
+    except Exception:
+        return

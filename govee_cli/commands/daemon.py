@@ -240,9 +240,17 @@ def _fire_room_scene(name: str) -> tuple[RuleResult, str]:
     except Exception as e:
         logger.error("room_scene_rule_failed", scene=name, error=str(e))
         return "error", str(e)
-    if result.ok:
-        return "ok", f"room scene '{name}' applied"
     counted = [r for r in result.results if r.skipped_reason is None]
+    skipped = [r for r in result.results if r.skipped_reason is not None]
+    if result.ok:
+        if not counted:
+            reasons = "; ".join(f"{r.ref}: {r.skipped_reason}" for r in skipped)
+            return "skipped", (
+                f"room scene '{name}': nothing applied ({len(skipped)} skipped: {reasons})")
+        if skipped:
+            return "ok", (f"room scene '{name}' applied to {len(counted)} of "
+                          f"{len(result.results)} devices ({len(skipped)} skipped)")
+        return "ok", f"room scene '{name}' applied"
     failed = [r for r in counted if not r.ok]
     detail = "; ".join(f"{r.ref}: {r.error or 'failed'}" for r in failed)
     return "error", f"{len(failed)} of {len(counted)} devices failed: {detail}"
@@ -254,6 +262,33 @@ def _read_state_or_empty() -> dict[str, RuleState]:
     except Exception as e:  # corrupt file: log, treat as empty, never crash
         logger.error("schedule_state_unreadable", error=str(e))
         return {}
+
+
+# Per-process memory of the last minute fired for each rule. The state file is
+# the durable record, but if its write fails the next poll in the same minute
+# must still not fire the rule a second time (F7).
+_FIRED_THIS_PROCESS: dict[str, str] = {}
+# Start of the previous cycle in this process, the lower bound for post-cycle
+# missed detection (F8).
+_last_cycle_start: datetime.datetime | None = None
+
+
+def _record_missed(state: dict[str, RuleState], missed: dict[str, datetime.datetime],
+                   now: datetime.datetime) -> bool:
+    """Mark rules as missed (never caught up). Returns whether anything changed."""
+    changed = False
+    at = _utc_iso(now)
+    for rule_id, minute in missed.items():
+        prior = state.get(rule_id, RuleState())
+        minute_iso = _utc_iso(minute)
+        if prior.last_result == "missed" and prior.missed_minute == minute_iso:
+            continue
+        state[rule_id] = replace(
+            prior, last_result="missed", missed_minute=minute_iso,
+            last_detail="no scheduler was running at the scheduled time", last_at=at,
+        )
+        changed = True
+    return changed
 
 
 def acquire_and_record_missed(lock: SchedulerLock, now: datetime.datetime,
@@ -270,15 +305,7 @@ def acquire_and_record_missed(lock: SchedulerLock, now: datetime.datetime,
         rules = list_rules()
         state = _read_state_or_empty()
         missed = engine.detect_missed(rules, now, loc, state, previous)
-        if missed:
-            at = _utc_iso(now)
-            for rule_id, minute in missed.items():
-                prior = state.get(rule_id, RuleState())
-                state[rule_id] = replace(
-                    prior, last_result="missed", missed_minute=_utc_iso(minute),
-                    last_detail="no scheduler was running at the scheduled time",
-                    last_at=at,
-                )
+        if missed and _record_missed(state, missed, now):
             write_state(state)
     except Exception as e:
         logger.error("missed_detection_failed", error=str(e))
@@ -302,7 +329,13 @@ def run_cycle(
     now, loc = _now_in_zone()
     rules = list_rules()
     state = _read_state_or_empty()
-    due = engine.due_rules(rules, now, loc, state)
+    global _last_cycle_start
+    previous_start = _last_cycle_start
+    _last_cycle_start = now
+    due = [
+        (r, m) for r, m in engine.due_rules(rules, now, loc, state)
+        if _FIRED_THIS_PROCESS.get(r.id) != _utc_iso(m)
+    ]
     for rule, minute in due:
         logger.info("rule_firing", id=rule.id, name=rule.name, command=rule.command,
                     room_scene=rule.room_scene)
@@ -311,13 +344,25 @@ def run_cycle(
         except Exception as e:  # one bad rule never stops the others
             result, detail = "error", str(e)
         at = datetime.datetime.now(datetime.timezone.utc).isoformat()
-        state[rule.id] = RuleState(
+        _FIRED_THIS_PROCESS[rule.id] = _utc_iso(minute)
+        # Copy forward everything else (baseline_at in particular).
+        state[rule.id] = replace(
+            state.get(rule.id, RuleState()),
             last_fired_minute=_utc_iso(minute), last_result=result,
-            last_detail=detail, last_at=at,
+            last_detail=detail, last_at=at, missed_minute=None,
         )
         if on_fire is not None:
             on_fire(rule, result, detail, at)
-    if due:
+    # A cycle that outran a minute (slow room scene) skipped rules whose minute
+    # fell inside it. Record those as missed; never fire them late (F8).
+    changed = bool(due)
+    try:
+        after, _ = _now_in_zone()
+        missed = engine.detect_missed(rules, after, loc, state, previous_start)
+        changed = _record_missed(state, missed, after) or changed
+    except Exception as e:
+        logger.error("missed_detection_failed", error=str(e))
+    if changed:
         try:
             write_state(state)
         except Exception as e:
@@ -389,11 +434,23 @@ class SchedulerDaemon:
         failure. The boolean is what keeps ``last_result`` honest.
         """
         from govee_cli.commands.group import _apply_http_command, _apply_v2_command
-        from govee_cli.config import load_config
+        from govee_cli.config import load_config, resolve_device_ref
         from govee_cli.exceptions import GoveeError
         from govee_cli.transport import CLOUD_V1, CLOUD_V2, resolve_target
 
         cfg = load_config()
+
+        # A stored id must resolve to a registered device. resolve_target would
+        # fall back to an ad-hoc BLE address for an unregistered MAC and send
+        # real GATT packets to whatever answers; a schedule never does that.
+        ref = rule.device or cfg.default_mac
+        if ref:
+            try:
+                resolve_device_ref(cfg, ref)
+            except Exception:
+                msg = f"device '{ref}' is not registered: rule will not fire"
+                click.echo(f"  ⚠ {msg}")
+                return False, msg
 
         try:
             device_id, model, transport = resolve_target(cfg, rule.device)

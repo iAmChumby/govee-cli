@@ -267,6 +267,28 @@ def test_fire_minute_equal_to_now_is_not_missed() -> None:
     assert detect_missed([rule("06:30")], now, NYC, state, None) == {}
 
 
+def test_reenabled_after_its_minute_is_not_missed() -> None:
+    now = ny(2026, 10, 21, 9, 0)  # Wednesday; 06:30 passed while the rule was disabled
+    state = {"r1": RuleState(last_fired_minute=minute_key(ny(2026, 10, 19, 6, 30)),
+                             baseline_at=minute_key(ny(2026, 10, 21, 8, 0)))}
+    assert detect_missed([rule("06:30")], now, NYC, state, None) == {}
+    # Re-enabled BEFORE the minute: still missed.
+    early = {"r1": RuleState(last_fired_minute=minute_key(ny(2026, 10, 19, 6, 30)),
+                             baseline_at=minute_key(ny(2026, 10, 21, 6, 0)))}
+    assert detect_missed([rule("06:30")], now, NYC, early, None) == {
+        "r1": ny(2026, 10, 21, 6, 30)}
+
+
+def test_created_after_its_minute_is_not_missed() -> None:
+    now = ny(2026, 10, 21, 9, 0)
+    state = {"r1": RuleState(baseline_at=minute_key(ny(2026, 10, 21, 8, 30)))}
+    # Even with a previous owner who stopped long before the minute.
+    assert detect_missed([rule("06:30")], now, NYC, state, ny(2026, 10, 21, 5, 0)) == {}
+    # A minute exactly at the baseline is not missed either.
+    at = {"r1": RuleState(baseline_at=minute_key(ny(2026, 10, 21, 6, 30)))}
+    assert detect_missed([rule("06:30")], now, NYC, at, None) == {}
+
+
 # --- preview ----------------------------------------------------------------
 
 

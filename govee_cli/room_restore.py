@@ -71,6 +71,9 @@ class RestoreClients:
 
     v2: GoveeHTTPv2 | None
     v1: GoveeHTTP | None = None
+    # False in the sidecar's mock mode: mock fakes only the HTTP clients, so a
+    # BLE step there would be a real GATT write. Such steps error instead.
+    allow_ble: bool = True
 
 
 class _StepError(Exception):
@@ -152,7 +155,12 @@ def _restore_device(cfg: GoveeConfig, clients: RestoreClients, device: CapturedD
             errors.append(str(e))  # nothing sent for this step; carry on
         except Exception as e:
             errors.append(_step_failure_text(e, clients))
-            break  # the transport failed; more requests would fail the same way
+            # Stop only when more requests would fail the same way: a 429, or a
+            # connection/transport failure (network, timeout, BLE connect). An
+            # API-level rejection (e.g. GoveeV2Error 400 on the DIY or colour
+            # step) leaves the device's other steps to run (G5).
+            if _is_transport_failure(e):
+                break
 
     if errors:
         _clear_ledger(device_id)
@@ -165,6 +173,20 @@ def _restore_device(cfg: GoveeConfig, clients: RestoreClients, device: CapturedD
     except Exception:
         logger.warning("room_restore.ledger.failed", device_id=device_id)
     return DeviceResult(label, device_id, True, notes=notes)
+
+
+def _is_transport_failure(e: Exception) -> bool:
+    import requests
+
+    from govee_cli.exceptions import GoveeError
+    from govee_cli.http_v2 import GoveeV2Error, GoveeV2RateLimited
+
+    if isinstance(e, (GoveeV2RateLimited, GoveeError, requests.RequestException,
+                      ConnectionError, TimeoutError, OSError)):
+        return True
+    # GoveeV2Client raises this plain GoveeV2Error when every attempt failed at
+    # the network level.
+    return isinstance(e, GoveeV2Error) and str(e).startswith("Govee cloud unreachable")
 
 
 def _step_failure_text(e: Exception, clients: RestoreClients) -> str:
@@ -310,6 +332,10 @@ def _verify_diy(ctx: _Ctx, client: GoveeHTTPv2, name: str | None, value: int,
     cached_at: datetime | None = None
     try:
         live = client.get_diy_scenes(ctx.model, ctx.device_id)
+        if not live:
+            # An empty list is not authoritative: the API also returns [] when
+            # the capability is missing from the response. Never cache it.
+            raise GoveeV2Error("the DIY list came back empty")
         scenes = [{"name": s.name, "value": s.value} for s in live]
         _write_diy_cache(ctx.device_id, scenes)
     except GoveeV2Error as e:
@@ -375,6 +401,8 @@ def _apply_ble(ctx: _Ctx, cmd: str) -> None:
     from govee_cli.commands._common import Target
     from govee_cli.commands.group import _parse_inline_command
 
+    if not ctx.clients.allow_ble:
+        raise _StepError("BLE is disabled in mock mode: nothing sent")
     parsed = _parse_inline_command(cmd, device_model=ctx.model or None)
     if parsed is None:
         raise _StepError(f"Unknown command: {cmd}")

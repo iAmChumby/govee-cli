@@ -10,6 +10,7 @@ and no test sends a command to a device.
 
 from __future__ import annotations
 
+import dataclasses
 import datetime as dt
 import json
 import os
@@ -119,6 +120,25 @@ def fake_update_rule(rule: ScheduleRule) -> bool:
     return False
 
 
+# Store behind the read_state/write_state fakes, so baseline stamps are observable.
+STATE: dict[str, RuleState] = {}
+_BASELINE = re.compile(r"^\d{4}-\d\d-\d\dT\d\d:\d\d:00\+00:00$")
+
+
+def fake_read_state() -> dict[str, RuleState]:
+    return {k: dataclasses.replace(v) for k, v in STATE.items()}
+
+
+def fake_write_state(state: dict[str, RuleState]) -> None:
+    STATE.clear()
+    STATE.update(state)
+
+
+def _baseline(rule_id: str) -> str | None:
+    entry = STATE.get(rule_id)
+    return entry.baseline_at if entry else None
+
+
 def _owner_running_sidecar(now: dt.datetime) -> owner.OwnerView:
     cycle = (now - dt.timedelta(seconds=12)).astimezone(dt.timezone.utc)
     return owner.OwnerView(
@@ -166,7 +186,9 @@ def isolated(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     monkeypatch.setattr(engine, "rule_status", fake_rule_status)
     monkeypatch.setattr(engine, "preview", fake_preview)
     monkeypatch.setattr(owner, "read_owner", lambda now: NOBODY)
-    monkeypatch.setattr(scheduler, "read_state", lambda: {})
+    STATE.clear()
+    monkeypatch.setattr(scheduler, "read_state", fake_read_state)
+    monkeypatch.setattr(scheduler, "write_state", fake_write_state)
     monkeypatch.setattr(scheduler, "get_rule", fake_get_rule)
     monkeypatch.setattr(scheduler, "update_rule", fake_update_rule)
     monkeypatch.setattr(room_scenes, "list_scenes", lambda: dict.fromkeys(SCENES))
@@ -710,3 +732,128 @@ def test_config_flags_still_show_the_config(tmp_path) -> None:
     result = CliRunner().invoke(config_group, ["--show"])
     assert result.exit_code == 0
     assert json.loads(result.output)["default_mac"] == DEVICE_ID
+
+
+# ------------------------------------------------- baseline (missed-fire anchor)
+# A rule's state gets baseline_at (now, UTC, minute precision) when the rule is
+# created, goes disabled -> enabled, or its time or days change. Other state
+# fields are kept, and an unreadable state file never fails the save.
+
+
+def test_api_create_stamps_baseline(client: TestClient) -> None:
+    rule_id = client.post("/api/v1/schedules", json=_rule_body()).json()["id"]
+    stamped = _baseline(rule_id)
+    assert stamped is not None and _BASELINE.match(stamped), stamped
+
+
+def test_api_patch_enable_stamps_only_on_disabled_to_enabled(client: TestClient) -> None:
+    rule_id = client.post("/api/v1/schedules", json=_rule_body()).json()["id"]
+    client.patch(f"/api/v1/schedules/{rule_id}", json={"enabled": False})
+    STATE.clear()
+    client.patch(f"/api/v1/schedules/{rule_id}", json={"enabled": True})
+    assert _BASELINE.match(_baseline(rule_id) or "")
+
+    STATE.clear()
+    client.patch(f"/api/v1/schedules/{rule_id}", json={"enabled": True})
+    assert _baseline(rule_id) is None
+
+
+def test_api_put_stamps_on_time_days_or_enable_change_only(client: TestClient) -> None:
+    rule_id = client.post("/api/v1/schedules", json=_rule_body()).json()["id"]
+    url = f"/api/v1/schedules/{rule_id}"
+
+    STATE.clear()
+    client.put(url, json=_rule_body(name="Renamed"))
+    assert _baseline(rule_id) is None, "a rename must not restart the baseline"
+
+    client.put(url, json=_rule_body(time="07:00"))
+    assert _BASELINE.match(_baseline(rule_id) or ""), "time change should stamp"
+
+    STATE.clear()
+    client.put(url, json=_rule_body(days=["Tue"]))
+    assert _BASELINE.match(_baseline(rule_id) or ""), "days change should stamp"
+
+    client.patch(url, json={"enabled": False})
+    STATE.clear()
+    client.put(url, json=_rule_body(days=["Tue"], enabled=True))
+    assert _BASELINE.match(_baseline(rule_id) or ""), "PUT re-enable should stamp"
+
+
+def test_api_put_keeps_other_state_fields(client: TestClient) -> None:
+    rule_id = client.post("/api/v1/schedules", json=_rule_body()).json()["id"]
+    STATE[rule_id] = RuleState(last_result="ok", last_at="2026-10-18T21:10:00+00:00")
+    client.put(f"/api/v1/schedules/{rule_id}", json=_rule_body(time="07:00"))
+    entry = STATE[rule_id]
+    assert entry.last_result == "ok" and entry.last_at == "2026-10-18T21:10:00+00:00"
+    assert _BASELINE.match(entry.baseline_at or "")
+
+
+def test_api_save_succeeds_when_state_is_unreadable(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def corrupt() -> dict[str, RuleState]:
+        raise ValueError("schedule-state.json is not JSON")
+
+    monkeypatch.setattr(scheduler, "read_state", corrupt)
+    resp = client.post("/api/v1/schedules", json=_rule_body())
+    assert resp.status_code == 200, resp.text
+    assert scheduler.get_rule(resp.json()["id"]) is not None
+
+
+def test_cli_add_stamps_baseline(tmp_path) -> None:
+    result = _invoke(["add", "--name", "X", "--time", "06:30", "--days", "Mon",
+                      "--command", "power on"])
+    assert result.exit_code == 0, result.output
+    assert _BASELINE.match(_baseline(scheduler.list_rules()[0].id) or "")
+
+
+def test_cli_enable_stamps_only_on_disabled_to_enabled(tmp_path) -> None:
+    _seed_rule(id="abc12345")
+    scheduler.set_rule_enabled("abc12345", False)
+    STATE.clear()
+    assert _invoke(["enable", "abc12345"]).exit_code == 0
+    assert _BASELINE.match(_baseline("abc12345") or "")
+
+    STATE.clear()
+    assert _invoke(["enable", "abc12345"]).exit_code == 0
+    assert _baseline("abc12345") is None
+
+
+def test_cli_disable_does_not_stamp(tmp_path) -> None:
+    _seed_rule(id="abc12345")
+    STATE.clear()
+    assert _invoke(["disable", "abc12345"]).exit_code == 0
+    assert _baseline("abc12345") is None
+
+
+def test_cli_edit_stamps_on_enable_time_or_days_only(tmp_path) -> None:
+    _seed_rule(id="abc12345", time="06:30", days=["Mon"])
+    scheduler.set_rule_enabled("abc12345", False)
+
+    STATE.clear()
+    assert _invoke(["edit", "abc12345", "--name", "Renamed"]).exit_code == 0
+    assert _baseline("abc12345") is None, "a rename must not restart the baseline"
+
+    assert _invoke(["edit", "abc12345", "--time", "07:00"]).exit_code == 0
+    assert _BASELINE.match(_baseline("abc12345") or "")
+
+    STATE.clear()
+    assert _invoke(["edit", "abc12345", "--days", "Tue"]).exit_code == 0
+    assert _BASELINE.match(_baseline("abc12345") or "")
+
+    STATE.clear()
+    assert _invoke(["edit", "abc12345", "--enable"]).exit_code == 0
+    assert _BASELINE.match(_baseline("abc12345") or "")
+
+
+def test_cli_add_succeeds_when_state_is_unreadable(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def corrupt() -> dict[str, RuleState]:
+        raise ValueError("schedule-state.json is not JSON")
+
+    monkeypatch.setattr(scheduler, "read_state", corrupt)
+    result = _invoke(["add", "--name", "X", "--time", "06:30", "--days", "Mon",
+                      "--command", "power on"])
+    assert result.exit_code == 0, result.output
+    assert len(scheduler.list_rules()) == 1

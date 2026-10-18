@@ -12,15 +12,27 @@ frame passes every other check in the project.
 Runs entirely against ``GOVEE_WEBUI_MOCK=1`` on its own ports, so it never
 touches the real devices or the running production services.
 
-    python3 scripts/verify_ui.py                 # headless, writes screenshots
-    python3 scripts/verify_ui.py --keep          # leave the screenshots for review
+    python3 scripts/verify_ui.py                   # default checks, phone + desktop
+    python3 scripts/verify_ui.py --keep            # leave the screenshots for review
+    python3 scripts/verify_ui.py --owner-states    # also: owner strip per GOVEE_WEBUI_MOCK_OWNER
+    python3 scripts/verify_ui.py --no-location     # also: sun rules with no location set
 
-Exit code is 0 only if every check passed.
+Default checks always run. ``--owner-states`` and ``--no-location`` ADD passes
+after them, each restarting only the scratch sidecar; they never replace a check.
+
+What fails the run (exit 1): console errors, a missing page or locator, a text
+assertion that is absent, a horizontal overflow, the motion check, and the
+no-location assertions. What never fails the run: the 390x844 measurement pass.
+It writes ``.verify-ui/measure-<route>.json`` and prints a summary for the main
+agent to read, because a touch-target number is a finding to judge, not a gate.
+
+Exit code is 0 only if every failing check passed.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import signal
 import pathlib
@@ -49,6 +61,38 @@ WEB_PORT = 6156
 DIST_DIR = ".next-verify"
 
 IPHONE = {"width": 390, "height": 844}
+DESKTOP = {"width": 1440, "height": 900}
+VIEWPORTS = {"phone": (IPHONE, True), "desktop": (DESKTOP, False)}
+
+# A touch target smaller than this, on a coarse pointer, is what the measurement
+# pass reports. Apple's HIG and WCAG 2.5.5 both use 44 CSS px.
+MIN_TARGET = 44
+
+OWNER_STATES = ("unset", "daemon", "stale", "nobody")
+
+# Per state: (lower-cased text that must appear on /schedules, text that must not).
+# Lower-cased to match innerText.lower(), so CSS text-transform cannot break them.
+OWNER_EXPECT = {
+    "unset": (["schedule owner: web console sidecar (mock, dry run"], []),
+    "daemon": (["schedule owner: govee-cli daemon (pid"], []),
+    "stale": (["no scheduler running", "stale since"], []),
+    "nobody": (["no scheduler running"], ["stale since"]),
+}
+# Lines echoed to the log so the owner readout can be read per state.
+OWNER_LINE_KEYS = ("schedule owner", "no scheduler running", "stale since")
+
+# Env the mock reads at sidecar start. Every sidecar this script starts drops
+# these first, so an operator's shell cannot leak a state into a default run.
+MOCK_KNOBS = ("GOVEE_WEBUI_MOCK_OWNER", "GOVEE_WEBUI_MOCK_NO_LOCATION")
+
+# Text the default /schedules page must render (default mock). Compared
+# lower-cased against innerText, which is what a person sees.
+SCHEDULE_TEXT = (
+    "schedule owner",
+    "sunset-1h",
+    "room scene 'deleted scene' missing",
+    "missed",
+)
 
 # Console noise that is not a defect. Keep this list short and specific; a broad
 # pattern here would silently swallow the failures this script exists to catch.
@@ -56,6 +100,8 @@ IGNORED_CONSOLE = (
     "Download the React DevTools",
     "favicon.ico",
 )
+
+_HHMM = re.compile(r"\b\d{1,2}:\d{2}\b")
 
 
 class Failure(Exception):
@@ -65,6 +111,15 @@ class Failure(Exception):
 def _free(port: int) -> bool:
     with socket.socket() as s:
         return s.connect_ex(("127.0.0.1", port)) != 0
+
+
+def _wait_free(port: int, timeout: float = 15.0) -> None:
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if _free(port):
+            return
+        time.sleep(0.3)
+    raise Failure(f"port {port} still in use {timeout:.0f}s after the sidecar was stopped")
 
 
 def _wait_for(url: str, timeout: float = 120.0) -> None:
@@ -135,69 +190,6 @@ def _detached() -> dict:
     return {"start_new_session": True}
 
 
-def start_stack(log_dir: pathlib.Path) -> list[subprocess.Popen[bytes]]:
-    """Boot a mock sidecar and a production Next build on the scratch ports."""
-    for port, what in ((API_PORT, "sidecar"), (WEB_PORT, "web")):
-        if not _free(port):
-            raise Failure(f"port {port} ({what}) is already in use")
-
-    env = {
-        **os.environ,
-        "GOVEE_WEBUI_MOCK": "1",
-        "GOVEE_WEBUI_PORT": str(API_PORT),
-        # Fixture latency off: this asserts on rendered output, not spinners.
-        "GOVEE_WEBUI_MOCK_LATENCY": "0-0",
-    }
-    build_env = {
-        **os.environ,
-        "GOVEE_WEBUI_API": f"http://127.0.0.1:{API_PORT}",
-        "GOVEE_WEBUI_DIST_DIR": DIST_DIR,
-    }
-    print("  building against the scratch sidecar (rewrites are baked in)...")
-    # `next build` REWRITES next-env.d.ts to reference whatever dist dir it was
-    # told to use, and this build deliberately uses a scratch one. That file is
-    # tracked, so a verification run otherwise leaves the working tree dirty with
-    # a change pointing the project's type references at `.next-verify` — wrong
-    # for every other use of the repo, and easy to commit by accident because it
-    # shows up alongside the very changes the run was verifying. Snapshot it and
-    # put it back.
-    next_env = APP / "next-env.d.ts"
-    next_env_before = next_env.read_text(encoding="utf-8") if next_env.exists() else None
-    try:
-        build = subprocess.run(
-            [_npm(), "run", "build"], cwd=APP, env=build_env,
-            capture_output=True, text=True, timeout=900,
-        )
-    finally:
-        if next_env_before is not None and next_env.read_text(encoding="utf-8") != next_env_before:
-            next_env.write_text(next_env_before, encoding="utf-8")
-    if build.returncode != 0:
-        raise Failure("next build failed:\n" + build.stdout[-3000:] + build.stderr[-2000:])
-
-    api_log = (log_dir / "sidecar.log").open("wb")
-    # start_new_session so each server becomes its own process group leader:
-    # `npm run start` execs a child next-server, and terminating npm alone
-    # orphans it holding the port, which makes the next run fail to start.
-    api = subprocess.Popen(
-        [_python(), "-m", "webui.api.main"],
-        cwd=REPO, env=env, stdout=api_log, stderr=subprocess.STDOUT,
-        **_detached(),
-    )
-    _wait_for(f"http://127.0.0.1:{API_PORT}/api/v1/health")
-
-    web_log = (log_dir / "web.log").open("wb")
-    web = subprocess.Popen(
-        [_npm(), "run", "start", "--", "-p", str(WEB_PORT), "-H", "127.0.0.1"],
-        cwd=APP,
-        env={**env, "GOVEE_WEBUI_API": f"http://127.0.0.1:{API_PORT}",
-             "GOVEE_WEBUI_DIST_DIR": DIST_DIR},
-        stdout=web_log, stderr=subprocess.STDOUT,
-        **_detached(),
-    )
-    _wait_for(f"http://127.0.0.1:{WEB_PORT}/")
-    return [api, web]
-
-
 def _terminate_group(proc: subprocess.Popen[bytes]) -> None:
     """Kill the whole process tree, not just the launcher."""
     if IS_WINDOWS:
@@ -224,6 +216,103 @@ def _terminate_group(proc: subprocess.Popen[bytes]) -> None:
             os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
         except (ProcessLookupError, PermissionError):
             proc.kill()
+
+
+class Stack:
+    """The scratch sidecar and web app, with the sidecar restartable on its own.
+
+    The web app is a production build that rewrites /api to the scratch sidecar
+    port, so the sidecar can be stopped and restarted under a new mock state
+    without rebuilding or restarting the web app.
+    """
+
+    def __init__(self, log_dir: pathlib.Path, tz: str | None = None):
+        self.log_dir = log_dir
+        # --tz: the sidecar reads TZ before falling back to UTC, so a run on a
+        # Windows workstation can compute schedules in the production zone.
+        self.tz = tz
+        self.api: subprocess.Popen[bytes] | None = None
+        self.web: subprocess.Popen[bytes] | None = None
+
+    def build(self) -> None:
+        print("  building against the scratch sidecar (rewrites are baked in)...")
+        build_env = {
+            **os.environ,
+            "GOVEE_WEBUI_API": f"http://127.0.0.1:{API_PORT}",
+            "GOVEE_WEBUI_DIST_DIR": DIST_DIR,
+        }
+        # `next build` REWRITES next-env.d.ts to reference whatever dist dir it was
+        # told to use, and this build deliberately uses a scratch one. That file is
+        # tracked, so a verification run otherwise leaves the working tree dirty with
+        # a change pointing the project's type references at `.next-verify` — wrong
+        # for every other use of the repo, and easy to commit by accident because it
+        # shows up alongside the very changes the run was verifying. Snapshot it and
+        # put it back.
+        next_env = APP / "next-env.d.ts"
+        next_env_before = next_env.read_text(encoding="utf-8") if next_env.exists() else None
+        try:
+            build = subprocess.run(
+                [_npm(), "run", "build"], cwd=APP, env=build_env,
+                capture_output=True, text=True, timeout=900,
+            )
+        finally:
+            if next_env_before is not None and next_env.read_text(encoding="utf-8") != next_env_before:
+                next_env.write_text(next_env_before, encoding="utf-8")
+        if build.returncode != 0:
+            raise Failure("next build failed:\n" + build.stdout[-3000:] + build.stderr[-2000:])
+
+    def start_api(self, name: str, extra_env: dict[str, str] | None = None) -> None:
+        """(Re)start the mock sidecar. Stops the previous one first, if any."""
+        if self.api is not None:
+            _terminate_group(self.api)
+            self.api = None
+            _wait_free(API_PORT)
+        elif not _free(API_PORT):
+            raise Failure(f"port {API_PORT} (sidecar) is already in use")
+
+        env = {
+            **os.environ,
+            "GOVEE_WEBUI_MOCK": "1",
+            "GOVEE_WEBUI_PORT": str(API_PORT),
+            # Fixture latency off: this asserts on rendered output, not spinners.
+            "GOVEE_WEBUI_MOCK_LATENCY": "0-0",
+        }
+        for knob in MOCK_KNOBS:
+            env.pop(knob, None)
+        if self.tz:
+            env["TZ"] = self.tz
+        env.update(extra_env or {})
+        api_log = (self.log_dir / f"sidecar-{name}.log").open("wb")
+        # Its own process group so the whole tree can be stopped as a unit.
+        self.api = subprocess.Popen(
+            [_python(), "-m", "webui.api.main"],
+            cwd=REPO, env=env, stdout=api_log, stderr=subprocess.STDOUT,
+            **_detached(),
+        )
+        _wait_for(f"http://127.0.0.1:{API_PORT}/api/v1/health")
+
+    def start_web(self) -> None:
+        if not _free(WEB_PORT):
+            raise Failure(f"port {WEB_PORT} (web) is already in use")
+        web_log = (self.log_dir / "web.log").open("wb")
+        # `npm run start` execs a child next-server, so the web app gets its own
+        # process group — terminating npm alone would orphan it on the port.
+        self.web = subprocess.Popen(
+            [_npm(), "run", "start", "--", "-p", str(WEB_PORT), "-H", "127.0.0.1"],
+            cwd=APP,
+            env={**os.environ, "GOVEE_WEBUI_MOCK": "1", "GOVEE_WEBUI_API": f"http://127.0.0.1:{API_PORT}",
+                 "GOVEE_WEBUI_DIST_DIR": DIST_DIR},
+            stdout=web_log, stderr=subprocess.STDOUT,
+            **_detached(),
+        )
+        _wait_for(f"http://127.0.0.1:{WEB_PORT}/")
+
+    def stop_all(self) -> None:
+        for proc in (self.api, self.web):
+            if proc is not None:
+                _terminate_group(proc)
+        self.api = None
+        self.web = None
 
 
 def canvas_is_animating(page, selector: str = "canvas") -> tuple[bool, str]:
@@ -340,23 +429,434 @@ def _rooms_flow(page, base: str, shots: pathlib.Path) -> list[str]:
     return out
 
 
-def run_checks(shots: pathlib.Path, keep: bool) -> list[str]:
+# Measured in the page, not guessed from source. `pointer_coarse` records whether
+# the coarse-pointer emulation actually took effect: without it the undersized
+# list answers a different question than the one asked.
+_MEASURE_JS = """() => {
+  const visible = (el) => {
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden') return false;
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.height > 0;
+  };
+  const label = (el) => (
+    el.getAttribute('aria-label') || el.getAttribute('title') ||
+    el.getAttribute('placeholder') || el.getAttribute('name') ||
+    (el.innerText || el.textContent || '').trim().replace(/\\s+/g, ' ')
+  ).slice(0, 60);
+  const controls = [];
+  for (const el of document.querySelectorAll('button, [role=switch], input, select, a[href]')) {
+    if (!visible(el)) continue;
+    const r = el.getBoundingClientRect();
+    controls.push({
+      tag: el.tagName.toLowerCase(),
+      role: el.getAttribute('role') || '',
+      label: label(el),
+      x: Math.round(r.left), y: Math.round(r.top),
+      w: Math.round(r.width), h: Math.round(r.height),
+      in_dialog: !!el.closest('[role=dialog]'),
+      off_viewport: r.right > window.innerWidth + 1 || r.left < -1,
+    });
+  }
+  const clipped = [];
+  for (const el of document.querySelectorAll('body *')) {
+    const cs = getComputedStyle(el);
+    if (![cs.overflowX, cs.overflowY].some(v => v.includes('hidden'))) continue;
+    if (el.scrollWidth > el.clientWidth + 1) {
+      clipped.push({
+        tag: el.tagName.toLowerCase(),
+        cls: String(el.className).slice(0, 80),
+        text: (el.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 60),
+        scrollWidth: el.scrollWidth, clientWidth: el.clientWidth,
+      });
+    }
+  }
+  return {
+    pointer_coarse: window.matchMedia('(pointer: coarse)').matches,
+    controls, clipped,
+  };
+}"""
+
+
+class Checker:
+    """Shared state for one run: the browser, the failures, and the shots dir."""
+
+    def __init__(self, shots: pathlib.Path, stack: Stack):
+        self.shots = shots
+        self.stack = stack
+        self.base = f"http://127.0.0.1:{WEB_PORT}"
+        self.browser = None
+        self.failures: list[str] = []
+        self.console_errors: list[str] = []
+        self.where = "setup"
+
+    def fail(self, msg: str) -> None:
+        self.failures.append(msg)
+
+    def new_page(self, theme: str, vp_name: str):
+        viewport, mobile = VIEWPORTS[vp_name]
+        ctx = self.browser.new_context(
+            viewport=viewport,
+            # Phone keeps the 3x density the original pass used; desktop is 1x.
+            device_scale_factor=3 if mobile else 1,
+            is_mobile=mobile, has_touch=mobile,
+            color_scheme=theme,
+        )
+        page = ctx.new_page()
+        self.where = f"{theme}:{vp_name}"
+        page.on("console", self._note)
+        return ctx, page
+
+    def _note(self, msg) -> None:
+        if msg.type != "error":
+            return
+        if any(pat in msg.text for pat in IGNORED_CONSOLE):
+            return
+        self.console_errors.append(f"[{self.where}] {msg.text}")
+
+    def goto(self, page, path: str) -> None:
+        page.goto(self.base + path, wait_until="networkidle", timeout=45_000)
+        page.wait_for_timeout(700)
+
+    def shot(self, page, name: str, full_page: bool = False) -> None:
+        page.screenshot(path=str(self.shots / name), full_page=full_page)
+
+    def visible(self, locator, what: str, timeout: int = 8000) -> bool:
+        """True if the locator shows up. Otherwise record a failure naming it."""
+        try:
+            locator.first.wait_for(state="visible", timeout=timeout)
+            return True
+        except Exception:
+            self.fail(f"{what}: not found or not visible")
+            return False
+
+    def check_overflow(self, page, label: str) -> None:
+        # The page itself must never scroll sideways.
+        overflow = page.evaluate(
+            "() => document.documentElement.scrollWidth - document.documentElement.clientWidth"
+        )
+        if overflow > 2:
+            self.fail(f"{label} overflows horizontally by {overflow}px")
+
+    # -- default checks -----------------------------------------------------
+
+    def phone_pass(self, base: str, shots: pathlib.Path) -> None:
+        """The original phone checks: every route in both themes, then the device and rooms flows."""
+        for theme in ("dark", "light"):
+            ctx, page = self.new_page(theme, "phone")
+            for name, path in (("dashboard", "/"), ("schedules", "/schedules"),
+                               ("rooms", "/rooms"), ("settings", "/settings")):
+                self.where = f"{theme}:{name}"
+                self.goto(page, path)
+                page.screenshot(path=str(shots / f"{theme}-{name}.png"), full_page=True)
+
+                # A page that renders an empty body is "working" to a build but
+                # useless to a person.
+                body = page.evaluate("() => document.body.innerText.trim().length")
+                if body < 40:
+                    self.fail(f"{theme}:{name} rendered almost no text ({body} chars)")
+
+                self.check_overflow(page, f"{theme}:{name}")
+
+                if theme == "dark" and name == "schedules":
+                    self.schedule_text(page)
+
+            # The device console, and the motion assertion that is the point of
+            # this whole script.
+            page.goto(base + "/", wait_until="networkidle", timeout=45_000)
+            # Several device links exist (nav drawer, plates). Take the first
+            # one a person could actually tap; a hidden nav entry is not a
+            # meaningful test of the dashboard.
+            link = page.locator("a[href^='/device/']:visible").first
+            if link.count() == 0:
+                self.fail(f"{theme}: no visible device link on the dashboard")
+            else:
+                link.click()
+                page.wait_for_load_state("networkidle", timeout=45_000)
+                page.wait_for_timeout(1200)
+                page.screenshot(path=str(shots / f"{theme}-device.png"), full_page=True)
+
+                if theme == "dark":  # assert motion once; it is theme-independent
+                    self.device_motion(page, base, shots)
+
+            ctx.close()
+
+    def schedule_text(self, page) -> None:
+        """The default mock's schedules page must show the states the mock seeds."""
+        text = page.evaluate("() => document.body.innerText").lower()
+        for needle in SCHEDULE_TEXT:
+            if needle not in text:
+                self.fail(f"/schedules (default mock) does not show {needle!r}")
+
+    def device_motion(self, page, base: str, shots: pathlib.Path) -> None:
+        # §10 T27. A clean mock has an empty ledger, so this device
+        # reads "unknown" — which is exactly the state the chooser
+        # exists for, and the state the older reset control can
+        # never appear in. Check it here, before _apply_a_scene
+        # below writes a mode and takes the device out of it.
+        chooser = page.get_by_role("button", name=re.compile("what's playing", re.I))
+        if chooser.count() == 0:
+            self.fail(
+                "no 'what's playing' chooser on a device reading unknown "
+                "(T27's whole point — the reset control cannot render here)"
+            )
+        else:
+            chooser.first.click()
+            page.wait_for_timeout(700)
+            page.screenshot(path=str(shots / "unknown-chooser.png"), full_page=True)
+            # The copy is load-bearing: a user who believes this
+            # commands the device will mis-set the ledger.
+            text = page.evaluate("() => document.body.innerText")
+            if "does not change" not in text and "sends nothing" not in text:
+                self.fail("the chooser does not say it leaves the light alone")
+            page.keyboard.press("Escape")
+            page.wait_for_timeout(400)
+
+        # Put the device into a real motion mode first. On a clean
+        # mock the ledger is empty, so every device reads "unknown"
+        # and the stage correctly renders NO motion — asserting on
+        # that state would test the wrong thing (and an earlier
+        # version of this script only appeared to pass because it
+        # was accidentally driving the production sidecar, whose
+        # lamp really was mid-scene).
+        applied = _apply_a_scene(page)
+        if applied is None:
+            self.fail("could not put the mock device into a scene")
+        else:
+            print(f"  applied: {applied}")
+            page.reload(wait_until="networkidle", timeout=45_000)
+            page.wait_for_timeout(1200)
+            page.screenshot(path=str(shots / "device-motion.png"), full_page=True)
+        ok, detail = canvas_is_animating(page)
+        if not ok:
+            self.fail(f"motion engine: {detail}")
+        else:
+            print(f"  motion: {detail}")
+
+        for tab in ("segments", "paint", "scenes", "diy"):
+            el = page.get_by_role("tab", name=tab, exact=False)
+            if el.count():
+                el.first.click()
+                page.wait_for_timeout(600)
+                page.screenshot(path=str(shots / f"tab-{tab}.png"), full_page=True)
+                break
+
+        for msg in _rooms_flow(page, base, shots):
+            self.fail(msg)
+
+    def desktop_pass(self) -> None:
+        """The three routes at 1440x900, both themes."""
+        for theme in ("dark", "light"):
+            ctx, page = self.new_page(theme, "desktop")
+            for name, path in (("schedules", "/schedules"), ("rooms", "/rooms"), ("settings", "/settings")):
+                self.where = f"{theme}:desktop:{name}"
+                self.goto(page, path)
+                self.shot(page, f"desktop-{theme}-{name}.png", full_page=True)
+                self.check_overflow(page, f"desktop {theme}:{name}")
+            ctx.close()
+
+    # -- interaction shots ----------------------------------------------------
+
+    def interaction_pass(self) -> None:
+        """Dialogs and the settings location, phone and desktop, both themes."""
+        for theme in ("dark", "light"):
+            for vp in ("phone", "desktop"):
+                ctx, page = self.new_page(theme, vp)
+                tag = f"{theme}-{vp}"
+                self.where = f"{tag}:interactions"
+                self._schedules_add_dialog(page, tag)
+                self._schedules_edit_sun(page, tag)
+                self._rooms_authored_editor(page, tag)
+                self._rooms_new_scene(page, tag)
+                self._settings_location(page, tag)
+                ctx.close()
+
+    def _schedules_add_dialog(self, page, tag: str) -> None:
+        self.goto(page, "/schedules")
+        if not self.visible(page.get_by_role("button", name=re.compile(r"^new rule$")),
+                            f"[{tag}] 'new rule' button on /schedules"):
+            return
+        page.get_by_role("button", name=re.compile(r"^new rule$")).first.click()
+        if self.visible(page.get_by_role("dialog"), f"[{tag}] 'new rule' dialog"):
+            page.wait_for_timeout(500)
+            self.shot(page, f"{tag}-schedules-add-dialog.png")
+
+    def _schedules_edit_sun(self, page, tag: str) -> None:
+        self.goto(page, "/schedules")
+        edit = page.get_by_role("button", name="Edit rule Evening")
+        if not self.visible(edit, f"[{tag}] 'Edit rule Evening' button on /schedules"):
+            return
+        edit.first.click()
+        dialog = page.get_by_role("dialog")
+        if not self.visible(dialog, f"[{tag}] Evening edit dialog"):
+            return
+        # The resolved line is computed server-side; wait for it, do not guess.
+        if self.visible(dialog.get_by_text(re.compile(r"Today:")),
+                        f"[{tag}] resolved line 'Today:' in the Evening dialog", timeout=10000):
+            page.wait_for_timeout(400)
+            self.shot(page, f"{tag}-schedules-edit-sun.png")
+
+    def _rooms_authored_editor(self, page, tag: str) -> None:
+        self.goto(page, "/rooms")
+        edit = page.get_by_role("button", name="Edit Evening")
+        if not self.visible(edit, f"[{tag}] 'Edit Evening' button on the authored card"):
+            return
+        edit.first.click()
+        if self.visible(page.get_by_role("dialog"), f"[{tag}] 'edit room scene' dialog"):
+            page.wait_for_timeout(500)
+            self.shot(page, f"{tag}-rooms-authored-editor.png")
+
+    def _rooms_new_scene(self, page, tag: str) -> None:
+        self.goto(page, "/rooms")
+        btn = page.get_by_role("button", name=re.compile(r"^new scene$"))
+        if not self.visible(btn, f"[{tag}] 'new scene' button on /rooms"):
+            return
+        btn.first.click()
+        dialog = page.get_by_role("dialog")
+        if not self.visible(dialog, f"[{tag}] 'new room scene' dialog"):
+            return
+        # One device included: the first include switch.
+        switch = dialog.get_by_role("switch", name=re.compile(r"^Include"))
+        if self.visible(switch, f"[{tag}] first 'Include <device>' switch in the new-scene dialog"):
+            switch.first.click()
+            page.wait_for_timeout(500)
+            self.shot(page, f"{tag}-rooms-new-scene-one-device.png")
+
+    def _settings_location(self, page, tag: str) -> None:
+        self.goto(page, "/settings")
+        anchor = page.get_by_text(re.compile(r"Sun-relative schedule times"))
+        if self.visible(anchor, f"[{tag}] location section text on /settings"):
+            anchor.first.scroll_into_view_if_needed()
+            page.wait_for_timeout(500)
+            # Viewport shot, not full_page: the app frame scrolls inside itself,
+            # so full_page only captures the first viewport.
+            self.shot(page, f"{tag}-settings-location.png")
+
+    # -- measurement (findings, never a failure) --------------------------------
+
+    def measure_pass(self) -> None:
+        ctx = self.browser.new_context(
+            viewport=IPHONE, device_scale_factor=2,
+            is_mobile=True, has_touch=True, color_scheme="dark",
+        )
+        page = ctx.new_page()
+        self.where = "measure"
+
+        self.goto(page, "/schedules")
+        self.measure(page, "schedules")
+
+        self.goto(page, "/rooms")
+        new_scene = page.get_by_role("button", name=re.compile(r"^new scene$"))
+        if self.visible(new_scene, "measure: 'new scene' button on /rooms"):
+            new_scene.first.click()
+            if self.visible(page.get_by_role("dialog"), "measure: 'new room scene' dialog"):
+                page.wait_for_timeout(500)
+                self.measure(page, "rooms-editor")
+
+        self.goto(page, "/settings")
+        self.measure(page, "settings")
+        ctx.close()
+
+    def measure(self, page, slug: str) -> None:
+        data = page.evaluate(_MEASURE_JS)
+        controls = data["controls"]
+        undersized = [c for c in controls if c["w"] < MIN_TARGET or c["h"] < MIN_TARGET]
+        off = [c for c in controls if c["off_viewport"]]
+        result = {
+            "route": slug,
+            "viewport": IPHONE,
+            "device_scale_factor": 2,
+            "is_mobile": True,
+            "has_touch": True,
+            "pointer_coarse": data["pointer_coarse"],
+            "controls_measured": len(controls),
+            "undersized_under_44px": undersized,
+            "off_viewport": off,
+            "clipped_text": data["clipped"],
+            "controls": controls,
+        }
+        out = self.shots / f"measure-{slug}.json"
+        out.write_text(json.dumps(result, indent=2), encoding="utf-8")
+        print(
+            f"  measure {slug}: {len(controls)} controls, {len(undersized)} under 44px, "
+            f"{len(off)} off-viewport, {len(data['clipped'])} clipped, "
+            f"pointer:coarse={'yes' if data['pointer_coarse'] else 'NO'} -> {out.name}"
+        )
+        if not data["pointer_coarse"]:
+            print("    NOTE: coarse-pointer emulation did not match; the 44px list is not a coarse-pointer answer")
+        for c in undersized[:12]:
+            print(f"    {c['w']}x{c['h']} {c['tag']} {c['role']} '{c['label']}'")
+        for c in data["clipped"][:12]:
+            print(f"    clipped {c['tag']} scrollWidth {c['scrollWidth']} > {c['clientWidth']}: '{c['text']}'")
+
+    # -- extra passes (restart only the sidecar) ---------------------------------
+
+    def owner_state_pass(self) -> None:
+        for state in OWNER_STATES:
+            extra = None if state == "unset" else {"GOVEE_WEBUI_MOCK_OWNER": state}
+            self.stack.start_api(f"owner-{state}", extra)
+            must, must_not = OWNER_EXPECT[state]
+            for vp in ("phone", "desktop"):
+                ctx, page = self.new_page("dark", vp)
+                self.where = f"owner-{state}:{vp}"
+                self.goto(page, "/schedules")
+                body = page.evaluate("() => document.body.innerText")
+                low = body.lower()
+                lines = [ln.strip() for ln in body.splitlines()
+                         if any(k in ln.lower() for k in OWNER_LINE_KEYS)]
+                print(f"  owner {state}/{vp}: " + (" | ".join(lines[:3]) if lines else "<no owner line>"))
+                for needle in must:
+                    if needle not in low:
+                        self.fail(f"owner={state} at {vp}: /schedules does not show {needle!r}")
+                for needle in must_not:
+                    if needle in low:
+                        self.fail(f"owner={state} at {vp}: /schedules shows {needle!r} but should not")
+                self.shot(page, f"schedules-owner-{state}-{vp}.png")
+                ctx.close()
+
+    def no_location_pass(self) -> None:
+        self.stack.start_api("no-location", {"GOVEE_WEBUI_MOCK_NO_LOCATION": "1"})
+        for theme in ("dark", "light"):
+            for vp in ("phone", "desktop"):
+                ctx, page = self.new_page(theme, vp)
+                tag = f"noloc-{theme}-{vp}"
+                self.where = f"{tag}"
+                self.goto(page, "/schedules")
+                self.shot(page, f"{tag}-schedules.png")
+
+                edit = page.get_by_role("button", name="Edit rule Evening")
+                if self.visible(edit, f"[{tag}] 'Edit rule Evening' button"):
+                    edit.first.click()
+                    dialog = page.get_by_role("dialog")
+                    if self.visible(dialog, f"[{tag}] Evening edit dialog"):
+                        note = dialog.get_by_text(re.compile(r"Sunset times need a location"))
+                        if self.visible(note, f"[{tag}] 'Sunset times need a location' in the Evening dialog"):
+                            text = note.first.text_content() or ""
+                            if _HHMM.search(text):
+                                self.fail(f"[{tag}] the no-location line shows a time: {text.strip()!r}")
+                        if dialog.get_by_text(re.compile(r"Today:")).count():
+                            self.fail(f"[{tag}] the Evening dialog shows a 'Today:' resolved line with no location")
+                        page.wait_for_timeout(400)
+                        self.shot(page, f"{tag}-evening-edit.png")
+                ctx.close()
+
+    # -- entry -------------------------------------------------------------------
+
+    def run(self, extras: set[str]) -> None:
+        self.phone_pass(self.base, self.shots)
+        self.desktop_pass()
+        self.interaction_pass()
+        self.measure_pass()
+        if "owner-states" in extras:
+            self.owner_state_pass()
+        if "no-location" in extras:
+            self.no_location_pass()
+
+
+def run_checks(shots: pathlib.Path, stack: Stack, extras: set[str]) -> list[str]:
     from playwright.sync_api import sync_playwright
 
-    failures: list[str] = []
-    console_errors: list[str] = []
-
-    def note(page_name: str):
-        def handler(msg):
-            if msg.type != "error":
-                return
-            text = msg.text
-            if any(pat in text for pat in IGNORED_CONSOLE):
-                return
-            console_errors.append(f"[{page_name}] {text}")
-        return handler
-
-    base = f"http://127.0.0.1:{WEB_PORT}"
+    ck = Checker(shots, stack)
 
     with sync_playwright() as p:
         # Assert the browser is talking to the mock, not production. Without
@@ -364,7 +864,7 @@ def run_checks(shots: pathlib.Path, keep: bool) -> list[str]:
         # real devices' state.
         guard = p.chromium.launch()
         gpage = guard.new_context().new_page()
-        gpage.goto(base + "/", wait_until="domcontentloaded", timeout=45_000)
+        gpage.goto(ck.base + "/", wait_until="domcontentloaded", timeout=45_000)
         is_mock = gpage.evaluate(
             "async () => (await (await fetch('/api/v1/health')).json()).mock"
         )
@@ -375,126 +875,53 @@ def run_checks(shots: pathlib.Path, keep: bool) -> list[str]:
                 f"{is_mock!r}) — refusing to run against production data"
             ]
 
-        browser = p.chromium.launch()
-        for theme in ("dark", "light"):
-            ctx = browser.new_context(
-                viewport=IPHONE, device_scale_factor=3,
-                is_mobile=True, has_touch=True,
-                color_scheme=theme,
-            )
-            page = ctx.new_page()
+        ck.browser = p.chromium.launch()
+        try:
+            ck.run(extras)
+        finally:
+            ck.browser.close()
 
-            routes = [("dashboard", "/"), ("schedules", "/schedules"),
-                      ("rooms", "/rooms"), ("settings", "/settings")]
-            for name, path in routes:
-                page.on("console", note(f"{theme}:{name}"))
-                page.goto(base + path, wait_until="networkidle", timeout=45_000)
-                page.wait_for_timeout(700)
-                page.screenshot(path=str(shots / f"{theme}-{name}.png"), full_page=True)
-
-                # A page that renders an empty body is "working" to a build but
-                # useless to a person.
-                body = page.evaluate("() => document.body.innerText.trim().length")
-                if body < 40:
-                    failures.append(f"{theme}:{name} rendered almost no text ({body} chars)")
-
-                # The page itself must never scroll sideways on a phone.
-                overflow = page.evaluate(
-                    "() => document.documentElement.scrollWidth - document.documentElement.clientWidth"
-                )
-                if overflow > 2:
-                    failures.append(f"{theme}:{name} overflows horizontally by {overflow}px")
-
-            # The device console, and the motion assertion that is the point of
-            # this whole script.
-            page.goto(base + "/", wait_until="networkidle", timeout=45_000)
-            # Several device links exist (nav drawer, plates). Take the first
-            # one a person could actually tap; a hidden nav entry is not a
-            # meaningful test of the dashboard.
-            link = page.locator("a[href^='/device/']:visible").first
-            if link.count() == 0:
-                failures.append(f"{theme}: no visible device link on the dashboard")
-            else:
-                link.click()
-                page.wait_for_load_state("networkidle", timeout=45_000)
-                page.wait_for_timeout(1200)
-                page.screenshot(path=str(shots / f"{theme}-device.png"), full_page=True)
-
-                if theme == "dark":  # assert motion once; it is theme-independent
-                    # §10 T27. A clean mock has an empty ledger, so this device
-                    # reads "unknown" — which is exactly the state the chooser
-                    # exists for, and the state the older reset control can
-                    # never appear in. Check it here, before _apply_a_scene
-                    # below writes a mode and takes the device out of it.
-                    chooser = page.get_by_role(
-                        "button", name=re.compile("what's playing", re.I)
-                    )
-                    if chooser.count() == 0:
-                        failures.append(
-                            "no 'what's playing' chooser on a device reading unknown "
-                            "(T27's whole point — the reset control cannot render here)"
-                        )
-                    else:
-                        chooser.first.click()
-                        page.wait_for_timeout(700)
-                        page.screenshot(
-                            path=str(shots / "unknown-chooser.png"), full_page=True
-                        )
-                        # The copy is load-bearing: a user who believes this
-                        # commands the device will mis-set the ledger.
-                        text = page.evaluate("() => document.body.innerText")
-                        if "does not change" not in text and "sends nothing" not in text:
-                            failures.append(
-                                "the chooser does not say it leaves the light alone"
-                            )
-                        page.keyboard.press("Escape")
-                        page.wait_for_timeout(400)
-
-                    # Put the device into a real motion mode first. On a clean
-                    # mock the ledger is empty, so every device reads "unknown"
-                    # and the stage correctly renders NO motion — asserting on
-                    # that state would test the wrong thing (and an earlier
-                    # version of this script only appeared to pass because it
-                    # was accidentally driving the production sidecar, whose
-                    # lamp really was mid-scene).
-                    applied = _apply_a_scene(page)
-                    if applied is None:
-                        failures.append("could not put the mock device into a scene")
-                    else:
-                        print(f"  applied: {applied}")
-                        page.reload(wait_until="networkidle", timeout=45_000)
-                        page.wait_for_timeout(1200)
-                        page.screenshot(
-                            path=str(shots / "device-motion.png"), full_page=True
-                        )
-                    ok, detail = canvas_is_animating(page)
-                    if not ok:
-                        failures.append(f"motion engine: {detail}")
-                    else:
-                        print(f"  motion: {detail}")
-
-                    for tab in ("segments", "paint", "scenes", "diy"):
-                        el = page.get_by_role("tab", name=tab, exact=False)
-                        if el.count():
-                            el.first.click()
-                            page.wait_for_timeout(600)
-                            page.screenshot(path=str(shots / f"tab-{tab}.png"), full_page=True)
-                            break
-
-                if theme == "dark":
-                    failures.extend(_rooms_flow(page, base, shots))
-
-            ctx.close()
-        browser.close()
-
-    failures.extend(console_errors)
-    return failures
+    ck.failures.extend(ck.console_errors)
+    return ck.failures
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser()
+    # Labels contain characters such as U+2212; a Windows cp1252 console would
+    # raise UnicodeEncodeError on print() and abort the run mid-check.
+    for stream in (sys.stdout, sys.stderr):
+        stream.reconfigure(encoding="utf-8", errors="replace")
+
+    ap = argparse.ArgumentParser(
+        description="Headless browser pass over the web console against the mock sidecar.",
+        epilog=(
+            "--owner-states restarts ONLY the sidecar for each GOVEE_WEBUI_MOCK_OWNER value "
+            f"({', '.join(OWNER_STATES)}) and shoots /schedules at phone and desktop, dark. "
+            "--no-location restarts the sidecar with GOVEE_WEBUI_MOCK_NO_LOCATION=1 and shoots "
+            "/schedules and the Evening edit dialog, asserting the no-location text and no HH:MM in it. "
+            "Both run after the default checks, in addition to them."
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     ap.add_argument("--keep", action="store_true", help="keep screenshots after a pass")
+    ap.add_argument(
+        "--owner-states", action="store_true",
+        help="add a pass: restart the sidecar per GOVEE_WEBUI_MOCK_OWNER value and shoot the owner strip",
+    )
+    ap.add_argument(
+        "--no-location", action="store_true",
+        help="add a pass: restart the sidecar with no location and check the sun-rule dialog",
+    )
+    ap.add_argument(
+        "--tz", metavar="ZONE", default=None,
+        help="set TZ=ZONE in the sidecar's environment (e.g. America/New_York), so a run on a "
+             "Windows workstation computes schedules in the production zone",
+    )
     args = ap.parse_args()
+    extras: set[str] = set()
+    if args.owner_states:
+        extras.add("owner-states")
+    if args.no_location:
+        extras.add("no-location")
 
     shots = REPO / ".verify-ui"
     if shots.exists():
@@ -502,12 +929,15 @@ def main() -> int:
     shots.mkdir()
     log_dir = pathlib.Path(tempfile.mkdtemp(prefix="verify-ui-"))
 
-    procs: list[subprocess.Popen[bytes]] = []
+    stack = Stack(log_dir, tz=args.tz)
+    failures: list[str] = []
     try:
         print(f"starting mock stack (api :{API_PORT}, web :{WEB_PORT})...")
-        procs = start_stack(log_dir)
+        stack.build()
+        stack.start_api("default")
+        stack.start_web()
         print("running checks...")
-        failures = run_checks(shots, args.keep)
+        failures = run_checks(shots, stack, extras)
     except Failure as e:
         print(f"\nSETUP FAILED: {e}")
         for log in sorted(log_dir.glob("*.log")):
@@ -515,8 +945,7 @@ def main() -> int:
             print(f"\n--- {log.name} ---\n" + "\n".join(tail))
         return 2
     finally:
-        for proc in procs:
-            _terminate_group(proc)
+        stack.stop_all()
 
     if failures:
         print(f"\n{len(failures)} PROBLEM(S):")

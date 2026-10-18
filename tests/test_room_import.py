@@ -57,3 +57,15 @@ def test_import_over_the_three_fixtures(monkeypatch):
     # Second run: every scene exists, nothing is rewritten.
     again = CliRunner().invoke(room_cmd.room, ["import-profiles", "--dir", str(FIXTURES)])
     assert "scene 'day' already exists" in again.output
+
+
+def test_empty_diy_list_skips_as_unverifiable(monkeypatch):
+    config_mod.save_config(GoveeConfig(devices={
+        "50:CE:E8:6E:80:C6:50:3F": DeviceConfig(model="H6022", name="Shelf Lamp"),
+    }))
+    entry = {"power": "on", "brightness": 60, "diy": "Dark-soho"}
+    out = room_cmd.convert_profile(
+        {"name": "x", "devices": {"Shelf Lamp": entry}}, "x.json",
+        config_mod.load_config(), lambda mac, model: [], set(),
+    )
+    assert out.outcomes[0].skipped == "could not verify DIY scene: list unavailable"

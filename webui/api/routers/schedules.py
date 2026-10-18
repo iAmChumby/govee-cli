@@ -23,6 +23,7 @@ from zoneinfo import ZoneInfo
 from fastapi import APIRouter, Request
 
 from govee_cli import room_scenes
+from govee_cli.commands.schedule import stamp_baseline, starts_new_baseline
 from govee_cli.config import load_config, resolve_device_ref
 from govee_cli.schedule import engine, owner, scheduler, timespec
 from govee_cli.schedule.scheduler import RuleState, ScheduleRule
@@ -310,6 +311,7 @@ async def create_schedule(body: ScheduleWriteRequest) -> ScheduleRuleOut:
     await run_blocking(_check_targets, body)
     rule = _rule_from_body(str(uuid.uuid4())[:8], body)
     await run_blocking(scheduler.add_rule, rule)
+    await run_blocking(stamp_baseline, rule.id)
     return cast(ScheduleRuleOut, await run_blocking(_single_out, rule))
 
 
@@ -318,12 +320,15 @@ async def update_schedule(rule_id: str, body: ScheduleWriteRequest) -> ScheduleR
     """Replace a rule's name, time, days, target and enabled flag under POST's validation."""
 
     def apply() -> ScheduleRule:
-        if scheduler.get_rule(rule_id) is None:
+        before = scheduler.get_rule(rule_id)
+        if before is None:
             raise not_found(f"No schedule rule with id '{rule_id}'.")
         _check_targets(body)
         rule = _rule_from_body(rule_id, body)
         if not scheduler.update_rule(rule):
             raise not_found(f"No schedule rule with id '{rule_id}'.")
+        if starts_new_baseline(before, rule):
+            stamp_baseline(rule_id)
         return rule
 
     rule = await run_blocking(apply)
@@ -332,9 +337,12 @@ async def update_schedule(rule_id: str, body: ScheduleWriteRequest) -> ScheduleR
 
 @router.patch("/schedules/{rule_id}", response_model=ScheduleRuleOut)
 async def patch_schedule(rule_id: str, body: SchedulePatchRequest) -> ScheduleRuleOut:
+    before = await run_blocking(scheduler.get_rule, rule_id)
     updated = await run_blocking(scheduler.set_rule_enabled, rule_id, body.enabled)
     if not updated:
         raise not_found(f"No schedule rule with id '{rule_id}'.")
+    if body.enabled and before is not None and not before.enabled:
+        await run_blocking(stamp_baseline, rule_id)
     rule = await run_blocking(scheduler.get_rule, rule_id)
     if rule is None:
         raise ApiError(404, "not_found", f"No schedule rule with id '{rule_id}'.")

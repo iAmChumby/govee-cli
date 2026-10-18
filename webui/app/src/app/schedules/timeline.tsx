@@ -272,11 +272,27 @@ export function ScheduleTimeline({
   onSelectRule,
 }: ScheduleTimelineProps) {
   const nowPct = nowIso ? pctOfWall(nowIso) : null;
-  const [selectedId, setSelectedId] = React.useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = React.useState<string[]>([]);
+  const railRef = React.useRef<HTMLDivElement>(null);
 
   const plotted = rules.filter((r) => r.today_fire !== null);
   const unplotted = rules.filter((r) => r.today_fire === null);
-  const selected = plotted.find((r) => r.id === selectedId) ?? null;
+  const selected = plotted.filter((r) => selectedIds.includes(r.id));
+
+  /** Tap on a dot: select it plus every dot whose centre sits within 44px of it
+   *  (their 44px coarse hit boxes overlap), so none becomes unreachable. */
+  const selectAround = (rule: ScheduleRule) => {
+    const width = railRef.current?.clientWidth ?? 0;
+    const centre = rule.today_fire ? pctOfWall(rule.today_fire) : null;
+    const near =
+      centre === null || width === 0
+        ? [rule]
+        : plotted.filter((r) => {
+            const pct = r.today_fire ? pctOfWall(r.today_fire) : null;
+            return pct !== null && (Math.abs(pct - centre) / 100) * width < 44;
+          });
+    setSelectedIds(near.map((r) => r.id));
+  };
 
   const crontabUnreadable = external ? !external.crontab.readable : false;
   const wakeRampEntry = external?.entries.find((e) => e.kind === "wake-ramp");
@@ -302,7 +318,10 @@ export function ScheduleTimeline({
 
   return (
     <div>
-      <div className="relative h-16 rounded-card border border-hairline bg-panel">
+      <div
+        ref={railRef}
+        className="relative h-16 rounded-card border border-hairline bg-panel pointer-coarse:h-28"
+      >
         {/* 3-hour gridlines */}
         {GRID_HOURS.map((h) => (
           <span
@@ -357,7 +376,7 @@ export function ScheduleTimeline({
               // vertical clearance between the dot row and the band row, or
               // a pointer-coarse-scoped real box grow per §11.3 rather than
               // a phantom overlay) — not a wider inset here.
-              className="absolute bottom-1 top-8 flex cursor-pointer items-center justify-center rounded-chip border transition-transform duration-150 before:absolute before:-inset-y-2 before:-inset-x-5 before:content-[''] hover:scale-[1.03]"
+              className="absolute bottom-1 top-8 flex cursor-pointer items-center justify-center rounded-chip border transition-transform duration-150 hover:scale-[1.03] pointer-coarse:top-14 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
               style={{
                 left: `${bandStartPct}%`,
                 width: bandEndPct !== null ? `${Math.max(1.5, bandEndPct - bandStartPct)}%` : "8px",
@@ -370,9 +389,6 @@ export function ScheduleTimeline({
                 borderStyle: todayWillRun && !statusUnknown ? "solid" : "dashed",
               }}
             >
-              {todayWillRun && !statusUnknown ? (
-                <SunGlyph size={11} className="text-hi/70" />
-              ) : null}
             </button>
           </WakeRampPopover>
         ) : null}
@@ -437,26 +453,31 @@ export function ScheduleTimeline({
               key={rule.id}
               type="button"
               aria-label={label}
-              aria-pressed={selectedId === rule.id}
+              aria-pressed={selectedIds.includes(rule.id)}
               data-volatile={sun ? "true" : undefined}
               onClick={() => {
-                setSelectedId(rule.id);
+                selectAround(rule);
                 onSelectRule?.(rule.id);
               }}
               animate={{ opacity: rule.enabled ? 1 : 0.45 }}
               transition={springStandard}
-              // The 44px hit area is an invisible ::before; see the wake-ramp
-              // band's note above for the known neighbour-overlap gap on a
-              // dense day. The label is reachable by tap through the inline
-              // line under the rail, never by hover alone.
-              className={cn(
-                "absolute top-2 flex -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-accent-contrast bg-accent text-accent-contrast transition-transform duration-150 before:absolute before:-inset-[14px] before:content-[''] hover:scale-125",
-                sun ? "h-4 w-4" : "h-2.5 w-2.5",
-                selectedId === rule.id && "ring-2 ring-hi/60",
-              )}
+              // The button box IS the hit area: ink-sized on a fine pointer,
+              // 44x44 on a coarse one, with the visible dot on an inner span.
+              // Centre y is fixed (13px fine, 24px coarse) so the rail's rows
+              // never collide; dots within 44px of each other are all listed
+              // by the inline label on tap (selectAround).
+              className="absolute top-[13px] flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center pointer-coarse:top-6 pointer-coarse:h-11 pointer-coarse:w-11"
               style={{ left: `${pct}%` }}
             >
-              {sun ? <SunGlyph size={10} /> : null}
+              <span
+                className={cn(
+                  "flex items-center justify-center rounded-full border border-accent-contrast bg-accent text-accent-contrast transition-transform duration-150 hover:scale-125",
+                  sun ? "h-4 w-4" : "h-2.5 w-2.5",
+                  selectedIds.includes(rule.id) && "ring-2 ring-hi/60",
+                )}
+              >
+                {sun ? <SunGlyph size={10} /> : null}
+              </span>
             </motion.button>
           );
         })}
@@ -479,16 +500,26 @@ export function ScheduleTimeline({
         ))}
       </div>
 
-      {/* tapped dot's label: reachable on touch, wraps, never truncated */}
-      <p className="mt-2 min-h-[1.25rem] font-mono text-[11px] leading-snug text-mid">
-        {selected ? (
-          <span data-volatile={isSun(parseWhen(selected.time)?.kind ?? "clock") ? "true" : undefined}>
-            {dotLabel(selected)}
-          </span>
-        ) : plotted.length > 0 ? (
-          <span className="text-low">tap a dot for its time</span>
-        ) : null}
-      </p>
+      {/* tapped dot(s): every rule within the overlapped span, each its own 44px-tall button */}
+      {selected.length > 0 ? (
+        <ul className="mt-2 space-y-1">
+          {selected.map((r) => (
+            <li key={r.id}>
+              <button
+                type="button"
+                onClick={() => onSelectRule?.(r.id)}
+                className="min-h-7 w-full cursor-pointer rounded-chip border border-hairline px-2 py-1 text-left font-mono text-[11px] leading-snug text-mid hover:border-hairline-strong hover:text-hi pointer-coarse:min-h-11"
+              >
+                <span data-volatile={isSun(parseWhen(r.time)?.kind ?? "clock") ? "true" : undefined}>
+                  {dotLabel(r)}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : plotted.length > 0 ? (
+        <p className="mt-2 font-mono text-[11px] leading-snug text-low">tap a dot for its time</p>
+      ) : null}
 
       {unplotted.length > 0 ? (
         <p className="mt-1 font-mono text-[11px] leading-snug text-low">
@@ -503,10 +534,21 @@ export function ScheduleTimeline({
           <span className="h-2 w-2 rounded-full border border-accent-contrast bg-accent" /> native rule
         </span>
         <span className="flex items-center gap-1.5">
-          <SunGlyph size={11} /> wake-ramp (will run)
+          <span className="flex h-3 w-3 items-center justify-center rounded-full border border-accent-contrast bg-accent text-accent-contrast">
+            <SunGlyph size={8} />
+          </span>
+          sun rule
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full border border-dashed border-low" /> wake-ramp (skipped) / est. cron
+          <span aria-hidden className="h-2 w-4 rounded-chip border border-hairline-strong bg-accent-dim" />
+          wake-ramp (will run)
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span aria-hidden className="h-2 w-4 rounded-chip border border-dashed border-low" />
+          wake-ramp (skipped)
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full border border-dashed border-low" /> est. cron
         </span>
         {crontabUnreadable ? (
           <span className="flex items-center gap-1.5">

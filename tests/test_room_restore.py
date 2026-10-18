@@ -122,3 +122,58 @@ def test_rate_limit_error_names_429_and_retry_count():
     res = _run([_diy()], FakeV2(fail_on="turn_on"))
     err = res.results[0].error
     assert "429" in err and "4 attempts" in err
+
+
+def test_empty_live_diy_list_is_unverifiable_and_never_overwrites_the_cache():
+    _run([_diy()], FakeV2())  # good list cached
+    empty = FakeV2(diy=[])
+    res = _run([_diy()], empty)
+    assert res.ok and ("set_diy_scene", 5) in empty.calls  # fell back to the cache
+    assert any(n.startswith("verified against list cached ") for n in res.results[0].notes)
+    # still intact after the empty fetch
+    assert room_restore._read_diy_cache(LAMP)[0] == [{"name": "sleep", "value": 5}]
+
+
+def test_empty_live_diy_list_without_cache_says_list_unavailable():
+    client = FakeV2(diy=[])
+    res = _run([_diy()], client)
+    assert "could not verify DIY scene 'sleep' on Shelf Lamp: list unavailable" in (
+        res.results[0].error
+    )
+    assert not any(c[0] == "set_diy_scene" for c in client.calls)
+
+
+def test_api_level_error_on_a_step_still_lets_brightness_run():
+    class Rejects400(FakeV2):
+        def set_color(self, sku, did, r, g, b):
+            raise GoveeV2Error("Govee API error 400: nope")
+
+    dev = CapturedDevice(LAMP, "H6022", True, 33, [1, 2, 3], None, "basic", None,
+                         {"color_rgb": [1, 2, 3]})
+    client = Rejects400()
+    res = _run([dev], client)
+    assert not res.ok and "400" in res.results[0].error
+    assert [c[0] for c in client.calls] == ["turn_on", "set_brightness"]
+
+
+def test_rate_limit_stops_the_remaining_steps():
+    client = FakeV2(fail_on="turn_on")
+    _run([_diy()], client)
+    assert [c[0] for c in client.calls] == ["turn_on"]
+
+
+def test_ble_step_with_allow_ble_false_errors_and_never_calls_gatt(monkeypatch):
+    import govee_cli.ble as ble
+
+    def boom(*a, **k):
+        raise AssertionError("GoveeBLE must not be built")
+
+    monkeypatch.setattr(ble, "GoveeBLE", boom)
+    cfg = GoveeConfig(devices={"AA:BB:CC:DD:EE:FF": DeviceConfig(model="H6056x", name="Blue")})
+    dev = CapturedDevice("AA:BB:CC:DD:EE:FF", "H6056x", True, 50, None, None, "off", None, None)
+    dev = CapturedDevice(dev.device_id, "H6056x", False, 50, None, None, "off", None, None)
+    scene = RoomScene(created_at="x", devices=[dev])
+    res = restore_scene("s", scene, cfg=cfg, source="cli",
+                        clients=RestoreClients(v2=None, allow_ble=False))
+    assert not res.ok
+    assert "BLE is disabled in mock mode: nothing sent" in res.results[0].error

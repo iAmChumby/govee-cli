@@ -202,6 +202,8 @@ def _convert_device(
             scenes = diy_lookup(mac, model)
         except Exception:
             return "could not verify DIY scene: list unavailable"
+        if not scenes:  # an empty list is unverifiable, not authoritative
+            return "could not verify DIY scene: list unavailable"
         slug = "".join(ch for ch in str(diy).lower() if ch.isalnum())
         found = [s for s in scenes if "".join(ch for ch in s.name.lower() if ch.isalnum()) == slug]
         if not found:

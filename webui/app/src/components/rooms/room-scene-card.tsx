@@ -163,7 +163,7 @@ export function RoomSceneCard({
       <Panel bleed className="relative flex h-full min-w-0 flex-col p-4">
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[15px] font-medium leading-tight text-hi">{scene.name}</p>
+            <p className="break-words text-[15px] font-medium leading-tight text-hi">{scene.name}</p>
             <p className="mt-0.5 font-mono text-[10px] text-low">{formatCapturedAt(scene.created_at)}</p>
           </div>
           <div className="flex shrink-0 flex-wrap justify-end gap-1">
@@ -255,28 +255,24 @@ export function RoomSceneCard({
                 ) : (
                   <XCircle size={11} strokeWidth={2} aria-hidden className="mt-px shrink-0 text-ember" />
                 )}
-                {/* The name never truncates and the reason always may: on a
+                {/* Neither the name nor the reason truncates: on a
                     phone the reason is long enough to squeeze every name down
                     to one letter ("B… — skipped: mode was unknown when…"),
                     which loses the only part identifying which light it is. */}
                 <span className="shrink-0 text-mid">{nameOf(step.ref)}</span>
                 {/* §11.2(6): this is the entire reason room scenes exist —
                     a device that got skipped rather than guessed, and why.
-                    `title` alone made that sentence hover-only, i.e. absent
-                    on a phone. Under pointer:coarse the string wraps onto
-                    its own line(s) instead of clipping; `title` stays for
-                    desktop's cheaper hover path. */}
+                    The sentence wraps at every width and is never hidden behind
+                    a tooltip or an ellipsis. */}
                 {step.skipped_reason ? (
                   <span
-                    className="min-w-0 truncate text-low pointer-coarse:whitespace-normal pointer-coarse:break-words"
-                    title={step.skipped_reason}
+                    className="min-w-0 flex-1 basis-40 whitespace-normal break-words text-low"
                   >
                     — skipped: {step.skipped_reason}
                   </span>
                 ) : step.error ? (
                   <span
-                    className="min-w-0 truncate text-ember pointer-coarse:whitespace-normal pointer-coarse:break-words"
-                    title={step.error}
+                    className="min-w-0 flex-1 basis-40 whitespace-normal break-words text-ember"
                   >
                     — {step.error}
                   </span>

@@ -42,9 +42,16 @@ export function OwnerStrip({ list }: { list: ScheduleList }) {
       <div className="space-y-1 border-t border-hairline pt-2.5 font-mono text-[11px] leading-snug text-mid">
         <p data-volatile="true">
           {next ? (
-            <>
-              next change: <span className="text-hi">{next.names.join(", ")}</span> {next.when}
-            </>
+            list.owner.state === "running" ? (
+              <>
+                next change: <span className="text-hi">{next.names.join(", ")}</span> {next.when}
+              </>
+            ) : (
+              <>
+                next scheduled: <span className="text-hi">{next.names.join(", ")}</span> {next.when}
+                {" — will not fire while no scheduler runs"}
+              </>
+            )
           ) : (
             "next change: none scheduled"
           )}

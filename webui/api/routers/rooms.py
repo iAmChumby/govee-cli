@@ -200,7 +200,10 @@ async def restore_room(
         v2: Any = await get_client_async(request)
     except Exception:
         v2 = None  # no API key: devices that need the cloud report it themselves
-    clients = room_restore.RestoreClients(v2=v2)
+    # Mock mode fakes only the HTTP clients; a BLE step there would be a real write.
+    clients = room_restore.RestoreClients(
+        v2=v2, allow_ble=not request.app.state.settings.mock
+    )
     result = await run_blocking(functools.partial(
         room_restore.restore_scene, name, scene, cfg=cfg, clients=clients, source="webui",
     ))

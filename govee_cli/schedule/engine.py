@@ -202,7 +202,10 @@ def detect_missed(rules: list[ScheduleRule], now: dt.datetime, loc: Location,
 
     For each enabled rule, its most recent scheduled minute before ``now``
     counts as missed iff it is after the rule's ``last_fired_minute`` (or, when
-    the rule never fired, after ``previous_last_cycle``). A rule never fired
+    the rule never fired, after ``previous_last_cycle``). The baseline is the
+    LATEST of ``last_fired_minute`` and ``baseline_at`` (set when a rule is
+    created, re-enabled or retimed); ``previous_last_cycle`` only applies when
+    both are None. A rule never fired
     with no previous owner record is never reported missed. Returns
     ``{rule_id: missed_minute}``.
     """
@@ -228,9 +231,16 @@ def detect_missed(rules: list[ScheduleRule], now: dt.datetime, loc: Location,
         if not past:
             continue
         latest = past[-1]
-        fired = _parse_instant(state[rule.id].last_fired_minute) if rule.id in state else None
-        if fired is not None:
-            baseline = fired
+        st = state.get(rule.id)
+        known = [
+            t for t in (_parse_instant(st.last_fired_minute) if st else None,
+                        _parse_instant(st.baseline_at) if st else None)
+            if t is not None
+        ]
+        if known:
+            # Latest of last fire and the moment the rule last became live
+            # (created, re-enabled, retimed): a minute at or before it is never missed.
+            baseline = max(known, key=lambda t: t.astimezone(dt.timezone.utc))
         elif previous_last_cycle is not None:
             baseline = previous_last_cycle
         else:
