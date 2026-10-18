@@ -13,10 +13,17 @@ Enabled by ``GOVEE_WEBUI_MOCK=1``. Three jobs:
    handlers. A verification run or a test that wrote to the real
    request-meter.json or room-scenes.json would corrupt the traffic counts and
    the saved scenes the running console displays — the same reason the ledger
-   is redirected here.
-2. Seed that temp dir with the three fixture devices, one group and two
-   schedule rules, so config/group/schedule endpoints exercise the library's
-   real load/save code paths against throwaway files.
+   is redirected here. The schedule state file (``schedule-state.json``) and the
+   scheduler owner record + lock (``scheduler-owner.json``) are redirected too.
+2. Seed that temp dir with the three fixture devices, one group, a mock
+   location (New York; ``GOVEE_WEBUI_MOCK_NO_LOCATION=1`` leaves it unset),
+   five schedule rules (clock, sun, a missing room scene, a disabled one), room
+   scenes (one authored, one captured with an unknown-mode device), per-rule
+   firing state, and an owner record chosen by ``GOVEE_WEBUI_MOCK_OWNER``
+   (``daemon``/``waiting`` live record, ``stale`` dead pid + old heartbeat,
+   ``nobody`` none, unset: nothing seeded, the dry-run runner owns the lock),
+   so config/group/schedule endpoints exercise the library's real load/save
+   code paths against throwaway files.
 3. Provide :class:`MockV2`, a drop-in for :class:`govee_cli.http_v2.GoveeHTTPv2`
    with the same method surface the routers use. Mutations update in-memory
    device state; each call sleeps 150-400 ms (override with
@@ -26,11 +33,13 @@ Enabled by ``GOVEE_WEBUI_MOCK=1``. Three jobs:
 
 from __future__ import annotations
 
+import datetime as dt
 import json
 import os
 import pathlib
 import random
 import shutil
+import socket
 import tempfile
 import time
 from typing import Any
@@ -41,6 +50,7 @@ from govee_cli import ledger as ledger_mod
 from govee_cli import request_meter as request_meter_mod
 from govee_cli import room_scenes as room_scenes_mod
 from govee_cli.http_v2 import Capability, DIYScene, Scene, V2Device
+from govee_cli.schedule import owner as owner_mod
 from govee_cli.schedule import scheduler as scheduler_mod
 from govee_cli.transport import MODEL_SPECS
 
@@ -369,6 +379,9 @@ def install() -> pathlib.Path:
         "meter_lock_path": request_meter_mod.METER_LOCK_PATH,
         "room_scenes_path": room_scenes_mod.ROOM_SCENES_PATH,
         "room_scenes_lock_path": room_scenes_mod.ROOM_SCENES_LOCK_PATH,
+        "schedule_state_path": scheduler_mod.SCHEDULE_STATE_PATH,
+        "owner_path": owner_mod.OWNER_PATH,
+        "owner_lock_path": owner_mod.OWNER_LOCK_PATH,
     })
     config_mod._CONFIG_PATH = _tmp_dir / "config.json"
     scheduler_mod.SCHEDULE_DIR = _tmp_dir
@@ -387,9 +400,15 @@ def install() -> pathlib.Path:
     request_meter_mod.METER_LOCK_PATH = _tmp_dir / "request-meter.json.lock"
     room_scenes_mod.ROOM_SCENES_PATH = _tmp_dir / "room-scenes.json"
     room_scenes_mod.ROOM_SCENES_LOCK_PATH = _tmp_dir / "room-scenes.json.lock"
+    scheduler_mod.SCHEDULE_STATE_PATH = _tmp_dir / "schedule-state.json"
+    owner_mod.OWNER_PATH = _tmp_dir / "scheduler-owner.json"
+    owner_mod.OWNER_LOCK_PATH = _tmp_dir / "scheduler-owner.json.lock"
 
     _seed_config(config_mod._CONFIG_PATH)
     _seed_schedules(scheduler_mod.SCHEDULE_FILE)
+    _seed_room_scenes()
+    _seed_schedule_state(scheduler_mod.SCHEDULE_STATE_PATH)
+    _seed_owner(owner_mod.OWNER_PATH)
     return _tmp_dir
 
 
@@ -408,6 +427,9 @@ def uninstall() -> None:
     request_meter_mod.METER_LOCK_PATH = _originals["meter_lock_path"]
     room_scenes_mod.ROOM_SCENES_PATH = _originals["room_scenes_path"]
     room_scenes_mod.ROOM_SCENES_LOCK_PATH = _originals["room_scenes_lock_path"]
+    scheduler_mod.SCHEDULE_STATE_PATH = _originals["schedule_state_path"]
+    owner_mod.OWNER_PATH = _originals["owner_path"]
+    owner_mod.OWNER_LOCK_PATH = _originals["owner_lock_path"]
     shutil.rmtree(_tmp_dir, ignore_errors=True)
     _tmp_dir = None
     _originals.clear()
@@ -426,23 +448,142 @@ def _seed_config(path: pathlib.Path) -> None:
         "groups": {"living-room": [MOCK_DEVICES[0]["id"], MOCK_DEVICES[1]["id"]]},
         "devices": devices,
     }
+    if os.environ.get("GOVEE_WEBUI_MOCK_NO_LOCATION") != "1":
+        # New York, timezone left unset so the UI shows "host: <zone>".
+        data["latitude"] = 40.7128
+        data["longitude"] = -74.0060
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2))
 
 
+_ALL_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+# a1b2c3d4 / e5f6a7b8 predate issue #2 and tests/test_webui_api.py asserts on
+# them, so those ids stay; the other three are new.
+_RULE_WAKE = "a1b2c3d4"
+_RULE_LIGHTS_OUT = "e5f6a7b8"
+_RULE_EVENING = "c3d4e5f6"
+_RULE_LATE_NIGHT = "d4e5f6a7"
+_RULE_GHOST = "f6a7b8c9"
+
+
 def _seed_schedules(path: pathlib.Path) -> None:
+    shelf, bulb = MOCK_DEVICES[1]["id"], MOCK_DEVICES[2]["id"]
     rules = [
         {
-            "id": "a1b2c3d4", "name": "Weekday wake-up", "time": "07:00",
+            "id": _RULE_WAKE, "name": "weekday wake", "time": "06:30",
             "days": ["Mon", "Tue", "Wed", "Thu", "Fri"],
-            "command": "power on", "enabled": True,
-            "device": MOCK_DEVICES[0]["id"],
+            "command": "power on", "enabled": True, "device": shelf,
         },
         {
-            "id": "e5f6a7b8", "name": "Lights out", "time": "23:30",
-            "days": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-            "command": "power off", "enabled": True,
-            "device": MOCK_DEVICES[1]["id"],
+            # The disabled rule.
+            "id": _RULE_LIGHTS_OUT, "name": "Lights out", "time": "23:30",
+            "days": list(_ALL_DAYS), "command": "power off", "enabled": False,
+            "device": shelf,
+        },
+        {
+            "id": _RULE_EVENING, "name": "Evening", "time": "sunset-1h",
+            "days": list(_ALL_DAYS), "command": "", "enabled": True,
+            "device": None, "room_scene": "Evening",
+        },
+        {
+            "id": _RULE_LATE_NIGHT, "name": "Late night", "time": "sunset+3h30m",
+            "days": ["Fri", "Sat"], "command": "brightness 20", "enabled": True,
+            "device": bulb,
+        },
+        {
+            # Targets a room scene that does not exist: the missing-scene state.
+            "id": _RULE_GHOST, "name": "Ghost", "time": "sunrise+15m",
+            "days": list(_ALL_DAYS), "command": "", "enabled": True,
+            "device": None, "room_scene": "Deleted scene",
         },
     ]
     path.write_text(json.dumps(rules, indent=2))
+
+
+def _seed_room_scenes() -> None:
+    """Seed room-scenes.json through the library's own writers.
+
+    "Evening" is authored (white 2700K, colour FF7A2F, and a DIY the mock's DIY
+    list really contains). "Movie night" is captured and holds one device whose
+    ledger mode was ``unknown`` (the skipped-with-a-reason case). The mock never
+    sends to hardware, so naming the mock Light Bars here is safe.
+    """
+    bars, shelf, bulb = (d["id"] for d in MOCK_DEVICES)
+    diy_name, diy_value = next(
+        (n, v) for n, v in DIY_SCENES["H6056"] if n == "Ember Fade"
+    )
+    authored = [
+        {"device_id": bulb, "mode": "white", "power": True, "brightness": 60,
+         "color_temp_k": 2700},
+        {"device_id": shelf, "mode": "colour", "power": True, "brightness": 40,
+         "color": "FF7A2F"},
+        {"device_id": bars, "mode": "diy", "power": True, "brightness": 50,
+         "diy_value": diy_value, "diy_name": diy_name},
+    ]
+    models = {d["id"]: d["model"] for d in MOCK_DEVICES}
+    room_scenes_mod.save_authored_scene(
+        "Evening",
+        [room_scenes_mod.captured_from_authored(d, models[d["device_id"]])
+         for d in authored],
+    )
+    room_scenes_mod.save_scene("Movie night", [
+        room_scenes_mod.CapturedDevice(
+            device_id=bulb, model="H6008", power=True, brightness=30, color=None,
+            color_temp_k=2700, mode="basic", label=None,
+            payload={"color_temp_k": 2700},
+        ),
+        room_scenes_mod.CapturedDevice(
+            device_id=bars, model="H6056", power=True, brightness=60,
+            color=[51, 204, 255], color_temp_k=None, mode="unknown", label=None,
+            payload=None,
+        ),
+    ])
+
+
+def _utc_iso(moment: dt.datetime) -> str:
+    return moment.astimezone(dt.timezone.utc).replace(microsecond=0).isoformat()
+
+
+def _seed_schedule_state(path: pathlib.Path) -> None:
+    """A last fire ("weekday wake" ok) and a missed state ("Late night")."""
+    now = dt.datetime.now(dt.timezone.utc).replace(second=0, microsecond=0)
+    woke = now - dt.timedelta(minutes=90)
+    missed = now - dt.timedelta(hours=20)
+    state = {
+        _RULE_WAKE: {
+            "last_fired_minute": _utc_iso(woke), "last_result": "ok",
+            "last_detail": None, "last_at": _utc_iso(woke), "missed_minute": None,
+        },
+        _RULE_LATE_NIGHT: {
+            "last_fired_minute": None, "last_result": "missed",
+            "last_detail": "scheduler was not running at the time",
+            "last_at": _utc_iso(missed + dt.timedelta(minutes=1)),
+            "missed_minute": _utc_iso(missed),
+        },
+    }
+    path.write_text(json.dumps(state, indent=2))
+
+
+def _seed_owner(path: pathlib.Path) -> None:
+    """Seed the owner record per GOVEE_WEBUI_MOCK_OWNER (read only in mock mode).
+
+    unset or ``nobody``: nothing (unset leaves the dry-run runner to own the lock
+    and write its own record). ``daemon``/``waiting``: a live record; this pid is
+    alive, so it reads running. ``stale``: a dead pid and a two-hour-old heartbeat.
+    """
+    mode = os.environ.get("GOVEE_WEBUI_MOCK_OWNER", "").strip().lower()
+    if mode not in ("daemon", "waiting", "stale"):
+        return
+    now = dt.datetime.now(dt.timezone.utc).replace(microsecond=0)
+    if mode == "stale":
+        pid, started, cycle = 999999, now - dt.timedelta(hours=5), now - dt.timedelta(hours=2)
+    else:
+        pid, started, cycle = os.getpid(), now - dt.timedelta(minutes=5), now - dt.timedelta(seconds=10)
+    record = {
+        "kind": "daemon", "dry_run": False, "pid": pid,
+        "host": socket.gethostname(),
+        "started_at": _utc_iso(started), "last_cycle_at": _utc_iso(cycle),
+        "poll_seconds": 30,
+    }
+    path.write_text(json.dumps(record, indent=2))
