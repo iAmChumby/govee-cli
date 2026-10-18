@@ -57,6 +57,13 @@ export interface SidecarConfig {
     string,
     { model: string | null; name: string; static_mac: string | null }
   >;
+  /** Issue #2 location. Null when unset. `timezone` is the configured zone only. */
+  latitude: number | null;
+  longitude: number | null;
+  timezone: string | null;
+  /** The zone sun and clock rules actually use, configured or host default. */
+  timezone_effective: string | null;
+  timezone_source: "config" | "host" | null;
 }
 
 export interface ConfigPatchBody {
@@ -64,6 +71,13 @@ export interface ConfigPatchBody {
   default_timeout?: number;
   default_brightness?: number;
   default_color?: string;
+  /** Issue #2: set together with longitude. */
+  latitude?: number;
+  longitude?: number;
+  /** Omit to keep the host default. */
+  timezone?: string;
+  /** Removes latitude, longitude and timezone together. */
+  clear_location?: boolean;
 }
 
 export function fetchConfig(): Promise<SidecarConfig> {

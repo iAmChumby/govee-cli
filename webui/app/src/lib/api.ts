@@ -129,6 +129,12 @@ export interface SchedulerNativeHealth {
   poll_seconds: number | null;
   last_cycle_at: string | null;
   last_fire: SchedulerLastFire | null;
+  /** Issue #2: this sidecar's relation to the owner lock. */
+  lock_status?: "owner" | "waiting" | "disabled";
+  /** Issue #2: the owner record (same shape as ScheduleList.owner minus
+   *  this_process). `alive` above is kept for compatibility; no UI reads it,
+   *  because a live thread can be waiting on another process's lock. */
+  owner?: Omit<SchedulerOwner, "this_process"> | null;
 }
 
 export interface SchedulerExternalHealth {
@@ -423,6 +429,8 @@ export interface RoomSceneSummary {
   created_at: string;
   /** Issue #2. Captured from live state, or hand-authored in the Rooms editor. */
   source: "captured" | "authored";
+  /** Free text, e.g. "imported from profiles/day.json". */
+  note: string | null;
   device_count: number;
   unknown_count: number;
   devices: CapturedDevice[];

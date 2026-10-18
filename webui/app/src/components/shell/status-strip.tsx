@@ -236,7 +236,7 @@ export function StatusStrip() {
             as before — it only moves to the pinned group below md. */}
         {scheduler ? (
           <span className="hidden shrink-0 items-center gap-1.5 md:flex">
-            <StatusDot tone={scheduler.native.alive ? "ok" : "warn"} /> native scheduler
+            <StatusDot tone={scheduler.native.owner?.state === "running" ? "ok" : "warn"} /> native scheduler
             {wakeRampWillSkip ? (
               <span title={wakeRampLabel}>
                 <AlertTriangle size={11} strokeWidth={1.75} className="text-ember" aria-hidden />
@@ -249,7 +249,7 @@ export function StatusStrip() {
             warning can never be the thing that scrolls off. */}
         {scheduler ? (
           <span className="flex shrink-0 items-center gap-1.5 md:hidden">
-            <StatusDot tone={scheduler.native.alive ? "ok" : "warn"} /> native scheduler
+            <StatusDot tone={scheduler.native.owner?.state === "running" ? "ok" : "warn"} /> native scheduler
           </span>
         ) : null}
 

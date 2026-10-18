@@ -8,6 +8,7 @@ import { ConnectionSection } from "./connection-section";
 import { DefaultsSection } from "./defaults-section";
 import { DevicesSection } from "./devices-section";
 import { GroupsSection } from "./groups-section";
+import { LocationSection } from "./location-section";
 
 /* ==================================================================
    Settings — connection health, device registry, groups and config
@@ -40,6 +41,7 @@ export default function SettingsPage() {
         <DevicesSection />
         <GroupsSection />
         <DefaultsSection />
+        <LocationSection />
       </motion.div>
     </main>
   );
