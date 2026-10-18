@@ -1,49 +1,37 @@
-"""Room-scene routes: capture, list, delete, and restore several devices at once.
+"""Room-scene routes: capture, author, list, delete, and restore several devices at once.
 
 A room scene is not a group broadcast (``groups.py``'s ``POST /groups/{name}/run``):
-it restores several devices to several *different* modes in one call — lamp on
-DIY "sleep", bars on a firmware scene, dresser off — so each device gets its own
-restore plan instead of one shared command string. See ``govee_cli/room_scenes.py``
-(T19) for the storage layer and the pure ``plan_restore()`` dispatch table this
-router executes.
+it restores several devices to several *different* modes in one call, so each
+device gets its own restore plan instead of one shared command string. See
+``govee_cli/room_scenes.py`` for storage and the pure ``plan_restore()`` table.
 
-The mandatory trap this router exists to avoid: ``groups.py`` deliberately skips
-ledger writes for scene/diy/music broadcasts (its own docstring explains why —
-a different ``source`` per member would need duplicating the mapping, which it
-does). A room-scene restore has no such excuse: if it merely replayed each
-device's captured state through the normal command routes without writing the
-ledger itself, every restored device would read back ``active.mode == "unknown"``
-the instant the request returned, which is exactly the bug the whole ledger
-module exists to prevent. So ``_restore_device`` below writes
-``ledger.record_mode`` once per device, after that device's steps have all
-succeeded, using the very same mode/label/payload the scene captured — those
-values are already ledger-shaped (``room_scenes.CapturedDevice`` copies them
-verbatim from ``ledger.read_one()`` at capture time), so replaying them back is
-not a guess, it is exactly what the ledger recorded the last time this was real.
+This router keeps no send logic. Replaying a scene is
+``govee_cli.room_restore.restore_scene`` (shared with ``govee-cli room apply`` and
+the scheduler), which also owns the ledger write-through: it records each
+device's mode only after all of that device's steps succeeded, and clears it on a
+partial apply. The router only builds the clients, and afterwards drops the state
+cache and echoes the commanded basics so the next read reports intent.
 """
 
 from __future__ import annotations
 
-import itertools
+import functools
 from dataclasses import asdict
 from typing import Any
 
 from fastapi import APIRouter, Request
 
-from govee_cli import ledger, room_scenes
-from govee_cli.commands.group import _apply_http_command, _apply_v2_command
-from govee_cli.config import GoveeConfig
-from govee_cli.http import GoveeHTTP
-from govee_cli.http_v2 import Scene
-from govee_cli.room_scenes import CapturedDevice, RestoreStep, RoomScene
-from govee_cli.transport import CLOUD_V1, CLOUD_V2
+from govee_cli import ledger, room_restore, room_scenes
+from govee_cli.config import GoveeConfig, resolve_device_ref
+from govee_cli.exceptions import DeviceNotConfigured
+from govee_cli.room_scenes import CapturedDevice, RoomScene
+from govee_cli.transport import get_spec
 
 from ..deps import (
-    Resolved,
     apply_echo,
     get_client_async,
     get_config,
-    invalidate_state,
+    get_state_cache,
     normalize_state,
     overlay_active_mode,
     read_state,
@@ -51,18 +39,17 @@ from ..deps import (
     resolve_ref,
     run_blocking,
 )
-from ..errors import conflict, not_found
-from ..schemas import RoomSceneCaptureRequest, RoomSceneRestoreRequest
-from .devices import _apply_ble_command, _echo_fields
+from ..errors import ApiError, conflict, not_found
+from ..schemas import (
+    AuthoredDeviceIn,
+    RoomSceneAuthorRequest,
+    RoomSceneCaptureRequest,
+    RoomSceneRestoreRequest,
+    RoomSceneUpdateRequest,
+)
+from .devices import _echo_fields
 
 router = APIRouter()
-
-# Steps whose kind maps directly onto the CLI-style "verb arg" command strings
-# _apply_v2_command/_apply_http_command already know how to route per transport
-# — same dispatch _basic_control (devices.py) and _apply_to_member (groups.py)
-# use, so a restored power/color/temp/brightness step produces the identical
-# request a manual control would.
-_BASIC_KINDS = frozenset({"power", "color", "temp", "brightness"})
 
 
 @router.get("/rooms")
@@ -141,9 +128,50 @@ async def capture_room(request: Request, body: RoomSceneCaptureRequest) -> dict[
     scene = await run_blocking(room_scenes.read_scene, body.name)
     summary = _scene_summary(body.name, scene) if scene else {
         "name": body.name, "created_at": None, "device_count": len(captured),
-        "unknown_count": len(unknown_refs), "devices": [asdict(d) for d in captured],
+        "unknown_count": len(unknown_refs), "source": "captured", "note": None,
+        "devices": [asdict(d) for d in captured],
     }
     return {**summary, "unknown": unknown_refs}
+
+
+@router.post("/rooms/authored", status_code=201)
+async def create_authored_room(body: RoomSceneAuthorRequest) -> dict[str, Any]:
+    """Create a hand-authored scene (per-device power, brightness, colour / white K / DIY)."""
+    cfg = await run_blocking(get_config)
+    devices = _authored_to_captured(cfg, body.devices)
+    try:
+        scene = await run_blocking(room_scenes.save_authored_scene, body.name, devices)
+    except room_scenes.SceneExistsError:
+        raise conflict(f"Room scene '{body.name}' already exists.") from None
+    return _scene_summary(body.name, scene)
+
+
+@router.put("/rooms/{name}")
+async def update_authored_room(name: str, body: RoomSceneUpdateRequest) -> dict[str, Any]:
+    """Replace an authored scene's devices. Captured scenes are never edited."""
+    existing = await run_blocking(room_scenes.read_scene, name)
+    if existing is None:
+        raise not_found(f"Room scene '{name}' not found.")
+    if existing.source != "authored":
+        raise conflict("Captured scenes cannot be edited.")
+    cfg = await run_blocking(get_config)
+    devices = _authored_to_captured(cfg, body.devices)
+    try:
+        scene = await run_blocking(room_scenes.replace_authored_scene, name, devices)
+    except room_scenes.CapturedSceneError:
+        raise conflict("Captured scenes cannot be edited.") from None
+    if scene is None:
+        raise not_found(f"Room scene '{name}' not found.")
+    return _scene_summary(name, scene)
+
+
+@router.get("/rooms/{name}/references")
+async def room_references(name: str) -> dict[str, Any]:
+    """Names of the schedule rules that fire this scene (the UI asks before deleting)."""
+    from govee_cli.schedule.scheduler import list_rules
+
+    rules = await run_blocking(list_rules)
+    return {"name": name, "rules": [r.name for r in rules if r.room_scene == name]}
 
 
 @router.delete("/rooms/{name}", status_code=204)
@@ -158,178 +186,107 @@ async def restore_room(
     request: Request, name: str,
     _body: RoomSceneRestoreRequest | None = None,
 ) -> dict[str, Any]:
-    """Replay a captured room scene, one device at a time.
+    """Replay a room scene through the shared executor.
 
-    ``_body`` defaults to ``None`` (no caller is forced to send an empty JSON
-    object) rather than a mutable-default model instance (ruff B008), and is
-    unread — the schema exists so restore options can be added later without
-    a breaking change (see its own docstring), not because anything on it
-    matters yet.
-
-    A failing or skipped device must not abort the rest — each device gets its
-    own try/except and its own entry in ``results``, mirroring the group
-    broadcast route's per-member error isolation (``groups.py``'s
-    ``run_group_command``).
+    ``_body`` is unread; the schema exists so restore options can be added later
+    without a breaking change. A failing or skipped device never aborts the rest.
     """
     scene = await run_blocking(room_scenes.read_scene, name)
     if scene is None:
         raise not_found(f"Room scene '{name}' not found.")
 
     cfg = await run_blocking(get_config)
-    steps_by_device = _group_steps_by_device(room_scenes.plan_restore(scene))
-
-    results: list[dict[str, Any]] = []
-    for device in scene.devices:
-        result = await _restore_device(
-            request, cfg, device, steps_by_device.get(device.device_id, [])
-        )
-        results.append(result)
-
-    return {"name": name, "ok": all(r["ok"] for r in results), "results": results}
-
-
-def _group_steps_by_device(steps: list[RestoreStep]) -> dict[str, list[RestoreStep]]:
-    grouped: dict[str, list[RestoreStep]] = {}
-    for device_id, group in itertools.groupby(steps, key=lambda s: s.device_id):
-        grouped.setdefault(device_id, []).extend(group)
-    return grouped
-
-
-async def _restore_device(request: Request, cfg: GoveeConfig, device: CapturedDevice,
-                          steps: list[RestoreStep]) -> dict[str, Any]:
-    # resolve_ref itself can raise (a device that used to be registered and is
-    # now misconfigured hits resolve_target's ClickException/conflict path) —
-    # that must not abort every other device in the scene either, so it goes
-    # through the same isolation as a step failure below rather than being
-    # called ahead of the try.
     try:
-        target = resolve_ref(cfg, device.device_id)
-    except Exception as e:
-        message = str(getattr(e, "message", e)) or e.__class__.__name__
-        return {"ref": device.device_id, "ok": False, "error": message}
+        v2: Any = await get_client_async(request)
+    except Exception:
+        v2 = None  # no API key: devices that need the cloud report it themselves
+    clients = room_restore.RestoreClients(v2=v2)
+    result = await run_blocking(functools.partial(
+        room_restore.restore_scene, name, scene, cfg=cfg, clients=clients, source="webui",
+    ))
 
-    # A captured device_id that resolve_ref can no longer find in the live
-    # registry falls back to its "ad-hoc address, still drivable over BLE"
-    # branch (device_cfg=None) — deliberate for a MAC a human just typed at
-    # the CLI, but a room scene's device_id was written by a *past* capture,
-    # not typed just now. Replaying it against "whatever answers that BLE
-    # address today" would send a real command based on a stale, unverified
-    # reference — precisely the kind of confident-looking guess the ledger's
-    # whole honesty rule exists to forbid, and a hard-rule violation waiting
-    # to happen the moment a captured device is renamed or deregistered. Fail
-    # this device instead of guessing.
-    if target.device_cfg is None:
-        return {
-            "ref": device.device_id, "ok": False,
-            "error": "device is no longer registered — refusing to guess a BLE address",
-        }
+    _refresh_after_restore(request, cfg, scene, result)
+    return {
+        "name": result.name,
+        "ok": result.ok,
+        "results": [_result_out(r) for r in result.results],
+    }
 
-    # plan_restore() emits exactly one step, already marked, for a device whose
-    # captured mode was effect/unknown — nothing to execute, and reporting it
-    # as a plain failure would bury the actual reason under a generic error.
-    if len(steps) == 1 and steps[0].skipped_reason is not None:
-        return {"ref": target.label, "ok": True, "skipped_reason": steps[0].skipped_reason}
 
-    try:
+def _result_out(r: room_restore.DeviceResult) -> dict[str, Any]:
+    out: dict[str, Any] = {"ref": r.ref, "ok": r.ok}
+    if r.error is not None:
+        out["error"] = r.error
+    if r.skipped_reason is not None:
+        out["skipped_reason"] = r.skipped_reason
+    if r.notes:
+        out["notes"] = r.notes
+    return out
+
+
+def _refresh_after_restore(request: Request, cfg: GoveeConfig, scene: RoomScene,
+                           result: room_restore.SceneResult) -> None:
+    """Drop cached reads and echo the commanded basics so the next state read
+    reports intent while the cloud's read lags behind its write endpoint."""
+    steps = room_scenes.plan_restore(scene)
+    cache = get_state_cache(request)
+    for r in result.results:
+        cache.invalidate(r.device_id)
+        if not r.ok or r.skipped_reason is not None:
+            continue
+        try:
+            target = resolve_ref(cfg, r.device_id)
+        except Exception:
+            continue
+        if target.device_cfg is None:
+            continue
         for step in steps:
-            await _execute_step(request, target, step)
-        # The trap this task exists to close: without this write, every
-        # restored device reads back mode=unknown the instant this request
-        # returns, because none of the command routes below know they were
-        # called from a room-scene restore rather than a manual control.
-        ledger.record_mode(
-            device.device_id, device.mode, device.label, device.payload,
-            source="webui",
-        )
-        invalidate_state(request, target)
-        return {"ref": target.label, "ok": True}
-    except Exception as e:
-        message = str(getattr(e, "message", e)) or e.__class__.__name__
-        return {"ref": target.label, "ok": False, "error": message}
+            if step.device_id != r.device_id or step.skipped_reason is not None:
+                continue
+            if step.kind in ("power", "color", "temp", "brightness"):
+                verb, arg = room_restore._basic_command_string(step).split(None, 1)
+                record_write(request, target, _echo_fields(verb, arg))
 
 
-async def _execute_step(request: Request, target: Resolved, step: RestoreStep) -> None:
-    if step.kind in _BASIC_KINDS:
-        await _apply_basic_step(request, target, step)
-        return
-
-    # scene/diy/music/snapshot/segments are cloud-v2-only features (per
-    # CLAUDE.md's per-model transport table) — a captured device that has
-    # since lost its v2 registration fails honestly here rather than silently
-    # doing nothing.
-    if target.transport != CLOUD_V2:
-        raise conflict(
-            f"Restoring a {step.kind} needs the cloud v2 transport, but "
-            f"'{target.label}' resolves to {target.transport}."
-        )
-    client = await get_client_async(request)
-    payload = step.args.get("payload") or {}
-
-    if step.kind == "scene":
-        label = step.args.get("label")
-        if label is None or "scene_id" not in payload or "param_id" not in payload:
-            raise ValueError("Captured scene is missing its id — cannot restore.")
-        scene = Scene(name=label, param_id=payload["param_id"],
-                      scene_id=payload["scene_id"])
-        await run_blocking(client.set_scene, target.sku, target.device_id, scene)
-    elif step.kind == "diy":
-        if "diy_value" not in payload:
-            raise ValueError("Captured DIY scene is missing its value — cannot restore.")
-        await run_blocking(client.set_diy_scene, target.sku, target.device_id,
-                           payload["diy_value"])
-    elif step.kind == "music":
-        if "music_mode" not in payload:
-            raise ValueError("Captured music mode is missing its value — cannot restore.")
-        await run_blocking(client.set_music_mode, target.sku, target.device_id,
-                           payload["music_mode"], payload.get("sensitivity", 60))
-    elif step.kind == "snapshot":
-        if "snapshot_value" not in payload:
-            raise ValueError("Captured snapshot is missing its value — cannot restore.")
-        await run_blocking(client.set_snapshot, target.sku, target.device_id,
-                           payload["snapshot_value"])
-    elif step.kind == "segments":
-        segments = payload.get("segments")
-        if not segments:
-            raise ValueError("Captured segments have no segment list — cannot restore.")
-        rgb = payload.get("rgb")
-        brightness = payload.get("brightness")
-        if rgb is not None:
-            r, g, b = rgb
-            await run_blocking(client.set_segment_color, target.sku, target.device_id,
-                               segments, r, g, b)
-        if brightness is not None:
-            await run_blocking(client.set_segment_brightness, target.sku,
-                               target.device_id, segments, brightness)
-    else:
-        raise ValueError(f"Unrecognised restore step kind: {step.kind!r}")
+def _unprocessable(message: str) -> ApiError:
+    return ApiError(422, "unprocessable", message)
 
 
-async def _apply_basic_step(request: Request, target: Resolved, step: RestoreStep) -> None:
-    cmd = _basic_command_string(step)
-    if target.transport == CLOUD_V2:
-        client = await get_client_async(request)
-        await run_blocking(_apply_v2_command, client, target.device_id, target.sku, cmd)
-    elif target.transport == CLOUD_V1:
-        await run_blocking(_apply_v1_command, target, cmd)
-    else:
-        await run_blocking(_apply_ble_command, target, cmd)
-    verb, arg = cmd.split(None, 1)
-    record_write(request, target, _echo_fields(verb, arg))
-
-
-def _basic_command_string(step: RestoreStep) -> str:
-    if step.kind == "power":
-        return "power on" if step.args["on"] else "power off"
-    if step.kind == "color":
-        r, g, b = step.args["rgb"]
-        return f"color {r:02X}{g:02X}{b:02X}"
-    if step.kind == "temp":
-        return f"temp {step.args['kelvin']}"
-    return f"brightness {step.args['value']}"
-
-
-def _apply_v1_command(target: Resolved, cmd: str) -> None:
-    _apply_http_command(GoveeHTTP(), target.device_id, target.sku, cmd)
+def _authored_to_captured(cfg: GoveeConfig, rows: list[AuthoredDeviceIn]) -> list[CapturedDevice]:
+    """Validate hand-authored rows against the registry and model specs (422)."""
+    out: list[CapturedDevice] = []
+    seen: set[str] = set()
+    for row in rows:
+        try:
+            mac, device_cfg = resolve_device_ref(cfg, row.device_id)
+        except DeviceNotConfigured:
+            raise _unprocessable(f"{row.device_id}: device is not registered.") from None
+        if mac in seen:
+            raise _unprocessable(f"{row.device_id}: listed more than once.")
+        seen.add(mac)
+        model = device_cfg.model
+        spec = get_spec(model)
+        label = device_cfg.name or mac
+        if row.power and row.mode == "white":
+            if spec is None:
+                raise _unprocessable(
+                    f"{label}: model '{model}' is unknown, cannot check the white range."
+                )
+            kelvin = row.color_temp_k or 0
+            if not spec.temp_min <= kelvin <= spec.temp_max:
+                raise _unprocessable(
+                    f"{label}: white must be {spec.temp_min}-{spec.temp_max}K for {model}, "
+                    f"got {kelvin}K."
+                )
+        if row.power and row.mode == "diy" and not (spec and spec.cloud_diy):
+            raise _unprocessable(f"{label}: {model} cannot store DIY scenes.")
+        data = row.model_dump()
+        data["device_id"] = mac
+        try:
+            out.append(room_scenes.captured_from_authored(data, model))
+        except ValueError as e:
+            raise _unprocessable(str(e)) from None
+    return out
 
 
 def _scene_summary(name: str, scene: RoomScene) -> dict[str, Any]:
@@ -354,5 +311,7 @@ def _scene_summary(name: str, scene: RoomScene) -> dict[str, Any]:
         "created_at": scene.created_at,
         "device_count": len(scene.devices),
         "unknown_count": unknown_count,
+        "source": scene.source,
+        "note": scene.note,
         "devices": [asdict(d) for d in scene.devices],
     }

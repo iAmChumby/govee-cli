@@ -18,8 +18,7 @@ must never look like a light command failed.
 makes no client call. That purity is deliberate: it is what lets the mode-dispatch
 table below (the honesty-critical part of this task) be tested without hardware,
 a mock client, or even a filesystem. The device that actually issues the client
-calls `plan_restore()` describes lives in the sidecar route that calls this
-module (T22), not here.
+calls `plan_restore()` describes lives in `govee_cli.room_restore`, not here.
 """
 
 from __future__ import annotations
@@ -29,7 +28,7 @@ import os
 import pathlib
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-from typing import Literal, Optional
+from typing import Callable, Literal, Optional
 
 import structlog
 
@@ -77,6 +76,8 @@ class RoomScene:
     # Issue #2: "captured" (from live state) or "authored" (hand-written in the
     # Rooms editor). Files written before this field existed load as "captured".
     source: Literal["captured", "authored"] = "captured"
+    # Free-text note shown on the Rooms card (e.g. "imported from profiles/day.json").
+    note: str | None = None
 
 
 @dataclass(frozen=True)
@@ -150,23 +151,60 @@ def _room_scene_from_dict(raw: dict) -> Optional[RoomScene]:
             if device is None:
                 return None
             devices.append(device)
-        return RoomScene(created_at=raw["created_at"], devices=devices)
+        # Files written before issue #2 have no "source"; every one of those
+        # was captured. Anything unrecognised also reads as captured, because
+        # "captured" is the more restrictive state (it refuses edits).
+        source: Literal["captured", "authored"] = (
+            "authored" if raw.get("source") == "authored" else "captured"
+        )
+        note = raw.get("note")
+        return RoomScene(
+            created_at=raw["created_at"], devices=devices, source=source,
+            note=note if isinstance(note, str) else None,
+        )
     except (KeyError, TypeError):
         return None
 
 
+class SceneExistsError(ValueError):
+    """A scene of this name already exists (creating an authored scene)."""
+
+
+class CapturedSceneError(ValueError):
+    """The scene is captured, and captured scenes are never edited by hand."""
+
+
 def save_scene(name: str, devices: list[CapturedDevice]) -> None:
-    """Best-effort write of a room scene, replacing any existing scene of the
-    same name. Never raises — see module docstring."""
+    """Best-effort write of a captured room scene, replacing any existing scene
+    of the same name. Never raises — see module docstring."""
     try:
-        _save_scene_unsafe(name, devices)
+        _write_scene(name, devices, "captured")
     except Exception:
         logger.warning("room_scenes.save_scene.failed", name=name)
 
 
-def _save_scene_unsafe(name: str, devices: list[CapturedDevice]) -> None:
-    scene = RoomScene(created_at=datetime.now(timezone.utc).isoformat(), devices=devices)
+def _scene_entry(scene_created_at: str, devices: list[CapturedDevice], source: str,
+                 note: Optional[str]) -> dict:
+    entry: dict = {
+        "created_at": scene_created_at,
+        "source": source,
+        "devices": [asdict(d) for d in devices],
+    }
+    if note is not None:
+        entry["note"] = note
+    return entry
 
+
+def _write_scene(
+    name: str,
+    devices: list[CapturedDevice],
+    source: str,
+    *,
+    note: Optional[str] = None,
+    guard: Optional[Callable[[Optional[dict]], None]] = None,
+) -> RoomScene:
+    """Locked read-modify-write of one scene entry. ``guard`` sees the existing
+    raw entry (or None) under the lock and may raise to refuse the write."""
     ROOM_SCENES_PATH.parent.mkdir(parents=True, exist_ok=True)
 
     lock_fd = os.open(ROOM_SCENES_LOCK_PATH, os.O_CREAT | os.O_RDWR, 0o644)
@@ -175,10 +213,24 @@ def _save_scene_unsafe(name: str, devices: list[CapturedDevice]) -> None:
         filelock.lock_exclusive(lock_fd, str(ROOM_SCENES_LOCK_PATH))
 
         data = _read_document()
-        data["scenes"][name] = {
-            "created_at": scene.created_at,
-            "devices": [asdict(d) for d in scene.devices],
-        }
+        existing = data["scenes"].get(name)
+        if guard is not None:
+            guard(existing if isinstance(existing, dict) else None)
+        created_at = datetime.now(timezone.utc).isoformat()
+        if (
+            source == "authored"
+            and isinstance(existing, dict)
+            and isinstance(existing.get("created_at"), str)
+        ):
+            created_at = existing["created_at"]  # an edit keeps its birth date
+        if (
+            note is None
+            and source == "authored"
+            and isinstance(existing, dict)
+            and isinstance(existing.get("note"), str)
+        ):
+            note = existing["note"]  # an edit keeps its note
+        data["scenes"][name] = _scene_entry(created_at, devices, source, note)
 
         tmp_path = ROOM_SCENES_PATH.with_suffix(".json.tmp")
         with open(tmp_path, "w") as f:
@@ -186,9 +238,92 @@ def _save_scene_unsafe(name: str, devices: list[CapturedDevice]) -> None:
             f.flush()
             os.fsync(f.fileno())
         os.replace(tmp_path, ROOM_SCENES_PATH)  # atomic on ext4: never a torn read
+        return RoomScene(
+            created_at=created_at, devices=list(devices),
+            source="authored" if source == "authored" else "captured",
+            note=note,
+        )
     finally:
         filelock.unlock(lock_fd, str(ROOM_SCENES_LOCK_PATH))
         os.close(lock_fd)
+
+
+def save_authored_scene(name: str, devices: list[CapturedDevice],
+                        note: Optional[str] = None) -> RoomScene:
+    """Create a hand-authored scene. Raises SceneExistsError if the name is
+    taken (by a captured or an authored scene). Unlike the captured-scene
+    writers this propagates I/O errors: the caller must know the save failed."""
+
+    def guard(existing: Optional[dict]) -> None:
+        if existing is not None:
+            raise SceneExistsError(f"Room scene '{name}' already exists.")
+
+    return _write_scene(name, devices, "authored", note=note, guard=guard)
+
+
+def replace_authored_scene(name: str, devices: list[CapturedDevice]) -> Optional[RoomScene]:
+    """Replace an authored scene's devices. Returns None if there is no such
+    scene; raises CapturedSceneError for a captured one (never overwritten)."""
+    missing = False
+
+    def guard(existing: Optional[dict]) -> None:
+        nonlocal missing
+        if existing is None:
+            missing = True
+            raise SceneExistsError("missing")  # aborts the write; handled below
+        if existing.get("source") != "authored":
+            raise CapturedSceneError(f"Room scene '{name}' is captured and cannot be edited.")
+
+    try:
+        return _write_scene(name, devices, "authored", guard=guard)
+    except SceneExistsError:
+        if missing:
+            return None
+        raise
+
+
+def captured_from_authored(device: dict, model: str) -> CapturedDevice:
+    """Turn an AuthoredDeviceIn-shaped dict into the CapturedDevice the executor
+    already knows how to replay. power False -> mode "off"; colour -> "basic"
+    with a colour; white -> "basic" with a colour temperature; DIY -> "diy" with
+    the stored value. Brightness is always kept."""
+    device_id = device["device_id"]
+    brightness = int(device.get("brightness", 50))
+    if not device.get("power", True):
+        return CapturedDevice(
+            device_id=device_id, model=model, power=False, brightness=brightness,
+            color=None, color_temp_k=None, mode="off", label=None, payload=None,
+        )
+    kind = device.get("mode")
+    if kind == "colour":
+        digits = str(device.get("color") or "").lstrip("#").strip()
+        try:
+            if len(digits) != 6:
+                raise ValueError
+            rgb = [int(digits[i:i + 2], 16) for i in (0, 2, 4)]
+        except ValueError:
+            raise ValueError(
+                f"{device_id}: colour '{device.get('color')}' must be six hex digits, e.g. FF5500."
+            ) from None
+        return CapturedDevice(
+            device_id=device_id, model=model, power=True, brightness=brightness,
+            color=rgb, color_temp_k=None, mode="basic", label=None,
+            payload={"color_rgb": rgb},
+        )
+    if kind == "white":
+        kelvin = int(device["color_temp_k"])
+        return CapturedDevice(
+            device_id=device_id, model=model, power=True, brightness=brightness,
+            color=None, color_temp_k=kelvin, mode="basic", label=None,
+            payload={"color_temp_k": kelvin},
+        )
+    if kind == "diy":
+        return CapturedDevice(
+            device_id=device_id, model=model, power=True, brightness=brightness,
+            color=None, color_temp_k=None, mode="diy", label=device.get("diy_name"),
+            payload={"diy_value": int(device["diy_value"])},
+        )
+    raise ValueError(f"{device_id}: a powered-on device needs a mode.")
 
 
 def list_scenes() -> dict[str, RoomScene]:

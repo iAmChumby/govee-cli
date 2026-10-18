@@ -27,7 +27,11 @@ os.environ.setdefault("GOVEE_WEBUI_MOCK_LATENCY", "0-0")
 from fastapi import FastAPI  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
-from govee_cli import ledger, room_scenes  # noqa: E402
+from govee_cli import (  # noqa: E402
+    ledger,
+    room_restore,  # noqa: E402
+    room_scenes,
+)
 from govee_cli.room_scenes import CapturedDevice  # noqa: E402
 from webui.api.deps import Settings, TTLCache, WriteEcho  # noqa: E402
 from webui.api.errors import install_error_handlers  # noqa: E402
@@ -182,7 +186,8 @@ class TestListAndDelete:
         resp = client.get("/api/v1/rooms")
         assert resp.status_code == 200
         names = {row["name"]: row for row in resp.json()["scenes"]}
-        assert set(names) == {"Alpha", "Beta"}
+        # the mock seeds "Evening" (authored) and "Movie night" (captured)
+        assert {"Alpha", "Beta"} <= set(names)
         assert names["Alpha"]["device_count"] == len(MOCK_DEVICES)
         assert names["Alpha"]["unknown_count"] == len(MOCK_DEVICES)
         assert names["Beta"]["unknown_count"] == len(MOCK_DEVICES) - 1
@@ -369,7 +374,7 @@ class TestRestore:
                 "a stale/deregistered device_id must never reach _apply_ble_command "
                 "(this would be a real BLE command in production)"
             )
-        monkeypatch.setattr(rooms, "_apply_ble_command", _must_not_be_called)
+        monkeypatch.setattr(room_restore, "_apply_ble", _must_not_be_called)
 
         device = CapturedDevice(
             device_id=LAMP, model="H6022", power=True, brightness=50,
@@ -391,7 +396,77 @@ class TestRestore:
         resp = client.post("/api/v1/rooms/Stale/restore")
         assert resp.status_code == 200
         body = resp.json()
-        assert body["ok"] is False
         result = body["results"][0]
-        assert result["ok"] is False
-        assert "no longer registered" in result["error"]
+        assert result["skipped_reason"] == "device not registered"
+
+
+class TestAuthored:
+    def _row(self, **kw):
+        return {"device_id": LAMP, "power": True, "brightness": 40, "mode": "white",
+                "color_temp_k": 3000, **kw}
+
+    def test_create_lists_with_source_and_rejects_duplicates(self, client) -> None:
+        r = client.post("/api/v1/rooms/authored", json={"name": "Hand", "devices": [self._row()]})
+        assert r.status_code == 201
+        assert r.json()["source"] == "authored"
+        d = room_scenes.read_scene("Hand").devices[0]
+        assert (d.mode, d.color_temp_k, d.brightness) == ("basic", 3000, 40)
+        assert client.post(
+            "/api/v1/rooms/authored", json={"name": "Hand", "devices": [self._row()]}
+        ).status_code == 409
+        listed = client.get("/api/v1/rooms").json()["scenes"]
+        assert {s["name"]: s["source"] for s in listed}["Hand"] == "authored"
+
+    def test_validation_is_422(self, client, monkeypatch) -> None:
+        import dataclasses
+
+        real = rooms.get_spec
+        monkeypatch.setattr(
+            rooms, "get_spec",
+            lambda m: dataclasses.replace(real(m), cloud_diy=False) if m == "H6008" else real(m),
+        )
+        for row in (
+            self._row(color_temp_k=1000),  # below the H6022 range
+            self._row(device_id="DE:AD:BE:EF:00:00:00:00"),  # not registered
+            self._row(device_id=BULB, mode="diy", diy_value=1, diy_name="x"),  # no cloud_diy
+        ):
+            r = client.post("/api/v1/rooms/authored", json={"name": "Bad", "devices": [row]})
+            assert r.status_code == 422, row
+        assert room_scenes.read_scene("Bad") is None
+
+    def test_diy_and_off_and_colour_conversion(self, client) -> None:
+        rows = [
+            self._row(mode="diy", diy_value=5, diy_name="sleep"),
+            {"device_id": BARS, "power": False, "brightness": 30, "mode": None},
+        ]
+        assert client.post(
+            "/api/v1/rooms/authored", json={"name": "Mix", "devices": rows}
+        ).status_code == 201
+        devs = {d.device_id: d for d in room_scenes.read_scene("Mix").devices}
+        assert devs[LAMP].mode == "diy" and devs[LAMP].payload == {"diy_value": 5}
+        assert devs[BARS].mode == "off"
+
+    def test_put_edits_authored_and_refuses_captured(self, client) -> None:
+        client.post("/api/v1/rooms/authored", json={"name": "Hand", "devices": [self._row()]})
+        r = client.put("/api/v1/rooms/Hand", json={"devices": [self._row(color_temp_k=4000)]})
+        assert r.status_code == 200
+        assert room_scenes.read_scene("Hand").devices[0].color_temp_k == 4000
+        room_scenes.save_scene("Cap", [CapturedDevice(
+            LAMP, "H6022", True, 50, None, None, "unknown", None, None)])
+        r = client.put("/api/v1/rooms/Cap", json={"devices": [self._row()]})
+        assert r.status_code == 409 and "cannot be edited" in r.json()["error"]["message"]
+        assert client.put(
+            "/api/v1/rooms/Nope", json={"devices": [self._row()]}
+        ).status_code == 404
+
+    def test_references_names_rules_using_the_scene(self, client, monkeypatch) -> None:
+        from govee_cli.schedule import scheduler
+
+        monkeypatch.setattr(scheduler, "list_rules", lambda: [
+            scheduler.ScheduleRule(id="a", name="Evening", time="18:00", days=["Mon"],
+                                   command="", room_scene="Hand"),
+            scheduler.ScheduleRule(id="b", name="Other", time="19:00", days=["Mon"],
+                                   command="power on"),
+        ])
+        r = client.get("/api/v1/rooms/Hand/references")
+        assert r.json() == {"name": "Hand", "rules": ["Evening"]}
