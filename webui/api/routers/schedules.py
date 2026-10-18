@@ -184,8 +184,11 @@ def _last_fire(
         return None
     at, rule_id, entry = newest
     rule = rules.get(rule_id)
-    # A rule deleted since it fired keeps its history; name it by id, never guess a name.
-    name = rule.name if rule else f"deleted rule {rule_id}"
+    # A rule deleted since it fired keeps its history under the name it had
+    # when it fired; only a fire recorded before names were kept falls back to the id.
+    name = rule.name if rule else (
+        f"{entry.rule_name} (rule deleted)" if entry.rule_name else f"deleted rule {rule_id}"
+    )
     return ScheduleLastFireOut(
         rule_id=rule_id,
         rule_name=name,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ScheduleList, SchedulerOwner } from "@/lib/api";
-import { formatOwner } from "@/lib/schedule-format";
+import { formatOwner, withoutOwnerSubject } from "@/lib/schedule-format";
 
 import { connectionScheduleRows } from "./connection-owner";
 
@@ -98,7 +98,7 @@ describe("connectionScheduleRows owner row", () => {
     it(`renders the ${name} owner exactly as formatOwner does`, () => {
       const l = list(owner);
       const rows = connectionScheduleRows(l);
-      expect(rows.owner).toEqual(formatOwner(owner, l.now));
+      expect(rows.owner).toEqual(withoutOwnerSubject(formatOwner(owner, l.now)));
     });
   }
 
@@ -106,7 +106,7 @@ describe("connectionScheduleRows owner row", () => {
     const row = connectionScheduleRows(list(base)).owner;
     expect(row.chip).toBe("running");
     expect(row.tone).toBe("neutral");
-    expect(row.headline).toBe("Schedule owner: web console sidecar");
+    expect(row.headline).toBe("web console sidecar");
     expect(row.detail).toBe("last cycle 12s ago");
   });
 
@@ -114,7 +114,7 @@ describe("connectionScheduleRows owner row", () => {
     const row = connectionScheduleRows(
       list({ ...base, kind: "daemon", pid: 4242 }),
     ).owner;
-    expect(row.headline).toBe("Schedule owner: govee-cli daemon (pid 4242)");
+    expect(row.headline).toBe("govee-cli daemon (pid 4242)");
   });
 
   it("waiting says this console is waiting for the held lock", () => {
@@ -182,7 +182,7 @@ describe("connectionScheduleRows owner row", () => {
   it("dry-run sidecar says it sends nothing", () => {
     const row = connectionScheduleRows(list({ ...base, dry_run: true })).owner;
     expect(row.headline).toBe(
-      "Schedule owner: web console sidecar (mock, dry run: sends nothing)",
+      "web console sidecar (mock, dry run: sends nothing)",
     );
   });
 

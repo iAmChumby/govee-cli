@@ -59,6 +59,9 @@ class RuleState:
     # UTC ISO instant the rule was created, re-enabled, or retimed. detect_missed
     # never reports a minute before it: a rule cannot miss a time it did not have.
     baseline_at: str | None = None
+    # The rule's name when it last fired, so a deleted rule's history still
+    # reads as a name rather than a bare id.
+    rule_name: str | None = None
 
 
 def _atomic_write_json(path: pathlib.Path, payload: Any) -> None:

@@ -349,7 +349,7 @@ def run_cycle(
         state[rule.id] = replace(
             state.get(rule.id, RuleState()),
             last_fired_minute=_utc_iso(minute), last_result=result,
-            last_detail=detail, last_at=at, missed_minute=None,
+            last_detail=detail, last_at=at, missed_minute=None, rule_name=rule.name,
         )
         if on_fire is not None:
             on_fire(rule, result, detail, at)

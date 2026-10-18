@@ -151,6 +151,16 @@ export function formatOwner(owner: SchedulerOwner, nowIso: string): OwnerDisplay
   }
 }
 
+const OWNER_SUBJECT = "Schedule owner: ";
+
+/** The same display without the leading "Schedule owner: ", for a row whose
+ *  label already says it (Settings > Connection). Every other word is formatOwner's. */
+export function withoutOwnerSubject(d: OwnerDisplay): OwnerDisplay {
+  return d.headline.startsWith(OWNER_SUBJECT)
+    ? { ...d, headline: d.headline.slice(OWNER_SUBJECT.length) }
+    : d;
+}
+
 /** "17:10 Evening" | "none yet" (only when the state file says so) | "unknown". */
 export function formatLastFire(list: Pick<ScheduleList, "last_fire" | "state_readable">): string {
   if (!list.state_readable) return "unknown";

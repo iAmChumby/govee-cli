@@ -7,7 +7,12 @@
  */
 
 import type { ScheduleList, SchedulerOwner } from "@/lib/api";
-import { formatLastFire, formatOwner, type OwnerDisplay } from "@/lib/schedule-format";
+import {
+  formatLastFire,
+  formatOwner,
+  withoutOwnerSubject,
+  type OwnerDisplay,
+} from "@/lib/schedule-format";
 
 /**
  * Stand-in owner for when the schedule list cannot be read at all. Routing
@@ -39,13 +44,13 @@ export interface ConnectionScheduleRows {
 export function connectionScheduleRows(list: ScheduleList | undefined): ConnectionScheduleRows {
   if (!list) {
     return {
-      owner: formatOwner(UNREADABLE_OWNER, new Date().toISOString()),
+      owner: withoutOwnerSubject(formatOwner(UNREADABLE_OWNER, new Date().toISOString())),
       pollLabel: "unknown",
       lastFire: "unknown",
     };
   }
   return {
-    owner: formatOwner(list.owner, list.now),
+    owner: withoutOwnerSubject(formatOwner(list.owner, list.now)),
     pollLabel: list.owner.poll_seconds !== null ? `${list.owner.poll_seconds}s` : "unknown",
     lastFire: formatLastFire(list),
   };

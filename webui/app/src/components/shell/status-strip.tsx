@@ -222,7 +222,9 @@ export function StatusStrip() {
       >
         <span className="flex shrink-0 items-center gap-2">
           <StatusDot tone={health.isError ? "warn" : "ok"} />
-          sidecar :6057
+          {/* The port is dropped below md so the whole row fits a 390px phone
+              instead of scrolling the poll chip off its edge. */}
+          sidecar<span className="max-md:hidden"> :6057</span>
         </span>
 
         {health.data?.mock ? <Chip className="shrink-0">mock</Chip> : null}
@@ -249,7 +251,7 @@ export function StatusStrip() {
             warning can never be the thing that scrolls off. */}
         {scheduler ? (
           <span className="flex shrink-0 items-center gap-1.5 md:hidden">
-            <StatusDot tone={scheduler.native.owner?.state === "running" ? "ok" : "warn"} /> native scheduler
+            <StatusDot tone={scheduler.native.owner?.state === "running" ? "ok" : "warn"} /> scheduler
           </span>
         ) : null}
 

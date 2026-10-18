@@ -139,6 +139,11 @@ def convert_profile(
 
     if not report.devices:
         report.skipped_reason = "no importable devices; nothing written"
+    skipped = [f"{o.name} ({o.skipped})" for o in report.outcomes if o.skipped]
+    if skipped:
+        # Say so on the scene itself: a note that mentions a device the scene
+        # does not contain otherwise reads as if that device were in it.
+        report.note = f"{report.note} Skipped on import: {'; '.join(skipped)}."
     return report
 
 
