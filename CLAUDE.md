@@ -146,6 +146,48 @@ schedules".
 before editing, never run `wake-ramp run` while testing, and diff `wake-ramp
 status` against a pre-change capture.
 
+**Deploys touch wake-ramp's binary.** `~/.local/bin/govee-cli` is a symlink into
+this repo's `.venv`, so every deploy changes the CLI that runs at 06:30. Never
+deploy between 06:15 and 06:45, let `pip install -e` finish before the restart,
+and afterwards run `govee-cli info --device "Light Bars"` (exit 0) and diff
+`wake-ramp status` and `crontab -l` against the pre-deploy capture.
+
+### Native rules: time grammar, targets, one owner
+
+A rule's `time` is `HH:MM`, `sunrise`/`sunset`, or either with an offset of up
+to 6h (`sunset-1h15m`), stored in canonical form by
+`govee_cli/schedule/timespec.py`. Sun times come from astral, using
+`latitude`/`longitude`/`timezone` in `config.json`. With no location a sun rule
+has **no next run**, never a guessed one; with no timezone the host zone is used
+and always labelled `host: <zone>`. astral is about 2 min off other calculators,
+so nothing shows seconds. A rule targets `device` + `command` **or** a room
+scene (`room_scene`), never both.
+
+`govee_cli/schedule/engine.py` is the only code that decides a rule is due, and
+`next_run`/`today_fire` are computed there, server-side; the browser does no
+time maths. Exact-minute matching, keyed on the UTC minute so a DST-repeated
+hour cannot double-fire. A missed minute is recorded (`missed HH:MM`) and never
+caught up, and nothing is "missed" before a rule's `baseline_at` (create,
+re-enable, retime).
+
+**One process owns the schedule.** `scheduler-owner.json.lock` is held for the
+owner's lifetime; `scheduler-owner.json` is a heartbeat and evidence only. It
+reads `running` only while its pid is alive on this host and the heartbeat is
+under 3x the poll interval; otherwise `stale since HH:MM`. A restarted sidecar
+waits for the lock and never steals it; `govee-cli daemon` started while it is
+held exits 1 naming the owner. Acquire and release on the same thread (the
+filelock mutex is an RLock). Mock mode runs the owner as a dry run that sends
+nothing; `GOVEE_WEBUI_MOCK_OWNER=daemon|stale|nobody` and
+`GOVEE_WEBUI_MOCK_NO_LOCATION=1` seed the states `verify_ui.py` shoots.
+
+Room scenes are the profiles: captured or hand-authored (`source`), replayed by
+`govee_cli/room_restore.py`, the one executor the sidecar, `govee-cli room apply`
+and the scheduler share. A device rule or scene device whose stored id is not
+registered errors; it is **never** resolved to an ad-hoc BLE address (it once
+mapped to the bedroom Light Bars). DIY steps send the stored value only after
+verifying it in the device's DIY list; an empty or unavailable list means
+"could not verify", never "no longer exists".
+
 ### Geometry
 
 `ModelSpec` carries `matrix_rows`/`matrix_cols`/`matrix_wrap_col` (H6022 = 11x12
@@ -405,8 +447,9 @@ emitted rule order decides. Put visibility on a wrapper. This cost a round: the
 
 ### Anything that writes to `~/.config/govee-cli/` needs a test redirect
 
-`tests/conftest.py` redirects the ledger, the meter and room scenes; `mock.py`'s
-`install()` does the same for the sidecar. Add a new state file and you must add
+`tests/conftest.py` redirects the ledger, the meter, room scenes, config,
+`schedule.json`, `schedule-state.json` and the scheduler owner files (and sets
+HOME/USERPROFILE to tmp); `mock.py`'s `install()` does the same for the sidecar. Add a new state file and you must add
 it to both, or the test suite silently rewrites what the running console
 displays. This has now bitten twice — first the ledger, then the meter, where
 test runs wrote fabricated 429s into the one signal the budget readout treats as

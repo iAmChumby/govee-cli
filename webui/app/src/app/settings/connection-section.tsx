@@ -108,7 +108,7 @@ export function ConnectionSection() {
               </span>
             </ConfigRow>
             {!scheduler.external.crontab_readable && scheduler.external.error ? (
-              <ConfigRow label="crontab error">{scheduler.external.error}</ConfigRow>
+              <ConfigRow label="crontab error" stack>{scheduler.external.error}</ConfigRow>
             ) : null}
             <ConfigRow label="wake-ramp armed">
               {scheduler.external.wake_ramp_armed === null

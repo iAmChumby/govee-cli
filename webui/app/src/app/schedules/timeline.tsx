@@ -320,7 +320,7 @@ export function ScheduleTimeline({
     <div>
       <div
         ref={railRef}
-        className="relative h-16 rounded-card border border-hairline bg-panel pointer-coarse:h-28"
+        className="relative h-16 rounded-card border border-hairline bg-panel pointer-coarse:h-24"
       >
         {/* 3-hour gridlines */}
         {GRID_HOURS.map((h) => (
@@ -352,43 +352,32 @@ export function ScheduleTimeline({
             <button
               type="button"
               aria-label={`wake-ramp — ${statusUnknown ? "status unknown" : todayWillRun ? "will run today" : "will not run today"}`}
-              // A 30-minute band can render only a few px wide on a phone's
-              // 24h-width rail (at 390px the rail's content box is ~298px,
-              // so a 30min band is ~6px — matches the ~6x26 raw box the
-              // audit measures here).
-              //
-              // KNOWN BUG, not papered over with data-touch-ok (§11.1): this
-              // ::before overlay does not clear 44px, and the class list
-              // below does not match what an earlier version of this
-              // comment claimed. `before:-inset-y-2 before:-inset-x-5` grows
-              // width to 6+2*20=46px (clears 44) but height to only
-              // 26+2*8=42px — 2px short of the floor. And because it DOES
-              // grow vertically (contrary to a prior "horizontal insets
-              // only" claim here), it bleeds into the native-rule dots' row
-              // directly above: that row's own ::before reaches from
-              // top-2(8px)-17px=-9px to (8+10)+17px=35px, this band's
-              // reaches from top-8(32px)-8px=24px to (32+28)+8px=68px —
-              // an 11px vertical overlap (24px to 35px) between two
-              // invisible hit rectangles, exactly what §11.1 and the spec's
-              // T36 note ("transparent ::after overlay bigger than the
-              // laid-out box ... taps land on the neighbour") warn against.
-              // A real fix needs the rail's row geometry reworked (more
-              // vertical clearance between the dot row and the band row, or
-              // a pointer-coarse-scoped real box grow per §11.3 rather than
-              // a phantom overlay) — not a wider inset here.
-              className="absolute bottom-1 top-8 flex cursor-pointer items-center justify-center rounded-chip border transition-transform duration-150 hover:scale-[1.03] pointer-coarse:top-14 pointer-coarse:min-h-11 pointer-coarse:min-w-11"
-              style={{
-                left: `${bandStartPct}%`,
-                width: bandEndPct !== null ? `${Math.max(1.5, bandEndPct - bandStartPct)}%` : "8px",
-                backgroundColor: statusUnknown
-                  ? "var(--accent-dim)"
-                  : hslaCss(bandHsl, todayWillRun ? 0.22 : 0.08),
-                borderColor: statusUnknown
-                  ? "var(--hairline-strong)"
-                  : hslaCss(bandHsl, todayWillRun ? 0.55 : 0.28),
-                borderStyle: todayWillRun && !statusUnknown ? "solid" : "dashed",
-              }}
+              // The button is a transparent hit box; the band ink is the inner
+              // span. Fine pointer: box == ink (32..60px of the rail). Coarse:
+              // the box is >=44x44 (ink width + 19px each side, 44px tall at
+              // y=44..88 of the 96px rail) while the ink stays 28px tall at
+              // y=52..80, and the dot row's boxes end at y=44 so nothing overlaps.
+              className="group absolute bottom-1 top-8 w-[var(--band-w)] cursor-pointer pointer-coarse:bottom-2 pointer-coarse:top-11 pointer-coarse:-ml-[19px] pointer-coarse:w-[calc(var(--band-w)+38px)]"
+              style={
+                {
+                  left: `${bandStartPct}%`,
+                  "--band-w": bandEndPct !== null ? `${Math.max(1.5, bandEndPct - bandStartPct)}%` : "8px",
+                } as React.CSSProperties
+              }
             >
+              <span
+                aria-hidden
+                className="absolute inset-0 rounded-chip border transition-transform duration-150 group-hover:scale-[1.03] pointer-coarse:inset-x-[19px] pointer-coarse:inset-y-2"
+                style={{
+                  backgroundColor: statusUnknown
+                    ? "var(--accent-dim)"
+                    : hslaCss(bandHsl, todayWillRun ? 0.22 : 0.08),
+                  borderColor: statusUnknown
+                    ? "var(--hairline-strong)"
+                    : hslaCss(bandHsl, todayWillRun ? 0.55 : 0.28),
+                  borderStyle: todayWillRun && !statusUnknown ? "solid" : "dashed",
+                }}
+              />
             </button>
           </WakeRampPopover>
         ) : null}
@@ -466,7 +455,7 @@ export function ScheduleTimeline({
               // Centre y is fixed (13px fine, 24px coarse) so the rail's rows
               // never collide; dots within 44px of each other are all listed
               // by the inline label on tap (selectAround).
-              className="absolute top-[13px] flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center pointer-coarse:top-6 pointer-coarse:h-11 pointer-coarse:w-11"
+              className="absolute top-[13px] flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center pointer-coarse:top-[22px] pointer-coarse:h-11 pointer-coarse:w-11"
               style={{ left: `${pct}%` }}
             >
               <span
@@ -518,11 +507,11 @@ export function ScheduleTimeline({
           ))}
         </ul>
       ) : plotted.length > 0 ? (
-        <p className="mt-2 font-mono text-[11px] leading-snug text-low">tap a dot for its time</p>
+        <p className="mt-2 font-mono text-[11px] leading-snug text-mid">tap a dot for its time</p>
       ) : null}
 
       {unplotted.length > 0 ? (
-        <p className="mt-1 font-mono text-[11px] leading-snug text-low">
+        <p className="mt-1 font-mono text-[11px] leading-snug text-mid">
           {unplotted.length} {unplotted.length === 1 ? "rule" : "rules"} not on today&apos;s timeline:{" "}
           {unplotted.map((r) => `${r.name} (${r.today_reason ?? "unknown"})`).join(", ")}
         </p>

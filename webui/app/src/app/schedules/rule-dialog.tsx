@@ -213,21 +213,21 @@ function ResolvedLine({ draft, now }: { draft: Draft; now: string }) {
   if (noLocation) {
     return (
       <p className="font-mono text-[11px] leading-snug text-mid">
-        {draft.kind === "sunrise" ? "Sunrise" : "Sunset"} times need a location.{" "}
-        <Link href="/settings" className="text-hi underline underline-offset-2">
-          Set one in Settings
+        No location set: {draft.kind} times cannot be computed.{" "}
+        <Link href="/settings" className="whitespace-nowrap text-hi underline underline-offset-2">
+          Set it in Settings
         </Link>
       </p>
     );
   }
-  const zone = formatZone(p.location);
-  const detail = sun && p.event_time ? `${draft.kind} ${wallHM(p.event_time)}, ${zone}` : zone;
+  const zone = <span className="whitespace-nowrap">{formatZone(p.location)}</span>;
+  const detail = sun && p.event_time ? <>{`${draft.kind} ${wallHM(p.event_time)}, `}{zone}</> : zone;
   return (
     <div className="space-y-0.5 font-mono text-[11px] leading-snug text-mid">
       <p>
         {p.today_fire
-          ? `Today: ${wallHM(p.today_fire)} (${detail})`
-          : `Today: no run${p.reason ? ` (${p.reason})` : ""} (${detail})`}
+          ? <>{`Today: ${wallHM(p.today_fire)} (`}{detail})</>
+          : <>{`Today: no run${p.reason ? ` (${p.reason})` : ""} (`}{detail})</>}
       </p>
       {p.next_run ? <p className="text-low">Next run: {formatRunAt(p.next_run, now)}</p> : null}
     </div>
@@ -328,7 +328,10 @@ function RuleForm({
           : "runs at a fixed clock time on the chosen weekdays."}
       </DialogDescription>
 
-      <form onSubmit={submit} noValidate className="mt-5 space-y-4">
+      <form onSubmit={submit} noValidate className="mt-5">
+        {/* Body scrolls inside a height that clears the fixed status strip;
+            the footer below stays put, so Cancel/Save are always visible. */}
+        <div className="max-h-[calc(100dvh-17rem)] space-y-4 overflow-y-auto px-1 -mx-1">
         <Field label="name" error={errors.name}>
           <input
             type="text"
@@ -464,7 +467,7 @@ function RuleForm({
                 className={cn(INPUT_CLASS, "font-mono text-[12px] pointer-coarse:h-11")}
               />
             </Field>
-            <div className="-mt-2 flex flex-wrap gap-1.5">
+            <div className="-mt-2 flex flex-wrap gap-1.5 max-sm:grid max-sm:grid-cols-2">
               {QUICK_COMMANDS.map((cmd) => (
                 <button
                   key={cmd}
@@ -517,7 +520,9 @@ function RuleForm({
           </p>
         ) : null}
 
-        <div className="flex flex-wrap items-center gap-2 pt-1">
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-hairline pt-3">
           {rule ? (
             <Button
               type="button"
@@ -571,7 +576,7 @@ export function RuleDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent onOpenAutoFocus={rule ? (e) => e.preventDefault() : undefined}>
         <RuleForm rule={rule} now={now} onDone={() => onOpenChange(false)} />
       </DialogContent>
     </Dialog>

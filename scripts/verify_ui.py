@@ -502,6 +502,10 @@ class Checker:
             is_mobile=mobile, has_touch=mobile,
             color_scheme=theme,
         )
+        # next-themes runs with defaultTheme="dark", so color_scheme alone is
+        # ignored and every "light" shot used to render dark. Seed its storage
+        # key before any page script runs.
+        ctx.add_init_script(f"window.localStorage.setItem('theme', '{theme}')")
         page = ctx.new_page()
         self.where = f"{theme}:{vp_name}"
         page.on("console", self._note)

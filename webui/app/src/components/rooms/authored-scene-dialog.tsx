@@ -366,14 +366,19 @@ function EditorBody({
   }
 
   return (
-    <>
+    // The dialog shell scrolls at 100dvh-2rem, which runs under the ~40px fixed
+    // bottom status strip on a phone. Capping this column lower keeps the whole
+    // dialog clear of the strip; the middle scrolls and the footer stays put.
+    <div className="flex max-h-[calc(100dvh-8.5rem)] min-h-0 flex-col">
+      <div className="shrink-0">
       <DialogTitle>{isNew ? "new room scene" : "edit room scene"}</DialogTitle>
       <DialogDescription>
         write down what each device should do. nothing is sent to a device until the scene is
         restored or a schedule rule applies it.
       </DialogDescription>
+      </div>
 
-      <div className="mt-5 space-y-4">
+      <div className="-mx-1 mt-5 min-h-0 flex-1 space-y-4 overflow-y-auto px-1">
         <label className="block">
           <span className={cn(LABEL_CLASS, "mb-1.5")}>name</span>
           {isNew ? (
@@ -425,17 +430,19 @@ function EditorBody({
             </p>
           ) : null}
         </div>
+      </div>
 
+      <div className="mt-3 shrink-0 space-y-2 border-t border-hairline pt-3">
         {error ? (
           <p role="alert" className="font-mono text-[11px] leading-snug text-ember">
             {error}
           </p>
         ) : null}
         {blocker ? (
-          <p className="font-mono text-[11px] leading-snug text-low">{blocker}</p>
+          <p className="font-mono text-[11px] leading-snug text-mid">{blocker}</p>
         ) : null}
 
-        <div className="flex items-center justify-end gap-2 pt-1">
+        <div className="flex items-center justify-end gap-2">
           <DialogClose asChild>
             <Button variant="ghost">cancel</Button>
           </DialogClose>
@@ -443,13 +450,14 @@ function EditorBody({
             variant="solid"
             busy={saving}
             disabled={blocker !== null}
+            className="disabled:border-hairline! disabled:bg-raised! disabled:text-mid! disabled:opacity-100!"
             onClick={() => void handleSave()}
           >
             {isNew ? "save scene" : "save changes"}
           </Button>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 

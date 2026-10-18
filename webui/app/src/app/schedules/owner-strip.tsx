@@ -24,11 +24,15 @@ export function OwnerStrip({ list }: { list: ScheduleList }) {
 
   return (
     <Panel className="space-y-2.5 p-4 @container">
-      <div className="flex items-start gap-3">
-        <Chip tone={warn ? "warn" : "neutral"} className="mt-px shrink-0">
-          {warn ? <TriangleAlert size={10} strokeWidth={2} aria-hidden /> : null}
-          {owner.chip}
-        </Chip>
+      <div className="flex items-start gap-3 max-sm:flex-col max-sm:gap-2">
+        {/* Fixed column so the headline starts at the same x in every state
+            (stacked above the headline on phones). */}
+        <div className="w-[7.5rem] shrink-0 max-sm:w-auto">
+          <Chip tone={warn ? "warn" : "neutral"}>
+            {warn ? <TriangleAlert size={10} strokeWidth={2} aria-hidden /> : null}
+            {owner.chip}
+          </Chip>
+        </div>
         <div className="min-w-0 flex-1">
           <p className="text-[13px] font-medium leading-snug text-hi">{owner.headline}</p>
           {owner.detail ? (
@@ -58,11 +62,11 @@ export function OwnerStrip({ list }: { list: ScheduleList }) {
         </p>
         <p>
           {hasLocation ? (
-            `location ${loc.latitude!.toFixed(2)}, ${loc.longitude!.toFixed(2)} · ${formatZone(loc)}`
+            <>{`location ${loc.latitude!.toFixed(2)}, ${loc.longitude!.toFixed(2)} · `}<span className="whitespace-nowrap">{formatZone(loc)}</span></>
           ) : (
             <>
-              no location set — sun rules will not run.{" "}
-              <Link href="/settings" className="text-hi underline underline-offset-2">
+              no location set: sun rules have no next run.{" "}
+              <Link href="/settings" className="whitespace-nowrap text-hi underline underline-offset-2">
                 Set one in Settings
               </Link>
             </>

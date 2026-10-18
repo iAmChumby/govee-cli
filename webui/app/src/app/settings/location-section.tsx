@@ -82,7 +82,6 @@ export function LocationSection() {
     setForm(seedFrom(location));
   }, [location]);
 
-  const hostZone = location?.timezone_source === "host" ? location.timezone : null;
   const hasLocation = location?.latitude != null || location?.longitude != null;
 
   /**
@@ -208,7 +207,7 @@ export function LocationSection() {
                   type="text"
                   value={form.tz}
                   onChange={(e) => setForm((prev) => ({ ...prev, tz: e.target.value }))}
-                  placeholder={hostZone ? `host: ${hostZone}` : "IANA zone, blank for host default"}
+                  placeholder="blank = host zone"
                   spellCheck={false}
                   autoComplete="off"
                   className={INPUT_CLASS + " font-mono text-[12px]"}
