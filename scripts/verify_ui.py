@@ -857,6 +857,19 @@ class Checker:
             self.no_location_pass()
 
 
+def start_stack(log_dir: pathlib.Path, tz: str | None = None) -> list[subprocess.Popen[bytes]]:
+    """The pre-Stack entry point, kept because scripts/viewport_audit.py imports it.
+
+    Builds, boots the mock sidecar and the web app, and returns both processes
+    for the caller to stop with ``_terminate_group``.
+    """
+    stack = Stack(log_dir, tz=tz)
+    stack.build()
+    stack.start_api("default")
+    stack.start_web()
+    return [p for p in (stack.api, stack.web) if p is not None]
+
+
 def run_checks(shots: pathlib.Path, stack: Stack, extras: set[str]) -> list[str]:
     from playwright.sync_api import sync_playwright
 
