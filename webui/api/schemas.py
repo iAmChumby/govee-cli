@@ -214,6 +214,10 @@ class SchedulerOwnerOut(BaseModel):
     poll_seconds: float | None
     stale_since: str | None
     detail: str | None
+    # Seconds since the last heartbeat, measured at request time. The ISO
+    # timestamps above are floored to the minute, so an age derived from them
+    # could only ever read "0s" or "1m".
+    last_cycle_age_seconds: int | None = None
     # This sidecar process's own relation to the lock.
     this_process: Literal["owner", "waiting", "disabled"]
 

@@ -58,6 +58,13 @@ function agoSeconds(fromIso: string, nowIso: string): number {
   return Math.max(0, Math.round((Date.parse(nowIso) - Date.parse(fromIso)) / 1000));
 }
 
+function formatSeconds(s: number): string {
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m`;
+  return `${Math.floor(m / 60)}h ${m % 60}m`;
+}
+
 function formatAgo(fromIso: string, nowIso: string): string {
   const s = agoSeconds(fromIso, nowIso);
   if (s < 60) return `${s}s ago`;
@@ -92,7 +99,14 @@ function ownerName(owner: SchedulerOwner): string {
  * instants; `nowIso` is the list's server `now`, so "ago" is server-relative.
  */
 export function formatOwner(owner: SchedulerOwner, nowIso: string): OwnerDisplay {
-  const cycle = owner.last_cycle_at ? `last cycle ${formatAgo(owner.last_cycle_at, nowIso)}` : "";
+  // The server measures the age; the ISO timestamps are minute-floored.
+  const age = owner.last_cycle_age_seconds;
+  const cycle =
+    age !== null && age !== undefined
+      ? `last cycle ${formatSeconds(age)} ago`
+      : owner.last_cycle_at
+        ? `last cycle ${formatAgo(owner.last_cycle_at, nowIso)}`
+        : "";
 
   if (owner.this_process === "waiting" && owner.state === "running") {
     return {

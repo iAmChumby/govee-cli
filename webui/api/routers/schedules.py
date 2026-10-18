@@ -207,8 +207,22 @@ def _owner_out(view: owner.OwnerView, zone: ZoneInfo, this_process: str) -> Sche
         poll_seconds=rec.poll_seconds if rec else None,
         stale_since=_wire(view.stale_since, zone),
         detail=view.detail,
+        last_cycle_age_seconds=_age_seconds(rec.last_cycle_at or rec.started_at) if rec else None,
         this_process=cast(Any, this_process),
     )
+
+
+def _age_seconds(iso: str | None) -> int | None:
+    """Whole seconds since ``iso`` (a UTC instant from the owner record), unfloored."""
+    if not iso:
+        return None
+    try:
+        then = dt.datetime.fromisoformat(iso.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if then.tzinfo is None:
+        then = then.replace(tzinfo=dt.timezone.utc)
+    return max(0, int((dt.datetime.now(dt.timezone.utc) - then).total_seconds()))
 
 
 def _build_list(lock_status: Any) -> ScheduleListOut:

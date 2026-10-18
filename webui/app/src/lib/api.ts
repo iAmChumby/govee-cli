@@ -237,6 +237,9 @@ export interface SchedulerOwner {
   poll_seconds: number | null;
   stale_since: string | null;
   detail: string | null;
+  /** Seconds since the last heartbeat, measured server-side at request time.
+   *  The ISO fields are minute-floored, so never derive an age from them. */
+  last_cycle_age_seconds?: number | null;
   /** This sidecar's relation to the lock. "waiting" = another process holds it. */
   this_process: "owner" | "waiting" | "disabled";
 }
