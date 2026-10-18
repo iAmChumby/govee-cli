@@ -372,6 +372,10 @@ def command(ctx: click.Context, once: bool) -> None:
 class SchedulerDaemon:
     """Executes one rule's device command. Timing lives in ``schedule.engine``."""
 
+    def __init__(self, once: bool = False) -> None:
+        # Kept for API compatibility; the loop lives in ``command`` now.
+        self._once = once
+
     async def _execute_rule(self, rule: ScheduleRule) -> bool:
         ok, _detail = await self._execute_rule_detail(rule)
         return ok

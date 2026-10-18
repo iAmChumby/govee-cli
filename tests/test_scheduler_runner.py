@@ -261,3 +261,30 @@ def test_runner_dry_run_records_would_fire(world: SimpleNamespace,
 def test_zone_iso_floors_and_converts() -> None:
     out = runner_mod._zone_iso("2026-10-19T10:30:42+00:00", TZ)
     assert out == "2026-10-19T06:30:00-04:00"
+
+
+def test_stop_releases_lock_from_the_runner_thread(
+    world: SimpleNamespace, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Real thread, real SchedulerLock (paths redirected by conftest): stop()
+    must leave the lock free for a fresh acquirer on another thread."""
+    import time
+
+    from govee_cli.schedule.owner import SchedulerLock
+
+    monkeypatch.setattr(daemon_mod.owner, "previous_last_cycle", lambda: None)
+    monkeypatch.setattr(daemon_mod.engine, "detect_missed", lambda *a: {}, raising=False)
+    runner = SchedulerRunner(poll_seconds=0.05)
+    runner.start()
+    try:
+        deadline = time.monotonic() + 5
+        while runner.lock_status() != "owner" and time.monotonic() < deadline:
+            time.sleep(0.02)
+        assert runner.lock_status() == "owner"
+    finally:
+        runner.stop()
+    fresh = SchedulerLock("daemon", 30)
+    try:
+        assert fresh.try_acquire() is True
+    finally:
+        fresh.release()

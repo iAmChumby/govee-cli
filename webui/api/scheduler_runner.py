@@ -171,19 +171,28 @@ class SchedulerRunner:
             self._stop.set()
             self._thread.join(timeout=self._poll_seconds + 5)
             self._thread = None
-        self._lock.release()
+        # The lock is NOT released here: try_acquire and release must run on the
+        # same thread (filelock's in-process mutex is an RLock), so the runner
+        # thread releases it when its loop exits. If the join timed out, process
+        # exit frees the OS lock.
         logger.info("scheduler_stopped")
 
     def _loop(self) -> None:
-        while True:
+        try:
+            while True:
+                try:
+                    self.cycle()
+                except Exception as e:
+                    # One bad cycle (disk hiccup, device error) must not kill
+                    # the thread; the next poll retries with fresh rules.
+                    logger.error("scheduler_cycle_failed", error=str(e))
+                if self._stop.wait(self._poll_seconds):
+                    return
+        finally:
             try:
-                self.cycle()
+                self._lock.release()
             except Exception as e:
-                # One bad cycle (disk hiccup, device error) must not kill the
-                # thread; the next poll retries with fresh rules.
-                logger.error("scheduler_cycle_failed", error=str(e))
-            if self._stop.wait(self._poll_seconds):
-                return
+                logger.error("scheduler_lock_release_failed", error=str(e))
 
     def _record_fire(self, rule: ScheduleRule, result: str, detail: str, at: str) -> None:
         ok = result in ("ok", "would_fire")
