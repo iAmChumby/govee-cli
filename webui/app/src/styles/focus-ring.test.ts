@@ -28,6 +28,32 @@ function walk(dir: string): string[] {
   return out;
 }
 
+/**
+ * A class that cancels the outline.
+ *
+ * `outline-none` in any of its three spellings — bare, `focus:` and
+ * `focus-visible:` — sets `outline-style: none`, and the utilities layer
+ * is emitted after the base layer's `:focus-visible { outline: … }`, so
+ * the class wins and the ring disappears. `hover:outline-none` and the
+ * other state variants are not in this list: they only apply while
+ * hovered, so they never take the ring away from a focused control.
+ */
+const OUTLINE_CANCEL =
+  /(^|[\s"'`:])((?:focus|focus-visible):)?outline-none(?=[\s"'`:]|$)/;
+
+/**
+ * The one way a control may cancel the outline: it paints the shared ring
+ * itself, from the same token.
+ */
+const SHARED_RING = "focus-visible:ring-(--focus-ring)";
+
+/**
+ * A line may opt out with this marker and a reason. It is for elements
+ * that are not keyboard focus stops at all, so there is no ring for them
+ * to lose.
+ */
+const EXEMPT = "focus-ring-exempt";
+
 describe("one focus ring (#12)", () => {
   it("declares the ring tokens", () => {
     const tokens = readFileSync(join(SRC, "styles", "tokens.css"), "utf8");
@@ -48,14 +74,20 @@ describe("one focus ring (#12)", () => {
   it("never cancels the ring without painting it", () => {
     const offenders: string[] = [];
     for (const file of walk(SRC)) {
-      if (file.endsWith(".test.ts")) continue;
+      if (file.endsWith(".test.ts") || file.endsWith(".test.tsx")) continue;
       const lines = readFileSync(file, "utf8").split(/\r?\n/);
       lines.forEach((line, i) => {
-        if (line.includes("focus-visible:outline-none") && !line.includes("focus-visible:ring-(--focus-ring)")) {
-          offenders.push(`${file}:${i + 1}`);
-        }
+        if (line.includes(EXEMPT)) return;
+        if (!OUTLINE_CANCEL.test(line)) return;
+        if (line.includes(SHARED_RING)) return;
+        offenders.push(`${file}:${i + 1}`);
       });
     }
-    assert.deepEqual(offenders, [], "focus-visible:outline-none without the shared ring");
+    assert.deepEqual(
+      offenders,
+      [],
+      "an outline cancel without the shared ring — a bare `outline-none` " +
+        "cancels the ring exactly as `focus-visible:outline-none` does",
+    );
   });
 });

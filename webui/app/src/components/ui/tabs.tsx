@@ -203,7 +203,7 @@ export function TabsContent({
           value={value}
           forceMount
           tabIndex={-1}
-          className={cn("outline-none", className)}
+          className={cn("outline-none", className)} // focus-ring-exempt: tabIndex={-1} scroll container, never a keyboard focus stop, so there is no ring here to lose
           {...rest}
         >
           <motion.div
