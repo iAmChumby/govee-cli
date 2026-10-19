@@ -316,6 +316,38 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
         )}
       />
 
+      {/* Re-rounds the stage box's corners over the render.
+          `overflow-hidden` on this container cannot clip the lamp: the
+          shared `WebGLRenderer` canvas is a `fixed` element elsewhere in
+          the DOM (renderer.ts decision 1), and the rectangle it draws this
+          view into is a `gl.scissor` rect — squares are the only shape
+          scissoring has. So the render paints over all four of
+          `rounded-stage`'s 28px corners. Only the bottom two were visible,
+          because that is where the lit ground plane is opaque enough to
+          show an edge; the top two sit against transparent sky and the
+          container's own rounding still reads there.
+
+          This paints only the four wedges between the rounded rect and its
+          bounding box: an outward `box-shadow` fills everything outside the
+          radius, and `clip-path: inset(0)` throws away all of that except
+          the part inside this box. `--dev-bleed-surface` is the card's own
+          tinted surface colour, inherited from the `.dev-bleed` panel this
+          sits in (globals.css) — the card is hue-tinted per device, so a
+          fixed `--panel` would leave a visibly mismatched patch in each
+          corner. Falls back to `--panel` outside a bleed card.
+
+          z-20 for the same reason the honesty caption below uses it: the
+          canvas sits above the app frame at z-10. `pointer-events-none`
+          keeps orbit drags reaching the container above. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-20 rounded-stage"
+        style={{
+          boxShadow: "0 0 0 100px var(--dev-bleed-surface, var(--panel))",
+          clipPath: "inset(0)",
+        }}
+      />
+
       {!mini && !hintDismissed ? <RotateHint /> : null}
 
       {!webglAvailable ? <StaticSilhouette resolved={resolved} /> : null}

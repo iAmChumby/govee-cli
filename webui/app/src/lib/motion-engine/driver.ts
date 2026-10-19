@@ -29,10 +29,18 @@
 import type { MotionFrameSubscriber } from "./types";
 
 /** Start conservative; tune empirically against a real iPhone Safari
- *  session with the full dashboard grid visible, per §4.1. Now read as a
- *  redraw budget by `lamp3d/renderer.ts` (see this module's doc comment):
- *  the 4 most recently visible plates animate, the rest hold their last
- *  frame. */
+ *  session with the full dashboard grid visible, per §4.1. Read by
+ *  `lamp3d/renderer.ts` as an *animation* budget: the 4 most recently
+ *  visible plates re-evaluate their LED field every frame, the rest do so at
+ *  `SLOW_TIER_INTERVAL_MS`.
+ *
+ *  It does NOT bound how many plates are drawn. Every visible plate draws
+ *  every frame regardless of this number — see `planFrameDraws`. This
+ *  comment used to say the unbudgeted plates "hold their last frame", and
+ *  they cannot: the shared canvas has no `preserveDrawingBuffer`, so a plate
+ *  that skips its draw is absent from the composite, not held. Raising this
+ *  number is therefore a performance decision only, never a fix for a plate
+ *  that is not showing up. */
 export const PLATE_CONCURRENCY_CAP = 4;
 
 const subscribers = new Map<string, MotionFrameSubscriber>();

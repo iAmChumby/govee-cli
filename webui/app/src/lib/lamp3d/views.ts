@@ -295,11 +295,17 @@ export interface ViewRegistry {
   list(): StageView[];
   /**
    * The redraw budget from the spec's Performance Budget section: the hero
-   * always draws; among on-screen plates, up to `plateBudget` of them draw
-   * every frame (`active`), and the rest hold their last frame and are
-   * returned in `slow` so the caller can refresh them at a slower cadence
-   * (about 4fps per the spec). A plate that is off-screen appears in
-   * neither array — it does not draw at all, not even slowly.
+   * always animates; among on-screen plates, up to `plateBudget` of them
+   * re-evaluate their LED field every frame (`active`), and the rest are
+   * returned in `slow` so the caller can re-evaluate theirs at a slower
+   * cadence (about 4fps per the spec). A plate that is off-screen appears in
+   * neither array.
+   *
+   * This splits *animation rate*, not visibility: `renderer.ts` draws every
+   * view in both arrays every frame (see `planFrameDraws`), because an
+   * undrawn view is absent from the composite rather than holding its last
+   * frame. Membership of `slow` slows a plate's motion; it must never be
+   * able to make one disappear.
    *
    * The policy, precisely:
    *

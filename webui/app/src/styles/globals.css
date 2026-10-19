@@ -102,11 +102,19 @@
    this purely additive for every existing, not-yet-opted-in call site.
    ============================================================ */
 .dev-bleed {
-  background-color: color-mix(
+  /* The card's own surface colour, published as a variable rather than
+     applied straight to `background-color`, because it inherits: anything
+     nested in the card that has to repaint a piece of that surface can ask
+     for the exact colour instead of re-deriving the mix and drifting when
+     this one is retuned. `LampStage`'s corner mask is the first such
+     consumer — see its comment for why the shared canvas forces it to
+     repaint the stage box's four rounded corners by hand. */
+  --dev-bleed-surface: color-mix(
     in oklch,
     hsl(var(--dev-hue) var(--dev-sat) var(--dev-light)) calc(var(--dev-alpha) * 14%),
     var(--panel)
   );
+  background-color: var(--dev-bleed-surface);
   border-color: color-mix(
     in oklch,
     hsl(var(--dev-hue) var(--dev-sat) var(--dev-light)) calc(var(--dev-alpha) * 55%),
@@ -126,11 +134,12 @@
 :root:not(.dark) .dev-bleed {
   /* light theme starts near-white; the same mix ratio reads as a much
      stronger tint against a bright background, so it's cut further here. */
-  background-color: color-mix(
+  --dev-bleed-surface: color-mix(
     in oklch,
     hsl(var(--dev-hue) var(--dev-sat) var(--dev-light)) calc(var(--dev-alpha) * 8%),
     var(--panel)
   );
+  background-color: var(--dev-bleed-surface);
 }
 
 /* Slider thumb glow while actively dragging a `tint`-opted slider

@@ -29,6 +29,7 @@ import type { LampModel, LedLayout, ModelSource, ProceduralSource } from "./type
 import { h6022Source } from "./h6022";
 import { h6056Source } from "./h6056";
 import { h6008Source } from "./h6008";
+import { h6004Source } from "./h6004";
 import { unknownSource } from "./unknown";
 
 /** The recognized `model` strings, each mapped to the source that builds its
@@ -39,6 +40,9 @@ const PROCEDURAL_SOURCES: Readonly<Record<string, ProceduralSource>> = {
   H6022: h6022Source,
   H6056: h6056Source,
   H6008: h6008Source,
+  // A floor lamp rather than a bare bulb — the fixture the H6004 bulb lives
+  // in. See h6004.ts.
+  H6004: h6004Source,
 };
 
 /** Resolves a device's `model` string to the source that builds its body.
