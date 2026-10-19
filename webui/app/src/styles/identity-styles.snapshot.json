@@ -1,9 +1,9 @@
 {
  "_meta": {
   "base": "http://127.0.0.1:6456",
-  "commit": "405d527eb2d212c92cbe17f72c75fce8e00bdfa1",
+  "commit": "7d5ddbe254beb255a07542ecce362b8e2f1d1e3b",
   "note": "Computed styles of the seven identity components #34 freezes, recorded in a real Chromium. The CI test guards the inputs (component source, tokens.css, globals.css); `identity_styles.py check` re-measures a running app against this file.",
-  "recorded_at": "2026-10-19T20:36:33+00:00",
+  "recorded_at": "2026-10-19T20:49:01+00:00",
   "themes": [
    "dark",
    "light"
@@ -27,7 +27,7 @@
   "webui/app/src/components/ui/slider.tsx": "c69db0c7d2e8f4906a7ac2e489fec86345de833e7582e0a505bc779f8395ae13",
   "webui/app/src/components/ui/status-dot.tsx": "cf52265337e685ce96472271c2eb4fbe650ff8af237c21cd4318cf3c54b2d914",
   "webui/app/src/components/ui/switch.tsx": "e5f7dfdc6c8946c76a7a6c6ac0f7a1b48b45a558b7e398fa3f916bc91bd3d96f",
-  "webui/app/src/styles/globals.css": "41ed902850942e0da51d82656f7bc9d35482c5298d27c3cc470b08c92b802e7b",
+  "webui/app/src/styles/globals.css": "ceab8a5074b07555a612d23c5041d65016fd6a3c55732297a9f78af20cbb7464",
   "webui/app/src/styles/tokens.css": "b670a90d411bfc553d21d6bbbb3a7aa24ce0fd8320b70f93e1611ec4ec299b49"
  },
  "parts": {
