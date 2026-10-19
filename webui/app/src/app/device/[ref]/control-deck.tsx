@@ -57,7 +57,7 @@ export function ControlDeck({ refId, state }: ControlDeckProps) {
     // T34 (WEBUI_V3_SPEC §11.6): gap-5 -> gap-3 below md trims part of the
     // chassis stack above the dial (header-to-panel rhythm); additive, so
     // >=md is untouched.
-    <motion.section variants={panelIn} className="flex min-w-0 flex-col gap-5 max-md:gap-3">
+    <motion.section variants={panelIn} className="flex min-w-0 flex-col gap-5 max-md:gap-3 pointer-coarse:landscape:gap-2">
       {/* header */}
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-lg font-medium leading-tight tracking-[-0.02em] text-hi">
@@ -69,7 +69,9 @@ export function ControlDeck({ refId, state }: ControlDeckProps) {
       </div>
 
       {/* tab rail */}
-      <Panel className="px-4 pb-5 pt-4 max-md:pt-3 sm:px-5">
+      {/* #10: pt-2 under pointer-coarse:landscape — the last chassis px
+          that keeps the brightness dial inside a 667×375 first screen. */}
+      <Panel className="px-4 pb-5 pt-4 max-md:pt-3 pointer-coarse:landscape:pt-2 sm:px-5">
         <Tabs defaultValue="light">
           <TabsList className="-mx-1 overflow-x-auto px-1 sm:flex-wrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <TabsTrigger value="light">Light</TabsTrigger>
@@ -226,7 +228,9 @@ function LightTab({ refId, state }: ControlDeckProps) {
     // T34: pt-5 -> pt-3 and space-y-6 -> space-y-4 below md are chassis
     // trims (the gap stack §11.6 calls out); pt-5 is the last bit of space
     // above the dial itself, space-y-6 only affects sections *below* it.
-    <div className="space-y-6 max-md:space-y-4 pt-5 max-md:pt-3">
+    // #10: pt-2 under pointer-coarse:landscape shaves the final px that
+    // kept the dial off a 667×375 landscape first screen.
+    <div className="space-y-6 max-md:space-y-4 pt-5 max-md:pt-3 pointer-coarse:landscape:pt-2">
       {/*
         T34: this row used to be `justify-around` with a fixed 160px Dial
         plus a `min-w-[140px]` column at `gap-6` (24px) — 160+24+140=324

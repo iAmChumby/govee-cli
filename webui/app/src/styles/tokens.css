@@ -93,6 +93,10 @@
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
+
+  /* #10 Landscape console: stage height formula for coarse-pointer short viewports.
+     min(380px, 52dvh) keeps the dial above the fold on landscape phones. */
+  --stage-height-landscape: min(380px, 52dvh);
 }
 
 /* ---- Light theme ------------------------------------------- */
@@ -201,6 +205,8 @@
   --safe-right: var(--safe-right);
   --safe-bottom: var(--safe-bottom);
   --safe-left: var(--safe-left);
+
+  --stage-height-landscape: var(--stage-height-landscape);
 
   --animate-skeleton-breathe: skeleton-breathe 2.8s var(--ease-out-soft)
     infinite;

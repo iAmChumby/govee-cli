@@ -101,7 +101,7 @@ function DeviceConsoleContent({ ref }: { ref: string }) {
             variants={staggerParent}
             initial="hidden"
             animate="show"
-            className="mt-4 max-md:mt-2 grid min-w-0 items-start gap-5 max-md:gap-3 lg:grid-cols-[minmax(0,11fr)_minmax(0,9fr)]"
+            className="mt-4 max-md:mt-2 grid min-w-0 items-start gap-5 max-md:gap-3 lg:grid-cols-[minmax(0,11fr)_minmax(0,9fr)] pointer-coarse:landscape:grid-cols-[minmax(0,11fr)_minmax(0,9fr)]"
           >
             {/* stage column */}
             <motion.section variants={panelIn} className="lg:sticky lg:top-6">
@@ -115,8 +115,16 @@ function DeviceConsoleContent({ ref }: { ref: string }) {
                 exist and already win unconditionally above sm. 320->260
                 is the stage's contribution to T34's fold budget; the rest
                 comes from the max-md: chassis trims around it.
+
+                #10 landscape: `pointer-coarse:landscape:` only. A landscape
+                phone (844×390, 667×375) is ≥sm wide, so sm:h-[380px] would
+                otherwise own the stage at 380px and push the deck's dial
+                under the fold. The stacked variant sorts after sm: in
+                Tailwind's emitted CSS (two variant bits > one), so the
+                token wins exactly where it applies; portrait phones and
+                fine-pointer desktops never match it at all.
               */}
-              <LampStage state={state.data} className="h-[260px] sm:h-[380px] lg:h-[480px]" />
+              <LampStage state={state.data} className="h-[260px] sm:h-[380px] lg:h-[480px] pointer-coarse:landscape:h-[var(--stage-height-landscape)]" />
               <p className="mt-3 max-md:mt-1.5 px-1 font-mono text-[10px] leading-relaxed max-md:leading-snug text-low">
                 {state.data.id}
                 {state.data.model === "H6022" ? " · 132-led 12×11 wrapped matrix" : ""}
@@ -139,9 +147,9 @@ function DeviceConsoleContent({ ref }: { ref: string }) {
 
 function LoadingSkeleton() {
   return (
-    <div className="mt-4 max-md:mt-2 grid min-w-0 items-start gap-5 max-md:gap-3 lg:grid-cols-[minmax(0,11fr)_minmax(0,9fr)]">
-      {/* stage skeleton — mirrors the loaded stage's bare-value height (T34) so the skeleton-to-content swap doesn't itself jump the layout */}
-      <div className="flex h-[260px] items-center justify-center rounded-stage border border-hairline bg-raised sm:h-[380px] lg:h-[480px]">
+    <div className="mt-4 max-md:mt-2 grid min-w-0 items-start gap-5 max-md:gap-3 lg:grid-cols-[minmax(0,11fr)_minmax(0,9fr)] pointer-coarse:landscape:grid-cols-[minmax(0,11fr)_minmax(0,9fr)]">
+      {/* stage skeleton — mirrors the loaded stage's bare-value height (T34) so the skeleton-to-content swap doesn't itself jump the layout; landscape mirror per #10 */}
+      <div className="flex h-[260px] items-center justify-center rounded-stage border border-hairline bg-raised sm:h-[380px] lg:h-[480px] pointer-coarse:landscape:h-[var(--stage-height-landscape)]">
         <Skeleton className="h-40 w-40 rounded-full" />
       </div>
       {/* deck skeleton */}
