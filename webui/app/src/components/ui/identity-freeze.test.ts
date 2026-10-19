@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -33,16 +33,28 @@ import { StatusStrip } from "@/components/shell/status-strip";
  *     and — per CONSENSUS.md:240 — Panel flat/raised/bleed, the Odometer at
  *     both sizes, and the StatusStrip) and the exact emitted markup is
  *     compared with a committed snapshot;
- *  2. tokens.css and globals.css — the other two inputs to every computed
- *     style — are hashed against the values recorded when the computed-style
- *     snapshot was taken.
+ *  2. every file the identity is painted with is hashed against the values
+ *     recorded when the computed-style snapshot was taken: the frozen
+ *     components' own sources, the typed token module, and the styling
+ *     inputs — every `*.css` under `src`, `app/layout.tsx` (the `next/font`
+ *     families and the stylesheet import points) and `postcss.config.mjs`.
  *
- * Together those two make a style change impossible without failing: a class
- * edit changes the markup snapshot, a token/base-rule edit changes the hash.
- * The recorded computed values themselves live in
- * `src/styles/identity-styles.snapshot.json`, produced by
- * `scripts/identity_styles.py record` against a real Chromium in both themes,
- * and re-checked with `identity_styles.py check`.
+ *  What this gate enforces, exactly:
+ *
+ *   - a class edit in a frozen component changes the markup snapshot;
+ *   - a token value, a base rule, a NEW stylesheet, a different font
+ *     family, a different PostCSS pipeline or a palette edit changes a
+ *     hash;
+ *   - the recorded computed values in `identity-styles.snapshot.json` are
+ *     what a real Chromium computed for 28 parts in both themes.
+ *
+ *  What it does NOT enforce, and says so out loud: a change to a file that
+ *  is not one of those inputs — a parent that passes a different class, a
+ *  browser with a different font, a Tailwind version bump — can still move
+ *  a computed value. `scripts/identity_styles.py check` re-measures a
+ *  running app against the committed snapshot and is the instrument for
+ *  that. It needs a Chromium and a running app, so it is a hand-run gate,
+ *  not a CI job.
  *
  * Freeze the look, not the structure: when #30 promotes a component, update
  * the markup snapshot in the same commit and confirm the computed-style
@@ -51,10 +63,60 @@ import { StatusStrip } from "@/components/shell/status-strip";
 
 const SRC = fileURLToPath(new URL("../..", import.meta.url));
 const APP = fileURLToPath(new URL("../../..", import.meta.url));
+const REPO = fileURLToPath(new URL("../../../../..", import.meta.url));
 const CLASS_SNAPSHOT = join(SRC, "components", "ui", "identity-classes.snapshot.json");
 const STYLE_SNAPSHOT = join(SRC, "styles", "identity-styles.snapshot.json");
 
 const noop = () => {};
+
+/**
+ * The frozen components' own sources. A class edit in one of them changes
+ * the markup snapshot; a value edit changes the hash.
+ */
+const FROZEN_SOURCES = [
+  "webui/app/src/components/ui/switch.tsx",
+  "webui/app/src/components/ui/slider.tsx",
+  "webui/app/src/components/ui/status-dot.tsx",
+  "webui/app/src/components/ui/chip.tsx",
+  "webui/app/src/components/ui/section-label.tsx",
+  "webui/app/src/components/ui/dial.tsx",
+  "webui/app/src/components/ui/panel.tsx",
+  "webui/app/src/components/ui/odometer.tsx",
+  "webui/app/src/components/shell/status-strip.tsx",
+  "webui/app/src/components/shell/top-bar.tsx",
+  "webui/app/src/lib/color-tokens.ts",
+];
+
+/**
+ * The styling inputs, apart from the stylesheets: the document that decides
+ * which font families and which stylesheet reach the page, and the PostCSS
+ * pipeline that compiles Tailwind.
+ */
+const STYLE_INPUTS = [
+  "webui/app/src/app/layout.tsx",
+  "webui/app/postcss.config.mjs",
+];
+
+/**
+ * Every stylesheet under `webui/app/src`, found by walking the tree rather
+ * than by listing names — so a stylesheet added later is a change to the
+ * identity, not a loophole. The walk is what makes the gate catch a new
+ * file: the recorded set and this set must be the same set.
+ */
+function stylesheetInputs(): string[] {
+  const out: string[] = [];
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name.endsWith(".css")) {
+        out.push(relative(REPO, full).split("\\").join("/"));
+      }
+    }
+  };
+  walk(join(APP, "src"));
+  return out.sort();
+}
 
 function renderAll(): Record<string, { html: string; reason: string }> {
   const cases: Record<string, { element: React.ReactElement; reason: string }> = {
@@ -227,6 +289,20 @@ describe("identity components are frozen (#34)", () => {
   });
 
   it("still consumes the exact tokens and base rules the styles were recorded from", () => {
+    // (a) the recorded input set is the current input set. A stylesheet
+    //     added (or removed, or a frozen component renamed) changes the set
+    //     and fails here, before any hash is compared.
+    const expected = [...FROZEN_SOURCES, ...STYLE_INPUTS, ...stylesheetInputs()].sort();
+    const recorded = Object.keys(styleSnapshot.inputs).sort();
+    assert.deepEqual(
+      recorded,
+      expected,
+      "the frozen input set changed since the identity styles were recorded: " +
+        "a new stylesheet, a removed one, or a renamed frozen component. " +
+        "Re-record with scripts/identity_styles.py and review the diff",
+    );
+
+    // (b) every recorded file still hashes the same.
     for (const [rel, hash] of Object.entries(styleSnapshot.inputs)) {
       assert.equal(
         sha256(join(APP, "..", "..", rel)),

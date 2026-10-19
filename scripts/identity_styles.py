@@ -185,6 +185,28 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def style_inputs() -> dict[str, str]:
+    """The styling inputs the identity is painted with.
+
+    Not a fixed list: every `*.css` under `webui/app/src` is included, so a
+    stylesheet added later is a change to the identity, not a loophole. The
+    document that decides which font families and which stylesheet reach the
+    page (`app/layout.tsx` - the `next/font` calls and the CSS imports) and
+    the PostCSS/Tailwind pipeline are inputs too.
+    """
+    files: dict[str, Path] = {
+        "webui/app/src/app/layout.tsx": APP / "src" / "app" / "layout.tsx",
+        "webui/app/postcss.config.mjs": APP / "postcss.config.mjs",
+    }
+    for css in sorted((APP / "src").rglob("*.css")):
+        rel = css.relative_to(ROOT).as_posix()
+        files[rel] = css
+    missing = [k for k, p in files.items() if not p.exists()]
+    if missing:
+        raise SystemExit(f"missing style inputs: {missing}")
+    return {k: sha256(p) for k, p in files.items()}
+
+
 def inputs() -> dict[str, str]:
     """Every file the frozen identity depends on, hashed.
 
@@ -193,16 +215,13 @@ def inputs() -> dict[str, str]:
     * the frozen sources — the identity components themselves and the typed
       token module. A class edit in one of them changes the markup
       snapshot; a value edit changes this hash.
-    * the styling inputs — the CSS the identity is painted with, and the
-      document that decides which fonts and which stylesheet reach the page.
-      A token value, a base rule, a new stylesheet or a different font
-      family all land on the same elements as a class edit does, so they
-      are hashed here too (added in #34's follow-up: a restyle through a
-      third styling input must not pass the gate).
+    * the styling inputs — every stylesheet under `src`, the document that
+      decides which fonts reach the page, and the PostCSS pipeline. A token
+      value, a base rule, a new stylesheet or a different font family all
+      land on the same elements as a class edit does, so they are hashed
+      here too.
     """
     files = {
-        "webui/app/src/styles/tokens.css": APP / "src" / "styles" / "tokens.css",
-        "webui/app/src/styles/globals.css": APP / "src" / "styles" / "globals.css",
         "webui/app/src/components/ui/switch.tsx": APP / "src" / "components" / "ui" / "switch.tsx",
         "webui/app/src/components/ui/slider.tsx": APP / "src" / "components" / "ui" / "slider.tsx",
         "webui/app/src/components/ui/status-dot.tsx": APP / "src" / "components" / "ui" / "status-dot.tsx",
@@ -224,7 +243,9 @@ def inputs() -> dict[str, str]:
     missing = [k for k, p in files.items() if not p.exists()]
     if missing:
         raise SystemExit(f"missing freeze inputs: {missing}")
-    return {k: sha256(p) for k, p in files.items()}
+    out = {k: sha256(p) for k, p in files.items()}
+    out.update(style_inputs())
+    return dict(sorted(out.items()))
 
 
 ROUTE_ANCHOR = {
