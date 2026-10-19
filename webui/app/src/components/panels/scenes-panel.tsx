@@ -193,7 +193,7 @@ function SceneCard({ scene, active, pending, onApply }: SceneCardProps) {
       >
         {pending ? (
           <span className="absolute inset-0 grid place-items-center bg-black/35">
-            <Spinner />
+            <Spinner label={`applying ${scene.name}`} />
           </span>
         ) : null}
       </span>

@@ -43,6 +43,7 @@ import {
   subscribeIntents,
   type IntentPatch,
 } from "@/lib/intent";
+import { announce } from "@/lib/announce";
 import { useToast } from "@/components/ui/toaster";
 
 export const POLL_MS = 10_000;
@@ -684,6 +685,10 @@ export function useCaptureRoom() {
     mutationFn: (name: string) => api.captureRoom(name),
     onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: ["rooms"] });
+      // A room-scene save has no toast today, so the live region is the
+      // only screen-reader channel for this state change. Confirmed only:
+      // this runs in onSuccess, never while anything is pending.
+      void announce(`Room scene "${result.name}" saved`);
       const incomplete = result.unknown.length > 0;
       toast({
         variant: incomplete ? "info" : "ok",
