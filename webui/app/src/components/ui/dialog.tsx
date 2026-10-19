@@ -6,6 +6,8 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 
 import { cn } from "@/lib/cn";
 import { fadeFast, springHeavy } from "@/lib/motion";
+import { CloseGlyph } from "./glyphs";
+import { IconButton } from "./icon-button";
 
 interface DialogContextValue {
   open: boolean;
@@ -78,7 +80,7 @@ export function DialogContent({
   children,
   onOpenAutoFocus,
 }: DialogContentProps) {
-  const { open } = useDialogContext();
+  const { open, setOpen } = useDialogContext();
 
   return (
     <DialogPrimitive.Portal>
@@ -131,10 +133,23 @@ export function DialogContent({
                    * currently tall enough to hit it there. */}
                   <div
                     className={cn(
-                      "pointer-events-auto w-[min(92vw,480px)] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-stage border border-hairline bg-panel p-6 shadow-overlay",
+                      "pointer-events-auto w-[min(92vw,480px)] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-stage border border-hairline bg-panel p-6 shadow-overlay pointer-coarse:pt-[var(--safe-top)] pointer-coarse:pb-[var(--safe-bottom)]",
                       className,
                     )}
                   >
+                    {/* Built-in close button — every dialog gets one, including
+                     * the calibration wizard which had no pointer exit before. */}
+                    <div className="absolute top-2 right-2 pointer-events-auto z-10">
+                      <DialogPrimitive.Close asChild>
+                        <IconButton
+                          label="Close"
+                          variant="ghost"
+                          size="sm"
+                        >
+                          <CloseGlyph size={14} strokeWidth={1.75} />
+                        </IconButton>
+                      </DialogPrimitive.Close>
+                    </div>
                     {children}
                   </div>
                 </motion.div>
@@ -157,10 +172,23 @@ export function DialogContent({
                    * shorter than `dvh`'s vh-based cousin would report. */}
                   <div
                     className={cn(
-                      "pointer-events-auto h-full max-h-[100dvh] w-[min(92vw,420px)] overflow-y-auto rounded-l-stage border border-hairline border-r-0 bg-panel p-6 shadow-overlay",
+                      "pointer-events-auto h-full max-h-[100dvh] w-[min(92vw,420px)] overflow-y-auto rounded-l-stage border border-hairline border-r-0 bg-panel p-6 shadow-overlay pointer-coarse:pt-[var(--safe-top)] pointer-coarse:pb-[var(--safe-bottom)]",
                       className,
                     )}
                   >
+                    {/* Built-in close button — every dialog gets one, including
+                     * the calibration wizard which had no pointer exit before. */}
+                    <div className="absolute top-2 right-2 pointer-events-auto z-10">
+                      <DialogPrimitive.Close asChild>
+                        <IconButton
+                          label="Close"
+                          variant="ghost"
+                          size="sm"
+                        >
+                          <CloseGlyph size={14} strokeWidth={1.75} />
+                        </IconButton>
+                      </DialogPrimitive.Close>
+                    </div>
                     {children}
                   </div>
                 </motion.div>

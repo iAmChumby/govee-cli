@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import React from "react";
 import { Archivo, IBM_Plex_Mono } from "next/font/google";
 
@@ -28,6 +28,14 @@ export const metadata: Metadata = {
   title: "filament — govee control console",
   description:
     "Self-hosted control console for Govee smart lights. Precision instruments for warm light.",
+};
+
+/* #7 Safe-area insets: let the body lay out edge-to-edge so the --safe-*
+   inset padding can move chrome clear of notches and the home indicator. */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
