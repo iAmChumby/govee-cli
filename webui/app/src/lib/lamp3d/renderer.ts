@@ -885,7 +885,7 @@ function drawView(
   renderer.setScissor(rects.scissorX, rects.scissorY, rects.scissorW, rects.scissorH);
   // Clearing is itself bounded by the scissor rect while scissor test is
   // enabled, so this only ever erases this view's own rect — never another
-  // view's already-drawn pixels or a `slow`-tier view's held-over frame.
+  // view's already-drawn pixels this frame.
   renderer.clear(true, true, true);
   renderer.render(view.scene, view.camera);
 }

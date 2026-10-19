@@ -75,6 +75,7 @@ From `govee_cli/transport.py` (read it; do not hardcode around it):
 |---|---|---|---|---|---|---|---|---|
 | H6056 | cloud-v2 | 15 / 6 | 2000–9000 | ✓ | ✓ | ✓ | ✓ (8 modes) | gradientToggle |
 | H6008 | cloud-v2 | – / – | 2700–6500 | ✓ | ✓ | ✗ | ✗ | – |
+| H6004 | cloud-v2 | – / – | 2700–6500 | ✓ | ✓ | ✗ | ✗ | – |
 | H6183 | cloud-v1 | – / – | default | ✗ | ✗ | ✗ | ✗ | – |
 | H6022 | cloud-v2 | 15 / – | 2700–6500 | ✓ | ✓ | ✗ | ✓ (4 modes) | – |
 
