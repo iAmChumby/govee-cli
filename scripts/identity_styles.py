@@ -182,7 +182,20 @@ PARTS = {
 
 
 def sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    """Hash a file's CONTENT, not the checkout's line endings.
+
+    `core.autocrlf` rewrites the working tree on Windows (CRLF) and not in
+    CI on Linux (LF), so a raw-byte hash of a text file differs between the
+    machine that recorded the snapshot and the machine that checks it — the
+    gate then fails in CI for a file nobody changed. Every freeze input is
+    a text file, so CRLF is normalised to LF before the hash: the hash
+    describes the file, not the platform it was checked out on.
+
+    The test in `identity-freeze.test.ts` normalises the same way; the two
+    must agree byte for byte.
+    """
+    data = path.read_bytes().replace(b"\r\n", b"\n")
+    return hashlib.sha256(data).hexdigest()
 
 
 def style_inputs() -> dict[str, str]:

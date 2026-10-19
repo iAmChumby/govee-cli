@@ -1,9 +1,9 @@
 {
  "_meta": {
   "base": "http://127.0.0.1:6456",
-  "commit": "3bdf6b2b4d546c43f32f003d3198756ad6052274",
+  "commit": "41cf6311a170335dad60272f0e2d9fa106e96d31",
   "note": "Computed styles of the seven identity components #34 freezes, recorded in a real Chromium. The CI test guards the inputs (component source, tokens.css, globals.css); `identity_styles.py check` re-measures a running app against this file.",
-  "recorded_at": "2026-10-19T21:39:43+00:00",
+  "recorded_at": "2026-10-19T21:53:18+00:00",
   "themes": [
    "dark",
    "light"
@@ -20,21 +20,21 @@
   }
  },
  "inputs": {
-  "webui/app/postcss.config.mjs": "c0b4a123ae7b1f40069fd2183841248c4af91f3153c4a2334b19e3bbc2017802",
-  "webui/app/src/app/layout.tsx": "92213fd96a00aeeeeda797571bd54eb4c8fbb518796bf7cc4a73d974d55ce9fc",
-  "webui/app/src/components/shell/status-strip.tsx": "94f27dcfc19f3be7434b1cb7149ef849a0b54477443a9544ffbd540c3708c817",
-  "webui/app/src/components/shell/top-bar.tsx": "db166e731acddf2dd5f4edc38ab490255d9282de6c88335ae32e9ab02e5ea3ad",
-  "webui/app/src/components/ui/chip.tsx": "6e9e77d56b5655a9273a83f446debe711574d36e2b361e8786dd9b3f70bc91a3",
-  "webui/app/src/components/ui/dial.tsx": "926e61fa4f3046e2a6f7e3cec5832784823b9a7acafe6a8fe1e0ade1c970af7d",
-  "webui/app/src/components/ui/odometer.tsx": "4b4e86e913529f32fded7b58dbc78e1c6d02cb7ff56bcde9ab37ed5ad758b621",
-  "webui/app/src/components/ui/panel.tsx": "73b9a55e3486941c12ad2575c23605ea6ff30e897b2a44062de93a494d904261",
-  "webui/app/src/components/ui/section-label.tsx": "15730104681b806d9126679a189546c8efc26f183fb99136e9f29cb3c5d5e579",
-  "webui/app/src/components/ui/slider.tsx": "c69db0c7d2e8f4906a7ac2e489fec86345de833e7582e0a505bc779f8395ae13",
-  "webui/app/src/components/ui/status-dot.tsx": "cf52265337e685ce96472271c2eb4fbe650ff8af237c21cd4318cf3c54b2d914",
-  "webui/app/src/components/ui/switch.tsx": "e5f7dfdc6c8946c76a7a6c6ac0f7a1b48b45a558b7e398fa3f916bc91bd3d96f",
+  "webui/app/postcss.config.mjs": "141ef24ca27a99d08962210fdf20212d3435fdcfa21b46cd88b44d22f751dfae",
+  "webui/app/src/app/layout.tsx": "88ee4db2dc7fbc16b79e51d0f2a24761311e223d7543e9a244f5fff1b53b8904",
+  "webui/app/src/components/shell/status-strip.tsx": "d53b08657c05ecfb5b88594e2e85559d31a18381136130da2d42589562b87f43",
+  "webui/app/src/components/shell/top-bar.tsx": "6190e66a1600516943bb1647d5ef1fd0fa702975b6f73393b0cb113fec0c0771",
+  "webui/app/src/components/ui/chip.tsx": "e1bf9b3182f643850351337881eac67ba9b2181b1e9ebb9936e248294c727767",
+  "webui/app/src/components/ui/dial.tsx": "a8da11e2f84d1d4fceee03002ec9c08a8cb872b7fa87529c4612203b7bcffbf5",
+  "webui/app/src/components/ui/odometer.tsx": "19535b0b3398be8d670c708fcae37d3f42d5150ed221d05b23a64b5ae3ca94fe",
+  "webui/app/src/components/ui/panel.tsx": "8fc30896ca59618660376d0b0d7d9e085569141f162dab5e53a431459c50aa55",
+  "webui/app/src/components/ui/section-label.tsx": "32412d8284f037ad8e312c2424df63921a351010b5d8f571e491be1e4e548092",
+  "webui/app/src/components/ui/slider.tsx": "d0dbdbd1b964596b5464a5264743fc8f9780ab3cc0f3a36cca4a2beb7640a89a",
+  "webui/app/src/components/ui/status-dot.tsx": "29ca9213da39d59357dce5e8d489c4464fc907ff03231d288a2fb29a6c04c4cd",
+  "webui/app/src/components/ui/switch.tsx": "de9dd07636213d30ee9d91c72f05bf0553cecd7869d79fdadacca44cc7f3515e",
   "webui/app/src/lib/color-tokens.ts": "297f181187eb676b3e3c1abb36196234192d8aceded9da01bacd29fa4d0f8e21",
-  "webui/app/src/styles/globals.css": "ceab8a5074b07555a612d23c5041d65016fd6a3c55732297a9f78af20cbb7464",
-  "webui/app/src/styles/tokens.css": "b670a90d411bfc553d21d6bbbb3a7aa24ce0fd8320b70f93e1611ec4ec299b49"
+  "webui/app/src/styles/globals.css": "f0ce7eecbb974133f99985bdcbde046e950bff75b9352339c9b726ba692be916",
+  "webui/app/src/styles/tokens.css": "5c0fab81cdb5c33e81fca79ec0ccf1c9c9ad2d9564453b091cc8b18e7b3878ab"
  },
  "parts": {
   "brand.dot.dark": {
@@ -1365,7 +1365,7 @@
     "stroke": "none",
     "stroke-width": "1px",
     "text-transform": "none",
-    "width": "189.688px"
+    "width": "193.281px"
    }
   },
   "slider.neutral.fill.light": {
@@ -1408,7 +1408,7 @@
     "stroke": "none",
     "stroke-width": "1px",
     "text-transform": "none",
-    "width": "189.688px"
+    "width": "193.281px"
    }
   },
   "slider.neutral.thumb.dark": {
@@ -1537,7 +1537,7 @@
     "stroke": "none",
     "stroke-width": "1px",
     "text-transform": "none",
-    "width": "379.391px"
+    "width": "386.562px"
    }
   },
   "slider.neutral.track.light": {
@@ -1580,7 +1580,7 @@
     "stroke": "none",
     "stroke-width": "1px",
     "text-transform": "none",
-    "width": "379.391px"
+    "width": "386.562px"
    }
   },
   "slider.tinted.fill.dark": {

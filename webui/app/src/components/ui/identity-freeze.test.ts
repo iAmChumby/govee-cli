@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as React from "react";
@@ -265,8 +273,27 @@ function renderAll(): Record<string, { html: string; reason: string }> {
   return out;
 }
 
+/**
+ * Hash a file's CONTENT, not the checkout's line endings.
+ *
+ * `core.autocrlf` rewrites the working tree on Windows (CRLF) and not in
+ * CI on Linux (LF), so a raw-byte hash of a text file differs between the
+ * machine that recorded the snapshot and the machine that checks it — the
+ * gate then fails in CI for a file nobody changed. Every freeze input is a
+ * text file, so CRLF is normalised to LF before the hash.
+ *
+ * `latin1` round-trips bytes exactly (each byte 0-255 becomes one code
+ * point and back), so the normalisation cannot alter a byte it did not
+ * mean to. `scripts/identity_styles.py` normalises the same way; the two
+ * must agree byte for byte.
+ */
 function sha256(path: string): string {
-  return createHash("sha256").update(readFileSync(path)).digest("hex");
+  const bytes = readFileSync(path);
+  const normalized = Buffer.from(
+    bytes.toString("latin1").replace(/\r\n/g, "\n"),
+    "latin1",
+  );
+  return createHash("sha256").update(normalized).digest("hex");
 }
 
 const styleSnapshot = JSON.parse(readFileSync(STYLE_SNAPSHOT, "utf8")) as {
@@ -286,6 +313,31 @@ describe("identity components are frozen (#34)", () => {
     );
     const expected = JSON.parse(readFileSync(CLASS_SNAPSHOT, "utf8"));
     assert.deepEqual(current, expected);
+  });
+
+  it("hashes the file's content, not the checkout's line endings", () => {
+    // A Windows checkout with core.autocrlf has CRLF in the working tree;
+    // CI on Linux has LF. The same file has to hash the same either way,
+    // or the gate fails in CI for a file nobody changed.
+    const dir = mkdtempSync(join(tmpdir(), "identity-hash-"));
+    try {
+      const crlf = join(dir, "crlf.txt");
+      const lf = join(dir, "lf.txt");
+      const changed = join(dir, "changed.txt");
+      writeFileSync(crlf, "one\r\ntwo\r\nthree\r\n");
+      writeFileSync(lf, "one\ntwo\nthree\n");
+      writeFileSync(changed, "one\ntwo\nfour\n");
+
+      assert.equal(
+        sha256(crlf),
+        sha256(lf),
+        "a CRLF file and its LF twin must hash the same",
+      );
+      // and the gate still has teeth: a real content change changes the hash
+      assert.notEqual(sha256(lf), sha256(changed));
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("still consumes the exact tokens and base rules the styles were recorded from", () => {
