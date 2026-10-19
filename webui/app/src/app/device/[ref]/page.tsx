@@ -70,7 +70,7 @@ function DeviceConsoleContent({ ref }: { ref: string }) {
         away from the two columns. `pointer-coarse:landscape:` only —
         desktop and portrait phone keep every value they have today.
       */}
-      <div className="mx-auto max-w-[1200px] px-6 pb-14 pt-6 max-md:pt-3 pointer-coarse:landscape:px-3 pointer-coarse:landscape:pt-2">
+      <div className="mx-auto max-w-space-1200 px-6 pb-14 pt-6 max-md:pt-3 pointer-coarse:landscape:px-3 pointer-coarse:landscape:pt-2">
         {/*
           §11.3: this is the only way back to the dashboard other than the
           top-bar nav, and it measures 87x17 — nowhere near the 44px floor.
@@ -146,14 +146,14 @@ function DeviceConsoleContent({ ref }: { ref: string }) {
                 comes from the max-md: chassis trims around it.
 
                 #10 landscape: `pointer-coarse:landscape:` only. A landscape
-                phone (844×390, 667×375) is ≥sm wide, so sm:h-[380px] would
+                phone (844×390, 667×375) is ≥sm wide, so sm:h-space-380 would
                 otherwise own the stage at 380px and push the deck's dial
                 under the fold. The stacked variant sorts after sm: in
                 Tailwind's emitted CSS (two variant bits > one), so the
                 token wins exactly where it applies; portrait phones and
                 fine-pointer desktops never match it at all.
               */}
-              <LampStage state={state.data} className="h-[260px] sm:h-[380px] lg:h-[480px] pointer-coarse:landscape:h-[var(--stage-height-landscape)]" />
+              <LampStage state={state.data} className="h-space-260 sm:h-space-380 lg:h-space-480 pointer-coarse:landscape:h-[var(--stage-height-landscape)]" />
               <p className="mt-3 max-md:mt-1.5 px-1 font-mono text-data leading-relaxed max-md:leading-snug text-low">
                 {state.data.id}
                 {state.data.model === "H6022" ? " · 132-led 12×11 wrapped matrix" : ""}
@@ -178,7 +178,7 @@ function LoadingSkeleton() {
   return (
     <div className="mt-4 max-md:mt-2 grid min-w-0 items-start gap-5 max-md:gap-3 lg:grid-cols-[minmax(0,11fr)_minmax(0,9fr)] pointer-coarse:landscape:mt-3 pointer-coarse:landscape:gap-3 pointer-coarse:landscape:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       {/* stage skeleton — mirrors the loaded stage's bare-value height (T34) so the skeleton-to-content swap doesn't itself jump the layout; landscape mirror per #10 */}
-      <div className="flex h-[260px] items-center justify-center rounded-stage border border-hairline bg-raised sm:h-[380px] lg:h-[480px] pointer-coarse:landscape:h-[var(--stage-height-landscape)]">
+      <div className="flex h-space-260 items-center justify-center rounded-stage border border-hairline bg-raised sm:h-space-380 lg:h-space-480 pointer-coarse:landscape:h-[var(--stage-height-landscape)]">
         <Skeleton className="h-40 w-40 rounded-full" />
       </div>
       {/* deck skeleton */}
@@ -189,8 +189,8 @@ function LoadingSkeleton() {
         <div className="mt-8 flex flex-wrap justify-around gap-6 max-md:flex-nowrap max-md:justify-between max-md:gap-4">
           {/* the dial's landscape size, so the skeleton-to-content swap does
               not jump (see control-deck.tsx's `--dial-size`) */}
-          <Skeleton className="h-[160px] w-[160px] shrink-0 rounded-full pointer-coarse:landscape:h-[136px] pointer-coarse:landscape:w-[136px]" />
-          <div className="w-36 max-md:w-[120px] space-y-3 py-4">
+          <Skeleton className="h-space-160 w-space-160 shrink-0 rounded-full pointer-coarse:landscape:h-space-136 pointer-coarse:landscape:w-space-136" />
+          <div className="w-36 max-md:w-space-120 space-y-3 py-4">
             <Skeleton className="h-3 w-20" />
             <Skeleton className="h-9 w-full" />
           </div>

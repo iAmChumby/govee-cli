@@ -262,7 +262,7 @@ function LightTab({ refId, state }: ControlDeckProps) {
     <div className="space-y-6 max-md:space-y-4 pt-5 max-md:pt-3 pointer-coarse:landscape:pt-1">
       {/*
         T34: this row used to be `justify-around` with a fixed 160px Dial
-        plus a `min-w-[140px]` column at `gap-6` (24px) — 160+24+140=324
+        plus a `min-w-space-140` column at `gap-6` (24px) — 160+24+140=324
         against the panel's ~310px content box at 390px, so it wrapped by
         accident a few px past the threshold. `justify-around` then spread
         a lone Dial across the first line with uneven space, and the
@@ -297,7 +297,7 @@ function LightTab({ refId, state }: ControlDeckProps) {
           onValueCommit={commitBrightness}
         />
 
-        <div className="min-w-[140px] max-md:min-w-[120px] space-y-4">
+        <div className="min-w-space-140 max-md:min-w-space-120 space-y-4">
           <SectionLabel index="01" title="power" />
           <div className="flex items-center gap-4">
             <Switch
@@ -330,7 +330,7 @@ function LightTab({ refId, state }: ControlDeckProps) {
             {/* kelvin ramp underlay: warm → white → cool, behind the track */}
             <div
               aria-hidden
-              className="pointer-events-none absolute left-space-9 right-space-9 top-1/2 h-[3px] -translate-y-1/2 rounded-full"
+              className="pointer-events-none absolute left-space-9 right-space-9 top-1/2 h-space-3 -translate-y-1/2 rounded-full"
               style={{
                 background: "linear-gradient(90deg, #FFB46B, #FFFFFF, #BBD8FF)",
               }}

@@ -113,7 +113,7 @@ export function MotionControls({
             >
               <span
                 className={cn(
-                  "flex h-8 items-center rounded-btn border px-3 font-mono text-micro uppercase tracking-label transition-colors duration-150",
+                  "flex h-8 items-center rounded-btn border px-3 font-mono text-micro uppercase tracking-label transition-colors duration-motion-150",
                   active
                     ? "border-hairline-strong bg-accent-dim text-hi"
                     : "border-hairline text-mid group-hover:border-hairline-strong group-hover:text-hi",
@@ -137,7 +137,7 @@ export function MotionControls({
                   aria-pressed={axis === a}
                   onClick={() => onChange({ ...motion, axis: a } as Motion)}
                   className={cn(
-                    "h-7 cursor-pointer rounded-btn border px-2.5 font-mono text-micro uppercase tracking-label transition-colors duration-150",
+                    "h-7 cursor-pointer rounded-btn border px-2.5 font-mono text-micro uppercase tracking-label transition-colors duration-motion-150",
                     axis === a
                       ? "border-hairline-strong bg-accent-dim text-hi"
                       : "border-hairline text-mid hover:border-hairline-strong hover:text-hi",
@@ -163,7 +163,7 @@ export function MotionControls({
                 aria-label={s === 1 ? "Forward" : "Reverse"}
                 onClick={() => onChange({ ...motion, sign: s as 1 | -1 } as Motion)}
                 className={cn(
-                  "flex h-7 w-8 cursor-pointer items-center justify-center rounded-btn border transition-colors duration-150",
+                  "flex h-7 w-8 cursor-pointer items-center justify-center rounded-btn border transition-colors duration-motion-150",
                   sign === s
                     ? "border-hairline-strong bg-accent-dim text-hi"
                     : "border-hairline text-mid hover:border-hairline-strong hover:text-hi",

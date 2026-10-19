@@ -102,7 +102,7 @@ function StaticGrid({ geometry, colors, className }: GridProps) {
       }}
     >
       {colors.map((hex, i) => (
-        <div key={i} className="border-[0.5px] border-hairline" style={{ backgroundColor: hex }} />
+        <div key={i} className="border-fine border-hairline" style={{ backgroundColor: hex }} />
       ))}
     </div>
   );
@@ -237,7 +237,7 @@ export function DualPreview({
             >
               <span
                 className={cn(
-                  "flex items-center rounded-btn border px-2 py-0.5 font-mono text-nano uppercase tracking-label transition-colors duration-150",
+                  "flex items-center rounded-btn border px-2 py-0.5 font-mono text-nano uppercase tracking-label transition-colors duration-motion-150",
                   showIntent
                     ? "border-hairline-strong bg-accent-dim text-hi"
                     : "border-hairline text-low group-hover:text-mid",

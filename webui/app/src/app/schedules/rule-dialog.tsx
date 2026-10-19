@@ -113,7 +113,7 @@ function Segmented<T extends string>({
             aria-checked={active}
             onClick={() => onChange(o.value)}
             className={cn(
-              "h-7 min-w-0 flex-1 cursor-pointer rounded-chip border font-mono text-micro uppercase tracking-caps transition-colors duration-150 pointer-coarse:min-h-11",
+              "h-7 min-w-0 flex-1 cursor-pointer rounded-chip border font-mono text-micro uppercase tracking-caps transition-colors duration-motion-150 pointer-coarse:min-h-11",
               active
                 ? "border-hairline-strong bg-accent-dim text-hi"
                 : "border-transparent text-mid hover:text-hi",
@@ -141,7 +141,7 @@ function StepButton({
       type="button"
       aria-label={label}
       onClick={onClick}
-      className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-btn border border-hairline bg-raised text-mid transition-colors duration-150 hover:border-hairline-strong hover:text-hi pointer-coarse:h-11 pointer-coarse:w-11"
+      className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-btn border border-hairline bg-raised text-mid transition-colors duration-motion-150 hover:border-hairline-strong hover:text-hi pointer-coarse:h-11 pointer-coarse:w-11"
     >
       {children}
     </button>
@@ -408,7 +408,7 @@ function RuleForm({
                   aria-label={`${on ? "Remove" : "Add"} ${day}`}
                   onClick={() => toggleDay(day)}
                   className={cn(
-                    "h-8 min-w-0 cursor-pointer rounded-chip border px-0 font-mono text-micro uppercase leading-none tracking-data transition-colors duration-150 pointer-coarse:h-11",
+                    "h-8 min-w-0 cursor-pointer rounded-chip border px-0 font-mono text-micro uppercase leading-none tracking-data transition-colors duration-motion-150 pointer-coarse:h-11",
                     on
                       ? "border-hairline-strong bg-accent-dim text-hi"
                       : "border-hairline text-low hover:border-hairline-strong hover:text-hi",
@@ -476,7 +476,7 @@ function RuleForm({
                   aria-label={`Use command ${cmd}`}
                   onClick={() => set("command", cmd)}
                   className={cn(
-                    "cursor-pointer rounded-chip border px-2.5 py-1.5 font-mono text-micro uppercase leading-none tracking-caps transition-colors duration-150 pointer-coarse:min-h-11",
+                    "cursor-pointer rounded-chip border px-2.5 py-1.5 font-mono text-micro uppercase leading-none tracking-caps transition-colors duration-motion-150 pointer-coarse:min-h-11",
                     draft.command === cmd
                       ? "border-hairline-strong bg-accent-dim text-hi"
                       : "border-hairline text-mid hover:border-hairline-strong hover:text-hi",

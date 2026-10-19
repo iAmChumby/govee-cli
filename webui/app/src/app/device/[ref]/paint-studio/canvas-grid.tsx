@@ -212,7 +212,7 @@ export function CanvasGrid({
         <div
           key={i}
           aria-hidden
-          className="border-[0.5px] border-hairline"
+          className="border-fine border-hairline"
           style={{ backgroundColor: hex }}
         />
       ))}
