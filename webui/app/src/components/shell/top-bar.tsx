@@ -45,7 +45,7 @@ export function TopBar() {
       initial="hidden"
       animate="show"
       variants={fadeUp}
-      className="flex h-12 shrink-0 items-center gap-4 border-b border-hairline bg-bg px-4"
+      className="flex h-12 shrink-0 items-center gap-4 border-b border-hairline bg-bg px-4 pointer-coarse:pt-[var(--safe-top)]"
     >
       {/* wordmark. The tagline stays `hidden ... sm:inline` below md per §11.5's
           table: it is static branding duplicated by the "filament" wordmark
@@ -74,13 +74,22 @@ export function TopBar() {
           back link above the device name — so hiding this is deduplication,
           not omission. */}
       <span className="hidden items-center gap-2 font-mono text-[11px] text-low md:flex">
-        console
-        {crumbs.map((crumb) => (
-          <React.Fragment key={crumb}>
-            <span aria-hidden className="text-hairline-strong">/</span>
-            <span className="text-mid">{crumb}</span>
-          </React.Fragment>
-        ))}
+        <Link href="/" className="text-low hover:text-hi transition-colors duration-150">
+          console
+        </Link>
+        {crumbs
+          .filter((crumb) => crumb !== "device")
+          .map((crumb, i, arr) => (
+            <React.Fragment key={crumb}>
+              <span aria-hidden className="text-hairline-strong">/</span>
+              <span
+                className="text-mid"
+                aria-current={i === arr.length - 1 ? "page" : undefined}
+              >
+                {crumb}
+              </span>
+            </React.Fragment>
+          ))}
       </span>
 
       {/* icon nav (mobile — the side rail is hidden below md). Chassis per
