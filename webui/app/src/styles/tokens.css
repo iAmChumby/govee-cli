@@ -86,6 +86,13 @@
   --dur-base: 240ms;
   --dur-slow: 420ms;
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* safe-area insets (WebKit env() on notched / home-indicator devices;
+     0px fallback on browsers that don't expose them) */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
 }
 
 /* ---- Light theme ------------------------------------------- */
@@ -189,6 +196,11 @@
   --shadow-overlay: var(--shadow-overlay-raw);
 
   --tracking-micro: 0.14em;
+
+  --safe-top: var(--safe-top);
+  --safe-right: var(--safe-right);
+  --safe-bottom: var(--safe-bottom);
+  --safe-left: var(--safe-left);
 
   --animate-skeleton-breathe: skeleton-breathe 2.8s var(--ease-out-soft)
     infinite;

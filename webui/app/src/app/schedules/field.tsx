@@ -6,7 +6,7 @@ import { cn } from "@/lib/cn";
 
 /** Shared input chrome — dark-neutral raised fill, hairline border. */
 export const INPUT_CLASS =
-  "h-9 w-full rounded-btn border border-hairline bg-raised px-3 text-[13px] text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong focus-visible:outline-none";
+  "h-9 w-full rounded-btn border border-hairline bg-raised px-3 text-[13px] text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong focus-visible:outline-none pointer-coarse:h-11 pointer-coarse:text-base";
 
 export interface FieldProps {
   /** micro-label rendered above the control */

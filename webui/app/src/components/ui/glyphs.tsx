@@ -8,17 +8,18 @@ import * as React from "react";
 
 interface GlyphProps {
   size?: number;
+  strokeWidth?: number;
   className?: string;
 }
 
-function base(size: number | undefined, className: string | undefined) {
+function base(size: number | undefined, strokeWidth: number | undefined, className: string | undefined) {
   return {
     width: size ?? 16,
     height: size ?? 16,
     viewBox: "0 0 24 24",
     fill: "none",
     stroke: "currentColor",
-    strokeWidth: 1.5,
+    strokeWidth: strokeWidth ?? 1.5,
     strokeLinecap: "round" as const,
     strokeLinejoin: "round" as const,
     className,
@@ -27,9 +28,9 @@ function base(size: number | undefined, className: string | undefined) {
 }
 
 /** Incandescent filament mark — two posts with a glowing coil between. */
-export function FilamentMark({ size, className }: GlyphProps) {
+export function FilamentMark({ size, strokeWidth, className }: GlyphProps) {
   return (
-    <svg {...base(size, className)}>
+    <svg {...base(size, strokeWidth, className)}>
       <path d="M4.5 8v8M19.5 8v8" />
       <path d="M4.5 12c3.2-5.6 4.8 5.6 7.5 0s4.3-5.6 7.5 0" />
     </svg>
@@ -37,9 +38,9 @@ export function FilamentMark({ size, className }: GlyphProps) {
 }
 
 /** Classic power symbol — ring with a gap at twelve o'clock. */
-export function PowerGlyph({ size, className }: GlyphProps) {
+export function PowerGlyph({ size, strokeWidth, className }: GlyphProps) {
   return (
-    <svg {...base(size, className)}>
+    <svg {...base(size, strokeWidth, className)}>
       <path d="M12 3.5v7.5" />
       <path d="M7.2 6.6a7 7 0 1 0 9.6 0" />
     </svg>
@@ -62,9 +63,9 @@ const SUN_RAYS = Array.from({ length: 8 }, (_, i) => {
 });
 
 /** Hand-drawn sun for the theme toggle morph. */
-export function SunGlyph({ size, className }: GlyphProps) {
+export function SunGlyph({ size, strokeWidth, className }: GlyphProps) {
   return (
-    <svg {...base(size, className)}>
+    <svg {...base(size, strokeWidth, className)}>
       <circle cx={12} cy={12} r={4} />
       {SUN_RAYS.map((r, i) => (
         <line key={i} x1={r.x1} y1={r.y1} x2={r.x2} y2={r.y2} />
@@ -74,10 +75,19 @@ export function SunGlyph({ size, className }: GlyphProps) {
 }
 
 /** Crescent moon for the theme toggle morph. */
-export function MoonGlyph({ size, className }: GlyphProps) {
+export function MoonGlyph({ size, strokeWidth, className }: GlyphProps) {
   return (
-    <svg {...base(size, className)}>
+    <svg {...base(size, strokeWidth, className)}>
       <path d="M20.4 13.2A8.4 8.4 0 1 1 10.8 3.6a6.6 6.6 0 0 0 9.6 9.6z" />
+    </svg>
+  );
+}
+
+/** Close glyph — used by DialogContent's built-in close button. */
+export function CloseGlyph({ size, strokeWidth, className }: GlyphProps) {
+  return (
+    <svg {...base(size, strokeWidth, className)}>
+      <path d="M18 6 6 18M6 6l12 12" />
     </svg>
   );
 }

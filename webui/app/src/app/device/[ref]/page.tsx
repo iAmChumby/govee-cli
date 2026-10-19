@@ -1,12 +1,11 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import { motion } from "motion/react";
-import { ArrowLeft, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 
-import { Button, Panel, Skeleton } from "@/components/ui";
+import { BackUp, Button, Panel, Skeleton } from "@/components/ui";
 import { LampStage } from "@/lib/lamp3d/LampStage";
 import { useDeviceState } from "@/lib/queries";
 import { ApiError } from "@/lib/api";
@@ -43,7 +42,7 @@ function DeviceConsoleContent({ ref }: { ref: string }) {
   const state = useDeviceState(ref);
 
   return (
-    <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+    <main className="min-h-0 min-w-0 flex-1 overflow-y-auto pointer-coarse:pb-[var(--safe-bottom)]">
       {/*
         T34 (WEBUI_V3_SPEC §11.6): the dial's vertical position is chassis-
         above-it plus the stage height. Every `max-md:` here shaves the
@@ -84,13 +83,7 @@ function DeviceConsoleContent({ ref }: { ref: string }) {
           cancel *each other*, it's inert in its entirety at fine pointer,
           which is what the gate in §11.1 checks.
         */}
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-micro text-low transition-colors duration-150 hover:text-hi pointer-coarse:py-4 pointer-coarse:-my-4"
-        >
-          <ArrowLeft size={12} strokeWidth={1.75} aria-hidden />
-          console
-        </Link>
+        <BackUp />
 
         {state.isLoading ? (
           <LoadingSkeleton />

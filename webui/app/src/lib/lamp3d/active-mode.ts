@@ -257,7 +257,7 @@ export function resolveLampState(state: DeviceState | DeviceSummary): ResolvedLa
     return {
       spec: null,
       effect: null,
-      caption: "unknown",
+      caption: "mode unknown — no ledger record",
       showUnknownChooser: true,
       showResetControl: false,
       power,
