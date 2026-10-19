@@ -345,10 +345,14 @@ function LightTab({ refId, state }: ControlDeckProps) {
               onValueCommit={commitTemperature}
             />
           </div>
-          {/* #16: 9ch was measured at 11px; at the 12px data rung the range
-              (e.g. "2700–6500") no longer fits and wrapped to two lines. The
-              box widens with the type, it does not shrink the type back. */}
-          <span className="w-[10ch] text-right font-mono text-data leading-none text-low">
+          {/* #16: the range (e.g. "2700–6500") is nine monospace glyphs. At
+              the 12px data rung they need 64.83px and the old `w-[9ch]` box
+              was 64.80px — short by 0.03px, so the label wrapped to two
+              lines. `w-max` sizes the box to the text it holds, so it can
+              never wrap and the constant never has to be re-derived when
+              the type moves again; the slider gets the width back instead
+              of the type being shrunk to fit a hand-counted box. */}
+          <span className="w-max text-right font-mono text-data leading-none text-low">
             {tempMin}–{tempMax}
           </span>
         </div>
