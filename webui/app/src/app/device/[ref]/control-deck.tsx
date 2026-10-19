@@ -57,23 +57,47 @@ export function ControlDeck({ refId, state }: ControlDeckProps) {
     // T34 (WEBUI_V3_SPEC §11.6): gap-5 -> gap-3 below md trims part of the
     // chassis stack above the dial (header-to-panel rhythm); additive, so
     // >=md is untouched.
-    <motion.section variants={panelIn} className="flex min-w-0 flex-col gap-5 max-md:gap-3 pointer-coarse:landscape:gap-2">
+    // #10 landscape: gap-1 — on a landscape phone the fold is 295px tall
+    // and every pixel between the header and the panel is a pixel the
+    // dial does not get (measured; see reports/wave2-fix.md).
+    <motion.section variants={panelIn} className="flex min-w-0 flex-col gap-5 max-md:gap-3 pointer-coarse:landscape:gap-1">
       {/* header */}
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-lg font-medium leading-tight tracking-[-0.02em] text-hi">
+      {/* #10 landscape: `flex-nowrap` keeps the device header on one row.
+          At 667px the deck column is 316px and the header's content (name
+          + model chip + transport chip + power switch) is 306px — it
+          wrapped to two rows there and the second row (the 44px power
+          switch) pushed the dial 34px further down the page. The name
+          truncates instead of wrapping, so a long device name costs
+          ellipsis rather than fold; the chips never shrink (a shrunk
+          chip wraps its own text — "CLOUD-V2" broke over two lines). */}
+      <div className="flex flex-wrap items-center gap-3 pointer-coarse:landscape:flex-nowrap pointer-coarse:landscape:gap-2">
+        <h1 className="text-lg font-medium leading-tight tracking-[-0.02em] text-hi pointer-coarse:landscape:min-w-0 pointer-coarse:landscape:truncate">
           {name}
         </h1>
-        {state.model ? <Chip tone="accent">{state.model}</Chip> : null}
-        <Chip>{state.transport}</Chip>
+        {state.model ? (
+          <Chip tone="accent" className="pointer-coarse:landscape:shrink-0">
+            {state.model}
+          </Chip>
+        ) : null}
+        <Chip className="pointer-coarse:landscape:shrink-0">{state.transport}</Chip>
         <HeaderPower refId={refId} state={state} pending={pending} />
       </div>
 
       {/* tab rail */}
-      {/* #10: pt-2 under pointer-coarse:landscape — the last chassis px
+      {/* #10 landscape: `pt-2` under pointer-coarse:landscape — the last chassis px
           that keeps the brightness dial inside a 667×375 first screen. */}
-      <Panel className="px-4 pb-5 pt-4 max-md:pt-3 pointer-coarse:landscape:pt-2 sm:px-5">
+      <Panel className="px-4 pb-5 pt-4 max-md:pt-3 pointer-coarse:landscape:pt-1 pointer-coarse:landscape:px-4 sm:px-5">
         <Tabs defaultValue="light">
-          <TabsList className="-mx-1 overflow-x-auto px-1 sm:flex-wrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {/* #10 landscape: the rail scrolls instead of wrapping, exactly as
+              it does on a portrait phone (tabs.tsx's own rule: "Scrolls
+              rather than wraps … keeps every label whole and reachable").
+              At 667px the deck column is 316px and the rail's six
+              triggers are ~480px of text, so `sm:flex-wrap` stacked them
+              four deep — 173px of rail above the dial, more than the dial
+              itself. One scrolling row is 45px. The rail keeps its live
+              edge fade (tabs.tsx's `useEdgeScroll`), so the overflow is
+              announced as an affordance rather than as a clipped label. */}
+          <TabsList className="-mx-1 overflow-x-auto px-1 sm:flex-wrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden pointer-coarse:landscape:flex-nowrap">
             <TabsTrigger value="light">Light</TabsTrigger>
             {hasMatrix ? <TabsTrigger value="paint-studio">Paint Studio</TabsTrigger> : null}
             {caps?.scenes ? <TabsTrigger value="scenes">Scenes</TabsTrigger> : null}
@@ -228,9 +252,9 @@ function LightTab({ refId, state }: ControlDeckProps) {
     // T34: pt-5 -> pt-3 and space-y-6 -> space-y-4 below md are chassis
     // trims (the gap stack §11.6 calls out); pt-5 is the last bit of space
     // above the dial itself, space-y-6 only affects sections *below* it.
-    // #10: pt-2 under pointer-coarse:landscape shaves the final px that
-    // kept the dial off a 667×375 landscape first screen.
-    <div className="space-y-6 max-md:space-y-4 pt-5 max-md:pt-3 pointer-coarse:landscape:pt-2">
+    // #10 landscape: pt-1 under pointer-coarse:landscape — the last
+    // chassis pixel between the tab rail's underline and the dial.
+    <div className="space-y-6 max-md:space-y-4 pt-5 max-md:pt-3 pointer-coarse:landscape:pt-1">
       {/*
         T34: this row used to be `justify-around` with a fixed 160px Dial
         plus a `min-w-[140px]` column at `gap-6` (24px) — 160+24+140=324
@@ -256,7 +280,14 @@ function LightTab({ refId, state }: ControlDeckProps) {
           size={160}
           unit="%"
           label={`${state.name ?? refId} brightness`}
-          className="max-md:shrink-0"
+          // #10 landscape: 136px instead of 160. The dial is the one
+          // element in this column whose size is a free parameter — the
+          // tab rail's 44px, the power switch's 44px and the back link's
+          // 49px are all pinned by the app's own 44px touch-target floor
+          // — and at 667×375 the fold is 295px tall. 136 is still a
+          // 136px target; 160 does not fit (measured; see
+          // reports/wave2-fix.md).
+          className="max-md:shrink-0 pointer-coarse:landscape:[--dial-size:136px]"
           onValueChange={setScrub}
           onValueCommit={commitBrightness}
         />

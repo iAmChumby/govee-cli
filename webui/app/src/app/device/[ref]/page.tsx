@@ -54,7 +54,23 @@ function DeviceConsoleContent({ ref }: { ref: string }) {
         pure `max-md:` addition, inert at and above md by construction
         (§11.1), so 1440x900 cannot move.
       */}
-      <div className="mx-auto max-w-[1200px] px-6 pb-14 pt-6 max-md:pt-3">
+      {/*
+        #10 landscape (measured, see reports/wave2-fix.md): on a landscape
+        phone the deck's brightness dial has to be *fully* inside the
+        scroll viewport on first paint, and the fold there is `main`'s
+        bottom edge, not the window's — the 48px top bar and the 32px
+        status strip are the app's chrome, and `main` is the scroller
+        between them. At 667×375 that leaves 295px of height for a
+        160px dial, a 44px tab rail, a 44px power switch and a 49px back
+        link, so every pixel of chrome above the dial is spent.
+
+        The container's padding is part of that chrome: `pt-6` (24px) at
+        landscape widths put 24px of nothing between the top bar and the
+        back link, and `px-6` (24px a side) took 48px of the 667px width
+        away from the two columns. `pointer-coarse:landscape:` only —
+        desktop and portrait phone keep every value they have today.
+      */}
+      <div className="mx-auto max-w-[1200px] px-6 pb-14 pt-6 max-md:pt-3 pointer-coarse:landscape:px-3 pointer-coarse:landscape:pt-2">
         {/*
           §11.3: this is the only way back to the dashboard other than the
           top-bar nav, and it measures 87x17 — nowhere near the 44px floor.
@@ -101,7 +117,20 @@ function DeviceConsoleContent({ ref }: { ref: string }) {
             variants={staggerParent}
             initial="hidden"
             animate="show"
-            className="mt-4 max-md:mt-2 grid min-w-0 items-start gap-5 max-md:gap-3 lg:grid-cols-[minmax(0,11fr)_minmax(0,9fr)] pointer-coarse:landscape:grid-cols-[minmax(0,11fr)_minmax(0,9fr)]"
+            // #10 landscape: the grid is the other half of the fold
+            // budget. `mt-4`/`gap-5` are chrome above the dial, so
+            // landscape trims them (`mt-3`, `gap-3`); and the two columns
+            // split evenly instead of 11:9, because the *deck* column is
+            // what the dial lives in and at 667px the 9fr column was
+            // 273px — too narrow for the device header (306px of name,
+            // model chip, transport chip and power switch) to stay on one
+            // line, and too narrow for the dial's own row (dial + the
+            // power/odometer column) to fit without overlapping. An
+            // equal split gives the deck 316px at 667×375 and 404px at
+            // 844×390; the stage gives up 18px and 23px of width, which
+            // is invisible in a stage whose height is capped at 52dvh
+            // anyway. `pointer-coarse:landscape:` only.
+            className="mt-4 max-md:mt-2 grid min-w-0 items-start gap-5 max-md:gap-3 lg:grid-cols-[minmax(0,11fr)_minmax(0,9fr)] pointer-coarse:landscape:mt-3 pointer-coarse:landscape:gap-3 pointer-coarse:landscape:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
           >
             {/* stage column */}
             <motion.section variants={panelIn} className="lg:sticky lg:top-6">
@@ -147,18 +176,20 @@ function DeviceConsoleContent({ ref }: { ref: string }) {
 
 function LoadingSkeleton() {
   return (
-    <div className="mt-4 max-md:mt-2 grid min-w-0 items-start gap-5 max-md:gap-3 lg:grid-cols-[minmax(0,11fr)_minmax(0,9fr)] pointer-coarse:landscape:grid-cols-[minmax(0,11fr)_minmax(0,9fr)]">
+    <div className="mt-4 max-md:mt-2 grid min-w-0 items-start gap-5 max-md:gap-3 lg:grid-cols-[minmax(0,11fr)_minmax(0,9fr)] pointer-coarse:landscape:mt-3 pointer-coarse:landscape:gap-3 pointer-coarse:landscape:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       {/* stage skeleton — mirrors the loaded stage's bare-value height (T34) so the skeleton-to-content swap doesn't itself jump the layout; landscape mirror per #10 */}
       <div className="flex h-[260px] items-center justify-center rounded-stage border border-hairline bg-raised sm:h-[380px] lg:h-[480px] pointer-coarse:landscape:h-[var(--stage-height-landscape)]">
         <Skeleton className="h-40 w-40 rounded-full" />
       </div>
       {/* deck skeleton */}
-      <Panel className="px-5 pb-5 pt-4 max-md:pt-3">
+      <Panel className="px-5 pb-5 pt-4 max-md:pt-3 pointer-coarse:landscape:pt-2">
         <Skeleton className="h-6 w-48" />
         <Skeleton className="mt-4 h-7 w-full max-w-xs" />
         {/* mirrors the loaded cluster's deliberate no-wrap arrangement below md (T34) */}
         <div className="mt-8 flex flex-wrap justify-around gap-6 max-md:flex-nowrap max-md:justify-between max-md:gap-4">
-          <Skeleton className="h-[160px] w-[160px] shrink-0 rounded-full" />
+          {/* the dial's landscape size, so the skeleton-to-content swap does
+              not jump (see control-deck.tsx's `--dial-size`) */}
+          <Skeleton className="h-[160px] w-[160px] shrink-0 rounded-full pointer-coarse:landscape:h-[136px] pointer-coarse:landscape:w-[136px]" />
           <div className="w-36 max-md:w-[120px] space-y-3 py-4">
             <Skeleton className="h-3 w-20" />
             <Skeleton className="h-9 w-full" />
