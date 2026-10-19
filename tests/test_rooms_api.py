@@ -126,6 +126,41 @@ class TestCapture:
         assert lamp.label is None
         assert lamp.payload is None
 
+    def test_capture_drops_stale_color_for_non_basic_mode(self, client) -> None:
+        ledger.record_mode(LAMP, "diy", "Sunrise Circuit", {"diy_value": 1},
+                           source="webui")
+        mock = _mock(client)
+        mock.state[LAMP]["colorTemperatureK"] = 2700
+        mock.state[LAMP]["colorRgb"] = 0xFF8800
+
+        resp = client.post("/api/v1/rooms", json={"name": "Stale Color"})
+        assert resp.status_code == 200
+
+        scene = room_scenes.read_scene("Stale Color")
+        assert scene is not None
+        lamp = next(d for d in scene.devices if d.device_id == LAMP)
+        assert lamp.mode == "diy"
+        assert lamp.label == "Sunrise Circuit"
+        assert lamp.color is None
+        assert lamp.color_temp_k is None
+
+    def test_capture_drops_stale_color_rgb_only_for_non_basic_mode(self, client) -> None:
+        ledger.record_mode(LAMP, "diy", "Sunrise Circuit", {"diy_value": 1},
+                           source="webui")
+        mock = _mock(client)
+        mock.state[LAMP]["colorRgb"] = 0xFF8800
+        mock.state[LAMP]["colorTemperatureK"] = 0
+
+        resp = client.post("/api/v1/rooms", json={"name": "Stale Color Only"})
+        assert resp.status_code == 200
+
+        scene = room_scenes.read_scene("Stale Color Only")
+        assert scene is not None
+        lamp = next(d for d in scene.devices if d.device_id == LAMP)
+        assert lamp.mode == "diy"
+        assert lamp.color is None
+        assert lamp.color_temp_k is None
+
     def test_unreadable_device_with_stale_ledger_entry_is_captured_as_unknown(
         self, client
     ) -> None:

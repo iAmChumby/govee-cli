@@ -2,9 +2,32 @@
   "name": "relax",
   "note": "Shelf lamp uses DIY Dark-soho (flame). Swap to madisonnnn (lava lamp) if preferred.",
   "devices": {
-    "Light Bars": {"model": "H6056", "power": "on", "brightness": 50, "color_temp_k": 2700},
-    "Shelf Lamp": {"model": "H6022", "power": "on", "brightness": 60, "diy": "Dark-soho"},
-    "Lamp Front": {"model": "H6008", "power": "on", "brightness": 50, "color": "#330066"},
-    "Lamp Top": {"model": "H6008", "power": "on", "brightness": 50, "color": "#330066"}
+    "Light Bars": {
+      "model": "H6056",
+      "power": "on",
+      "brightness": 50,
+      "color_temp_k": 2700,
+      "mode": "white"
+    },
+    "Shelf Lamp": {
+      "model": "H6022",
+      "power": "on",
+      "brightness": 60,
+      "diy": "Dark-soho"
+    },
+    "Lamp Front": {
+      "model": "H6008",
+      "power": "on",
+      "brightness": 50,
+      "color": "#330066",
+      "mode": "colour"
+    },
+    "Lamp Top": {
+      "model": "H6008",
+      "power": "on",
+      "brightness": 50,
+      "color": "#330066",
+      "mode": "colour"
+    }
   }
 }

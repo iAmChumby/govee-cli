@@ -108,7 +108,28 @@ async def capture_room(request: Request, body: RoomSceneCaptureRequest) -> dict[
         mode = entry.mode if entry is not None else "unknown"
         label = entry.label if entry is not None else None
         payload = entry.payload if entry is not None else None
-        color_rgb = (state.get("color") or {}).get("rgb")
+        # A colour or colour temperature read from /device/state is only
+        # trustworthy when the ledger says this device is in basic mode: state
+        # always reports a stale colorTemperatureK (and often a stale colorRgb)
+        # for a lamp running a DIY/scene/music/segment/effect. Promoting that
+        # stale value into a stored white/colour row is exactly the bug the
+        # ledger exists to prevent, one level earlier. For any other mode the
+        # basic fields are dropped (None) so plan_restore() never replays a
+        # guessed colour.
+        #
+        # Boundary, not a gap to close here: this trusts the ledger, so a lamp
+        # last commanded `basic` by us but switched to a scene in the phone app
+        # still reads as `basic`, and state["active"].confidence is deliberately
+        # not consulted (see overlay_active_mode: "external" only proves the
+        # ledger is stale, not that the state read is genuine). The cloud
+        # exposes no ground truth for scene state, so there is no stronger
+        # signal available — hardcoding a heuristic would be the same guess.
+        if mode == "basic":
+            color_rgb = (state.get("color") or {}).get("rgb")
+            color_temp_k = state.get("color_temp_k")
+        else:
+            color_rgb = None
+            color_temp_k = None
 
         captured.append(CapturedDevice(
             device_id=target.device_id,
@@ -116,7 +137,7 @@ async def capture_room(request: Request, body: RoomSceneCaptureRequest) -> dict[
             power=bool(state.get("power")),
             brightness=int(state.get("brightness") or 0),
             color=color_rgb,
-            color_temp_k=state.get("color_temp_k"),
+            color_temp_k=color_temp_k,
             mode=mode,
             label=label,
             payload=payload,

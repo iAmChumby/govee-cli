@@ -3,9 +3,35 @@
   "captured_at": "2026-10-08T04:04:00Z",
   "note": "Captured from live state via govee-cli state. Light Bars were already set to 1% at Luke's request just before capture; their pre-change value was 50%.",
   "devices": {
-    "Lamp Front": {"model": "H6008", "power": "on", "brightness": 50, "color": "#330066"},
-    "Lamp Top": {"model": "H6008", "power": "on", "brightness": 50, "color": "#330066"},
-    "Light Bars": {"model": "H6056", "power": "on", "brightness": 1, "color_temp_k": 2000, "color": "#FFFFFF", "pre_capture_brightness": 50},
-    "Shelf Lamp": {"model": "H6022", "power": "on", "brightness": 60, "color_temp_k": 2700, "color": null}
+    "Lamp Front": {
+      "model": "H6008",
+      "power": "on",
+      "brightness": 50,
+      "color": "#330066",
+      "mode": "colour"
+    },
+    "Lamp Top": {
+      "model": "H6008",
+      "power": "on",
+      "brightness": 50,
+      "color": "#330066",
+      "mode": "colour"
+    },
+    "Light Bars": {
+      "model": "H6056",
+      "power": "on",
+      "brightness": 1,
+      "color_temp_k": 2000,
+      "color": "#FFFFFF",
+      "pre_capture_brightness": 50,
+      "mode": "colour"
+    },
+    "Shelf Lamp": {
+      "model": "H6022",
+      "power": "on",
+      "brightness": 60,
+      "color_temp_k": 2700,
+      "color": null
+    }
   }
 }

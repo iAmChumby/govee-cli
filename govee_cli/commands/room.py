@@ -187,6 +187,25 @@ def _convert_device(
     if not chosen:
         return "no colour, colour temperature or DIY scene set"
 
+    explicit_mode = entry.get("mode")
+    # A temperature read from /device/state is only trustworthy as a stored
+    # white row when the device's mode is known to be basic: the profile entry
+    # says so explicitly. A bare color_temp_k with no explicit mode is the
+    # "captured from live state" shape, and state always reports a stale
+    # colorTemperatureK for a lamp running a DIY/scene/effect -- it must not
+    # be promoted to white.
+    if kelvin is not None and explicit_mode not in ("white", "basic"):
+        if explicit_mode is None:
+            return ("temperature taken from state with no explicit mode; "
+                    "not authored as white (add mode: white to keep this row)")
+        return (f"mode {explicit_mode!r} does not match a white temperature")
+
+    if colour is not None and explicit_mode not in ("colour", "color", "basic"):
+        if explicit_mode is None:
+            return ("colour taken from state with no explicit mode; "
+                    "not authored as colour (add mode: basic to keep this row)")
+        return (f"mode {explicit_mode!r} does not match a colour")
+
     base: dict[str, Any] = {"device_id": mac, "power": True, "brightness": brightness}
     if kelvin is not None:
         if isinstance(kelvin, bool) or not isinstance(kelvin, int):
