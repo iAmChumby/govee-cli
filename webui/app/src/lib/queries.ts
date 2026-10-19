@@ -37,6 +37,7 @@ import {
   type SegmentCalibrationRequest,
 } from "@/lib/api";
 import {
+  clearIntents,
   isPending,
   recordIntent,
   reconcile,
@@ -44,6 +45,10 @@ import {
   type IntentPatch,
 } from "@/lib/intent";
 import { announce } from "@/lib/announce";
+import {
+  commandIntentFields,
+  failedGroupMembers,
+} from "@/lib/group-rollback";
 import { useToast } from "@/components/ui/toaster";
 
 export const POLL_MS = 10_000;
@@ -397,7 +402,24 @@ export interface GroupRunVars {
   members: string[];
 }
 
-/** Broadcast a CLI-style command to a group; records intents per member. */
+/** What #18's snapshot/restore captures for one broadcast. */
+interface GroupRunContext {
+  /** pre-broadcast ["devices"] list cache — what the plates honestly showed */
+  devicesPrevious: DeviceSummary[] | undefined;
+  /** pre-broadcast ["group-state", name] cache, if a group page was open */
+  groupStatePrevious: unknown;
+  vars: GroupRunVars;
+}
+
+/** Broadcast a CLI-style command to a group; records intents per member.
+ *
+ * #18: mirrors `useOptimisticDeviceMutation`'s snapshot/restore. A failed
+ * broadcast stops asserting the commanded value — on a total error the
+ * captured caches are restored and every member's just-recorded intents
+ * are cleared from the ledger, so `reconcile` can no longer overlay them
+ * onto honest reads; a partial failure clears only the members whose own
+ * result row failed. Successful members keep their intents so their
+ * plates still hold through the cloud's 2–6 s read lag. */
 export function useGroupRun() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -405,15 +427,26 @@ export function useGroupRun() {
   return useMutation({
     mutationFn: ({ name, vars }: { name: string; vars: GroupRunVars }) =>
       api.runGroupCommand(name, vars.command),
-    onMutate: ({ name, vars }) => {
-      void name;
+    onMutate: ({ name, vars }): GroupRunContext => {
+      // Snapshot before any intent can leak into a poll's reconcile.
+      const devicesPrevious = queryClient.getQueryData<DeviceSummary[]>([
+        "devices",
+      ]);
+      const groupStatePrevious = queryClient.getQueryData(["group-state", name]);
       for (const ref of vars.members) {
         recordIntentForCommand(ref, vars.command);
       }
+      return { devicesPrevious, groupStatePrevious, vars };
     },
-    onSuccess: (data, { name, vars }) => {
+    onSuccess: (data, { name, vars }, context) => {
       void name;
       const failed = data.results.filter((r) => !r.ok);
+      // #18 partial failure: a member that errored never got the command —
+      // drop its intents so its plate reverts on the next read, not after
+      // the 12 s hold expires.
+      for (const ref of failedGroupMembers(context?.vars.members ?? vars.members, data)) {
+        clearIntents(ref, commandIntentFields(vars.command));
+      }
       if (data.ok) {
         toast({
           variant: "ok",
@@ -434,7 +467,24 @@ export function useGroupRun() {
         void queryClient.invalidateQueries({ queryKey: key });
       }
     },
-    onError: (err) => {
+    onError: (err, { name, vars }, context) => {
+      // #18 total failure: restore what the plates showed before the
+      // broadcast and clear every member's just-recorded intents — the
+      // app stops claiming the lights changed (house honesty rule).
+      if (context) {
+        if (context.devicesPrevious !== undefined) {
+          queryClient.setQueryData(["devices"], context.devicesPrevious);
+        }
+        if (context.groupStatePrevious !== undefined) {
+          queryClient.setQueryData(["group-state", name], context.groupStatePrevious);
+        }
+        const fields = commandIntentFields(vars.command);
+        for (const ref of failedGroupMembers(vars.members, null)) {
+          clearIntents(ref, fields);
+        }
+      }
+      void queryClient.invalidateQueries({ queryKey: ["devices"] });
+      void queryClient.invalidateQueries({ queryKey: ["group-state"] });
       toast({ variant: "error", title: "Group command failed", description: errMessage(err) });
     },
   }).mutateAsync;
