@@ -305,7 +305,10 @@ export function DevicePlate({ device }: { device: DeviceSummary }) {
         {confirmId > 0 ? <ConfirmPulse key={confirmId} id={confirmId} reduced={!!reduced} /> : null}
 
         <div className="flex items-center gap-2">
-          <StatusDot tone={device.online === false ? "off" : "ok"} />
+          <StatusDot
+            tone={device.online === false ? "off" : "ok"}
+            label={device.online === false ? "offline" : "online"}
+          />
           {/* WEBUI_V3_SPEC.md §11.6 T33: this Link's laid-out box was
               79x15 — `leading-none` with no vertical padding — and it is
               one of only two ways into the device console. `min-w-11`

@@ -262,7 +262,10 @@ export function DevicesSection() {
                 className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:gap-3"
               >
                 <span className="flex min-w-0 items-center gap-2.5 sm:w-44">
-                  <StatusDot tone={d.online === false ? "off" : "ok"} />
+                  <StatusDot
+                    tone={d.online === false ? "off" : "ok"}
+                    label={d.online === false ? "offline" : "online"}
+                  />
                   <span className="truncate text-[13px] font-medium text-hi">
                     {d.name ?? d.ref}
                   </span>

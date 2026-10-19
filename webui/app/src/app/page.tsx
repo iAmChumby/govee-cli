@@ -66,7 +66,10 @@ function Rail({ devices }: { devices: DeviceSummary[] }) {
               href={`/device/${encodeURIComponent(d.ref)}`}
               className="flex items-center gap-2.5 rounded-btn px-2.5 py-1.5 text-[13px] text-mid transition-colors duration-150 hover:bg-accent-dim hover:text-hi"
             >
-              <StatusDot tone={d.online === false ? "off" : "ok"} />
+              <StatusDot
+                tone={d.online === false ? "off" : "ok"}
+                label={d.online === false ? "offline" : "online"}
+              />
               <span className="truncate">{d.name ?? d.ref}</span>
               <span className="ml-auto font-mono text-[10px] text-low">
                 {d.model}
