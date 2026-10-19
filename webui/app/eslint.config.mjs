@@ -2,6 +2,12 @@ import { dirname } from "path";
 import { fileURLToPath } from "url";
 import { FlatCompat } from "@eslint/eslintrc";
 
+import classStrings, {
+  CLASS_STRING_PATTERNS,
+  literalSelector,
+  templateSelector,
+} from "./eslint-rules/no-restricted-class-strings.mjs";
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -24,34 +30,35 @@ const compat = new FlatCompat({
  * markup). Warning on the assertion would make the denominator un-flippable.
  * A test is not a control a user clicks.
  *
- * Flip criterion (wave 6): make both entries "error" once `npm run lint`
- * reports 0 warnings for both rules on the full src tree.
+ * Flip criterion (wave 6): make every entry below "error" once `npm run
+ * lint` reports 0 warnings for all of them on the full src tree.
+ *
+ * The class-string bans are defined once, in
+ * `eslint-rules/no-restricted-class-strings.mjs`, and read by BOTH halves of
+ * the gate:
+ *
+ *   - core `no-restricted-syntax` matches a single string node — a plain
+ *     string literal, or one quasi of a template literal. It sees every
+ *     class string written as a whole literal.
+ *   - the local `no-restricted-class-strings` rule sees the case core
+ *     cannot: a template literal whose banned token is SPLIT by an
+ *     interpolation, so no single quasi holds it. `text-[${n}px]` has the
+ *     type size in two pieces — "text-[" and "px]" — and neither piece
+ *     matches alone. Without this rule the gate would let a class string
+ *     built at runtime through while the same string written literally is
+ *     reported, which is exactly the gap a denominator must not have.
  */
 const primitive = (element, replacement) => ({
   element,
   message: `use ${replacement} (M2 — no raw <${element}> outside components/ui/).`,
 });
 
-const selector = (pattern, message) => ({
-  selector: `Literal[value=/${pattern}/]`,
-  message,
-});
-const templateSelector = (pattern, message) => ({
-  selector: `TemplateElement[value.raw=/${pattern}/]`,
-  message,
-});
-
-const bannedClassString = (pattern, message) => [
-  selector(pattern, message),
-  templateSelector(pattern, message),
+// Every pattern, as a core no-restricted-syntax entry: the plain literal
+// and the template quasi.
+const bannedClassString = (pattern) => [
+  { selector: literalSelector(pattern), message: pattern.message },
+  { selector: templateSelector(pattern), message: pattern.message },
 ];
-
-const TEXT_PX = String.raw`text-\[[0-9.]+px\]`;
-const DURATION = String.raw`duration-(\[[^\]]+\]|[0-9]+)`;
-// A bracketed length/percent. `text-[11px]` is reported by the text rule
-// instead, so the two do not double-count the same token.
-const DIMENSION = String.raw`(?<!text-)\[[0-9.]+(px|rem|em|ch|vh|vw|dvh|svh|lvh|%)\]`;
-const OUTLINE_NONE = String.raw`outline-none`;
 
 const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
@@ -67,6 +74,9 @@ const eslintConfig = [
   {
     files: ["src/**/*.{ts,tsx}"],
     ignores: ["src/components/ui/**", "src/**/*.test.ts", "src/**/*.test.tsx"],
+    plugins: {
+      "no-restricted-class-strings": classStrings,
+    },
     rules: {
       "react/forbid-elements": [
         "warn",
@@ -91,23 +101,11 @@ const eslintConfig = [
       ],
       "no-restricted-syntax": [
         "warn",
-        ...bannedClassString(
-          TEXT_PX,
-          "Arbitrary type size: use a --text-* rung (#27) instead of text-[Npx].",
-        ),
-        ...bannedClassString(
-          DURATION,
-          "Off-ladder duration: use a --dur-* / --motion-* token instead of duration-*.",
-        ),
-        ...bannedClassString(
-          DIMENSION,
-          "Bracketed dimension: declare it on the type/space scale (#27) instead.",
-        ),
-        ...bannedClassString(
-          OUTLINE_NONE,
-          "outline-none cancels the one focus ring (#12). Paint the ring instead.",
-        ),
+        ...CLASS_STRING_PATTERNS.flatMap((pattern) => bannedClassString(pattern)),
       ],
+      // The half of the class-string ban core cannot see: a template
+      // literal whose banned token an interpolation split in two.
+      "no-restricted-class-strings/no-restricted-class-strings": "warn",
     },
   },
 ];
