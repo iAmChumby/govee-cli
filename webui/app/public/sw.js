@@ -1,39 +1,48 @@
 /**
  * Filament Service Worker (#6)
  *
- * Caches the app shell and static assets only. The fetch handler
- * deliberately passes through anything that carries device state:
+ * Caches the app shell and static assets only. The cache is an ALLOWLIST:
+ * a request is cached only if its path is one of the shell/static shapes
+ * below. Everything else — most importantly every sidecar route under
+ * `/api/` — goes straight to the network.
  *
- *  - /api/v1/devices*      device list/state polls (10s), incl.
- *                          PUT /api/v1/devices/{ref}/active-mode — the
- *                          ledger-correction route, which writes the local
- *                          record of what we commanded and sends nothing
- *                          to the light (CLAUDE.md:391-393). Serving a
- *                          cached copy would assert a stale mode.
- *  - /api/v1/effects*      effect library + playing polls (3s).
+ * Why not a denylist: the previous version listed only
+ * `/api/v1/devices*` and `/api/v1/effects*`, so every other same-origin API
+ * GET was cached by default — `/health` (scheduler owner, crontab),
+ * `/schedules`, `/schedules/external` (wake-ramp armed), `/meter`, `/rooms`,
+ * `/groups`, `/config/cities`, and any route added later. An installed PWA
+ * then opened showing stale state, which claims something the sidecar
+ * cannot currently confirm (CLAUDE.md's honesty rule).
  *
- * Contract asserted by src/lib/sw.test.ts (CI gate).
+ * Contract asserted by src/lib/sw.test.ts (CI gate), which extracts every
+ * path in src/lib/api.ts and proves none of them is ever cached.
  */
 
-const CACHE_NAME = "filament-shell-v1";
+const CACHE_NAME = "filament-shell-v2";
 const STATIC_ASSETS = ["/", "/manifest.webmanifest"];
 
-// Routes that must NEVER be served from the cache.
-const NEVER_CACHE_PATTERNS = [
-  /^\/api\/v1\/devices/, // includes .../active-mode by prefix
-  /^\/api\/v1\/devices\/.*\/active-mode/, // explicit: ledger correction
-  /^\/api\/v1\/effects/,
-];
+/**
+ * The only path shapes that may be served from (or written to) the cache:
+ * the shell document, the manifest, Next's immutable build output, the
+ * installed icons, and the favicon.
+ */
+function isShellOrStatic(pathname) {
+  if (pathname === "/") return true;
+  if (pathname === "/manifest.webmanifest") return true;
+  if (pathname === "/favicon.ico") return true;
+  if (pathname.startsWith("/_next/static/")) return true;
+  if (pathname.startsWith("/icons/")) return true;
+  return false;
+}
 
 function shouldCache(request) {
   const url = new URL(request.url);
   // Only ever cache same-origin GETs.
   if (request.method !== "GET") return false;
   if (url.origin !== location.origin) return false;
-  for (const pattern of NEVER_CACHE_PATTERNS) {
-    if (pattern.test(url.pathname)) return false;
-  }
-  return true;
+  // Belt and braces: the API is state, never shell — whatever else says.
+  if (url.pathname === "/api" || url.pathname.startsWith("/api/")) return false;
+  return isShellOrStatic(url.pathname);
 }
 
 self.addEventListener("install", (event) => {
