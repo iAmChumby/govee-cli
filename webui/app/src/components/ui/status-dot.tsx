@@ -24,6 +24,11 @@ const TONE_CLASSES: Record<StatusTone, string> = {
 };
 
 /**
+ * FROZEN (#34, after #15). The 7x7 dot, its tone classes and the labelled
+ * second channel are pinned in identity-classes.snapshot.json and its computed
+ * styles in both themes in identity-styles.snapshot.json. Promotion may not
+ * restyle it, and no future change may remove the `label` channel.
+ *
  * Presence dot with a slow breathe (ok/warn). `off` sits still.
  * sage/ember are status semantics only — never chrome decoration.
  *

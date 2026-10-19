@@ -33,6 +33,12 @@ export interface SwitchProps {
 }
 
 /**
+ * FROZEN (#34). The purge may promote this markup into primitives; it may not
+ * restyle it. The emitted classes are pinned in identity-classes.snapshot.json
+ * and the computed track/thumb/fill in both themes — including the prop-driven
+ * `hue` tint — in identity-styles.snapshot.json. Change either only with the
+ * change that needs it, and re-run `scripts/identity_styles.py check`.
+ *
  * Optical-bench toggle: a pill whose ON state fills the track with an
  * accent gradient (white in dark / ink in light) whose opacity is driven
  * through the registered custom property --glow-alpha (see tokens.css),

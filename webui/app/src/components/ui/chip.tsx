@@ -25,6 +25,11 @@ const TONE_CLASSES: Record<ChipTone, string> = {
 };
 
 /**
+ * FROZEN (#34). The five tone classes — including `signal`'s --dev-hue fill —
+ * and the computed neutral/accent chip in both themes are pinned in
+ * identity-classes.snapshot.json and identity-styles.snapshot.json. Promotion
+ * may not add, remove or restyle a tone.
+ *
  * Tiny hairline chip for model tags, transport tags, badges.
  */
 export function Chip({ tone = "neutral", className, ...rest }: ChipProps) {

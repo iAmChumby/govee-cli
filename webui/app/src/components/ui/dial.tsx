@@ -109,6 +109,12 @@ function clamp01(v: number): number {
 /* ------------------------------------------------------------------
    Component
    ------------------------------------------------------------------ */
+/**
+ * FROZEN (#34). The instrument's geometry, arc, knurled rim, machined face,
+ * indicator, readout and unit are pinned as emitted markup in
+ * identity-classes.snapshot.json and as computed styles in both themes in
+ * identity-styles.snapshot.json. Promotion may not redraw it.
+ */
 export function Dial({
   value,
   min = 0,
