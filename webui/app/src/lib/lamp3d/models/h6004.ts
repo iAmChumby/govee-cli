@@ -7,22 +7,25 @@
  *
  * ## What is published, and where
  *
- * Every number below comes from Target's own published specification for this
- * SKU, converted to model units by the lamp's stated width. One unit = the
- * lamp's 11" footprint, so the shade, the base and the shelves are all exactly
- * `1` unit across and the whole lamp is `56/11` tall. Keeping the real inch
- * figures beside each constant is the point: this file can be checked against
- * the product page rather than against someone's memory of it.
+ * Target's spec block gives the overall size, shade, base and bulb base; its
+ * Q&A gives the shelf spacing. One unit = the lamp's 11" footprint, so the
+ * shade, the base and the shelves are all exactly `1` unit across and the
+ * whole lamp is `56/11` tall. Keeping the real inch figures beside each
+ * constant is the point: this file can be checked against the product page
+ * rather than against someone's memory of it.
  *
- *   - overall            56" H x 11" W x 11" D
+ *   - overall            56" H x 11" W x 11" D        (spec block)
  *   - shade              cylindrical, 11.5" H, 11" top, 11" bottom, white
- *                        terylene fabric — a TRUE cylinder, top and bottom
- *                        widths are equal in the spec, so the wall's radius
- *                        is constant and not tapered
- *   - base               round, 11" dia x 1" H
+ *                        terylene fabric — a TRUE cylinder; the spec gives
+ *                        the same width at top and bottom                (spec)
+ *   - base               round, 11" dia x 1" H                           (spec)
  *   - shelves            two, "14 1/8" off the floor and also apart from
- *                        each other"
- *   - frame              black metal, E26 socket, pull chain
+ *                        each other"                                      (Q&A)
+ *   - frame              black metal, E26 socket, pull chain              (photos)
+ *
+ * The Q&A source is Target's answer on the A-90025032 product page (2026-10-19):
+ * *"Please see assembly instructions attached. … They shelves are 14 1/8" off
+ * the floor and also apart from each other."* It is not in the spec block.
  *
  * ## What is inferred from the photos, and why
  *
