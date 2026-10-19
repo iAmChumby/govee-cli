@@ -116,6 +116,14 @@ async def capture_room(request: Request, body: RoomSceneCaptureRequest) -> dict[
         # ledger exists to prevent, one level earlier. For any other mode the
         # basic fields are dropped (None) so plan_restore() never replays a
         # guessed colour.
+        #
+        # Boundary, not a gap to close here: this trusts the ledger, so a lamp
+        # last commanded `basic` by us but switched to a scene in the phone app
+        # still reads as `basic`, and state["active"].confidence is deliberately
+        # not consulted (see overlay_active_mode: "external" only proves the
+        # ledger is stale, not that the state read is genuine). The cloud
+        # exposes no ground truth for scene state, so there is no stronger
+        # signal available — hardcoding a heuristic would be the same guess.
         if mode == "basic":
             color_rgb = (state.get("color") or {}).get("rgb")
             color_temp_k = state.get("color_temp_k")

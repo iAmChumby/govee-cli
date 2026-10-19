@@ -6,13 +6,15 @@
       "model": "H6056",
       "power": "on",
       "brightness": 50,
-      "color_temp_k": 2700
+      "color_temp_k": 2700,
+      "mode": "white"
     },
     "Shelf Lamp": {
       "model": "H6022",
       "power": "on",
       "brightness": 60,
-      "color_temp_k": 2700
+      "color_temp_k": 2700,
+      "mode": "white"
     },
     "Lamp Front": {
       "model": "H6008",

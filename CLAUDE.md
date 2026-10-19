@@ -397,11 +397,24 @@ user who thinks it commands the light will mis-set the ledger.
 `/device/state` always reports a stale `colorTemperatureK` (and often a stale
 `colorRgb`) for a lamp running a DIY/scene/music/segment/effect, and both
 `capture_room` and `govee-cli room import-profiles` now drop those values unless
-the device's mode is known to be `basic`. Scenes captured or imported before that
-fix can still contain a `color`/`color_temp_k` on a row whose `mode` is not
-`basic`; those rows are not trustworthy. Re-capture or hand-edit any such scene
-(set the field to `null`, or set the correct mode/label/payload) before relying
-on it, especially `sleep mode`, `day`, `Day Time` and `relax`.
+there is confirming evidence that the device is really in `basic`: the ledger
+said `basic` at capture time (same moment as the read), or the profile entry
+declared `mode: "white"` / `"colour"` / `"basic"` itself.
+
+So **do not test a pre-fix row by looking at its `mode`** — an imported stale row
+lands as `mode: "basic"` with a `color_temp_k`, exactly like a genuine one, which
+is the sleep-mode incident row. Any `color`/`color_temp_k` present on a scene
+written before 2026-10-19 is unverified until you confirm what the device was
+actually running then: re-capture it, or hand-edit the row (set the field to
+`null`, or set the correct mode/label/payload). Check `sleep mode`, `day`,
+`Day Time` and `relax` — all four are import-origin, which is the case this note
+exists for.
+
+Known boundary, not a bug to chase: capture trusts the ledger. A lamp last
+commanded `basic` here but switched to a scene in the phone app still reads as
+`basic`, and `_basic_confidence` says `confirmed` when the stale value happens to
+equal the last payload. The cloud exposes no ground truth for scene state, so
+there is no stronger signal to check.
 
 **`resolve_ref` falls back to treating any MAC-shaped string as an ad-hoc BLE
 address, and mock mode does not cover BLE** — it fakes only the HTTP client. Any
