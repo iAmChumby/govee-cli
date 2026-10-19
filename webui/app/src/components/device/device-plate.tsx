@@ -106,7 +106,7 @@ function FirstLightBurst({ id, reduced }: { id: number; reduced: boolean }) {
       <span
         key={id}
         aria-hidden
-        className="pointer-events-none absolute inset-0 rounded-stage opacity-70 transition-opacity duration-150"
+        className="pointer-events-none absolute inset-0 rounded-stage opacity-70 transition-opacity duration-motion-150"
         style={{ backgroundColor: "hsl(var(--dev-hue) var(--dev-sat) 85%)" }}
         ref={(el) => {
           if (!el) return;
@@ -337,12 +337,12 @@ export function DevicePlate({ device }: { device: DeviceSummary }) {
           href={href}
           onClick={onOpen}
           aria-label={`Open ${name} console`}
-          className="group/stage relative mt-3 block aspect-[4/3] rounded-stage focus-visible:outline-none focus-visible:ring-(length:--focus-ring-width) focus-visible:ring-(--focus-ring) sm:aspect-[16/10]"
+          className="group/stage relative mt-3 block aspect-[4/3] rounded-stage focus-visible:focus-ring-painted focus-visible:ring-(length:--focus-ring-width) focus-visible:ring-(--focus-ring) sm:aspect-[16/10]"
         >
           <LampStage
             state={device}
             variant="mini"
-            className="h-full transition-colors duration-200 group-hover/stage:border-hairline-strong"
+            className="h-full transition-colors duration-motion-200 group-hover/stage:border-hairline-strong"
           />
           {burstId > 0 ? <FirstLightBurst key={burstId} id={burstId} reduced={!!reduced} /> : null}
         </Link>
@@ -420,8 +420,8 @@ export function DevicePlate({ device }: { device: DeviceSummary }) {
                 <span
                   aria-hidden
                   className={cn(
-                    "block h-6 w-6 rounded-full border transition-all duration-150",
-                    active ? "border-[3px] scale-110" : "border-hairline hover:scale-110 hover:border-hairline-strong",
+                    "block h-6 w-6 rounded-full border transition-all duration-motion-150",
+                    active ? "border-active scale-110" : "border-hairline hover:scale-110 hover:border-hairline-strong",
                   )}
                   style={{
                     background: hex,
@@ -450,7 +450,7 @@ export function DevicePlate({ device }: { device: DeviceSummary }) {
                 aria-pressed={active}
                 onClick={() => void controls.temperature({ ref: device.ref, vars: kelvin })}
                 className={cn(
-                  "flex h-11 shrink-0 cursor-pointer items-center justify-center rounded-btn border px-3 font-mono text-data leading-none transition-colors duration-150",
+                  "flex h-11 shrink-0 cursor-pointer items-center justify-center rounded-btn border px-3 font-mono text-data leading-none transition-colors duration-motion-150",
                   active
                     ? "border-hairline-strong bg-accent-dim text-hi"
                     : "border-hairline text-low hover:border-hairline-strong hover:text-hi",

@@ -112,14 +112,14 @@ function DiyRow({ scene, active, pending, onApply }: DiyRowProps) {
       aria-pressed={active}
       aria-label={`Apply DIY style ${scene.name}`}
       className={cn(
-        "group flex w-full cursor-pointer items-center gap-3 rounded-card border bg-raised px-3 py-2.5 text-left transition-colors duration-150 hover:border-hairline-strong",
+        "group flex w-full cursor-pointer items-center gap-3 rounded-card border bg-raised px-3 py-2.5 text-left transition-colors duration-motion-150 hover:border-hairline-strong",
         active ? "border-hairline-strong ring-1 ring-accent" : "border-hairline",
       )}
     >
       {/* left accent edge — content gradient, distinct from full thumbs */}
       <span
         aria-hidden
-        className="h-8 w-[3px] shrink-0 rounded-full"
+        className="h-8 w-space-3 shrink-0 rounded-full"
         style={{ background: gradient }}
       />
 

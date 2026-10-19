@@ -34,7 +34,7 @@ import { useCaptureRoom, useDeleteRoom, useDevices } from "@/lib/queries";
 // taller intrinsic content size the way a shared primitive's floor has to
 // guard against.
 const INPUT_CLASS =
-  "h-9 w-full rounded-btn border border-hairline bg-raised px-3 text-body text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong pointer-coarse:h-11 pointer-coarse:text-base";
+  "h-9 w-full rounded-btn border border-hairline bg-raised px-3 text-body text-hi transition-colors duration-motion-150 placeholder:text-low focus-visible:border-hairline-strong pointer-coarse:h-11 pointer-coarse:text-base";
 
 function errMessage(err: unknown): string {
   return err instanceof ApiError ? err.message : String(err);

@@ -78,7 +78,7 @@ function StaticSilhouette({ resolved }: { resolved: ResolvedLampState }) {
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
       <div
-        className="h-[56%] w-[32%] rounded-[46%_46%_18%_18%/58%_58%_14%_14%] transition-colors duration-300"
+        className="h-[var(--relative-stage-halo-height)] w-[var(--relative-stage-halo-width)] rounded-stage-halo transition-colors duration-motion-300"
         style={{ backgroundColor: color, opacity }}
       />
     </div>
@@ -109,7 +109,7 @@ function ActiveModeReset({ deviceRef }: { deviceRef: string }) {
       title="Not what I see — reset"
       onClick={handleReset}
       disabled={busy}
-      className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-low transition-colors duration-150 hover:text-hi active:scale-95 disabled:opacity-40"
+      className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-low transition-colors duration-motion-150 hover:text-hi active:scale-95 disabled:opacity-40"
     >
       <RotateCcw aria-hidden className="h-3.5 w-3.5" />
     </button>
@@ -516,7 +516,7 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
           "absolute inset-0",
           mini
             ? "pointer-events-none"
-            : "pointer-events-auto touch-pan-y focus-visible:outline-none focus-visible:ring-(length:--focus-ring-width) focus-visible:ring-(--focus-ring)",
+            : "pointer-events-auto touch-pan-y focus-visible:focus-ring-painted focus-visible:ring-(length:--focus-ring-width) focus-visible:ring-(--focus-ring)",
         )}
       />
 
@@ -539,7 +539,7 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
               rescue them because touch has no hover (CLAUDE.md). Measured at
               390px: "madisonnnn — DIY scene, assumed, colour unknown, 0s ago"
               overflowed and lost its tail, so the one caption whose text may
-              never go missing was the one being cut. `max-w-[68%]` keeps it
+              never go missing was the one being cut. `max-w-[var(--relative-stage-caption-width)]` keeps it
               clear of the chooser control sharing this row, and `leading-snug`
               replaces `leading-none` so wrapped lines do not collide. */}
           {resolved.caption === "mode unknown — no ledger record" ? (
@@ -549,7 +549,7 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
               animate={{ opacity: [0.5, 1, 0.5, 1] }}
               transition={{ duration: 1, ease: "easeInOut" }}
               className={cn(
-                "relative z-20 min-w-0 max-w-[68%] rounded-chip border border-hairline bg-bg/95 px-1.5 py-0.5 font-mono leading-snug tracking-micro text-low pointer-coarse:whitespace-normal pointer-coarse:break-words",
+                "relative z-20 min-w-0 max-w-[var(--relative-stage-caption-width)] rounded-chip border border-hairline bg-bg/95 px-1.5 py-0.5 font-mono leading-snug tracking-micro text-low pointer-coarse:whitespace-normal pointer-coarse:break-words",
                 "text-data",
               )}
             >
@@ -558,7 +558,7 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
           ) : (
             <span
               className={cn(
-                "relative z-20 min-w-0 max-w-[68%] rounded-chip border border-hairline bg-bg/95 px-1.5 py-0.5 font-mono leading-snug tracking-micro text-low pointer-coarse:whitespace-normal pointer-coarse:break-words",
+                "relative z-20 min-w-0 max-w-[var(--relative-stage-caption-width)] rounded-chip border border-hairline bg-bg/95 px-1.5 py-0.5 font-mono leading-snug tracking-micro text-low pointer-coarse:whitespace-normal pointer-coarse:break-words",
                 "text-data",
               )}
             >
