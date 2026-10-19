@@ -219,6 +219,7 @@ function RotateHint() {
 
 export function LampStage({ state, variant = "full", className }: LampStageProps) {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
+  const stageRef = React.useRef<HTMLDivElement | null>(null);
   const { resolved, webglAvailable } = useLampStage({ containerRef, state, variant });
   const mini = variant === "mini";
   const name = state.name ?? state.ref;
@@ -241,6 +242,102 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
   }, []);
   useDismissRotateHintOnFirstDrag(containerRef, !mini && !hintDismissed, dismissHint);
 
+  // The stage's rounded bottom corners cannot be clipped by the container's
+  // `overflow-hidden`: the shared `WebGLRenderer` canvas is a `fixed` element
+  // outside this subtree, and the rectangle each view is drawn into is a
+  // square `gl.scissor` rect. The render therefore paints past the rounded
+  // border at the bottom two corners, where the lit ground plane is opaque.
+  //
+  // A mask *inside* the stage cannot fix that: `overflow-hidden` clips its
+  // outward `box-shadow` back to the rounded border (verified — only a
+  // hairline survived), and at `lg` the sticky `<section>` ancestor creates
+  // a stacking context that keeps any `z-20` child below the canvas. So the
+  // same paint-only mask is mounted on `document.body` as a fixed overlay:
+  // it inherits nothing, so the surface colour is copied from the stage; the
+  // bottom-half `clip-path` keeps only the two bottom corner wedges, never
+  // the stage or the TopBar. It paints nothing but those wedges and never
+  // touches the viewport, scissor rects, or camera.
+  React.useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    const mask = document.createElement("div");
+    mask.setAttribute("aria-hidden", "true");
+    mask.className = "pointer-events-none fixed z-30 rounded-stage";
+    mask.style.clipPath = "inset(50% 0 0 0)";
+    document.body.appendChild(mask);
+
+    const bleed = stage.closest(".dev-bleed");
+    const surfaceOf = (): string => {
+      // The overlay lives at body level, so it does not inherit the card's
+      // --dev-* tokens. Read the resolved surface colour instead: the bleed
+      // panel's computed background (or the nearest opaque ancestor for a
+      // non-bleed card).
+      let el: Element | null = bleed ?? stage.parentElement;
+      while (el) {
+        const bg = window.getComputedStyle(el).backgroundColor;
+        if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") {
+          return bg;
+        }
+        el = el.parentElement;
+      }
+      return "var(--panel)";
+    };
+
+    const scroller = stage.closest("main");
+    const update = (): void => {
+      const rect = stage.getBoundingClientRect();
+      const view = scroller?.getBoundingClientRect();
+      const visible =
+        rect.width > 0 &&
+        rect.height > 0 &&
+        rect.bottom > (view?.top ?? 0) &&
+        rect.top < (view?.bottom ?? window.innerHeight);
+      mask.style.display = visible ? "block" : "none";
+      if (!visible) return;
+      const cs = window.getComputedStyle(stage);
+      mask.style.left = `${rect.left}px`;
+      mask.style.top = `${rect.top}px`;
+      mask.style.width = `${rect.width}px`;
+      mask.style.height = `${rect.height}px`;
+      mask.style.borderRadius = cs.borderRadius;
+      mask.style.boxShadow = `0 0 0 100px ${surfaceOf()}`;
+    };
+
+    update();
+    // The stage can still be moving when the effect first runs (the page's
+    // entrance transition), so settle it once afterwards as well.
+    const settle = window.setTimeout(update, 500);
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    const observer = new ResizeObserver(update);
+    observer.observe(stage);
+
+    // Theme and per-device hue can change without a scroll/resize.
+    const themeObserver = new MutationObserver(update);
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class", "data-theme", "style"],
+    });
+    const surfaceObserver = new MutationObserver(update);
+    if (bleed) {
+      surfaceObserver.observe(bleed, {
+        attributes: true,
+        attributeFilter: ["class", "style"],
+      });
+    }
+
+    return () => {
+      window.clearTimeout(settle);
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+      observer.disconnect();
+      themeObserver.disconnect();
+      surfaceObserver.disconnect();
+      mask.remove();
+    };
+  }, []);
+
   // Both controls are full-stage only: a plate is nested inside a `<Link>`
   // on the dashboard, and a second interactive element in there is both
   // invalid HTML and hijacks the card's navigation click. `showResetControl`
@@ -256,6 +353,7 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
 
   return (
     <div
+      ref={stageRef}
       role="group"
       aria-label={`${name} live stage`}
       className={cn(
