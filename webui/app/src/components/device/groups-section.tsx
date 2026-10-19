@@ -11,7 +11,7 @@ import {
 } from "@/lib/queries";
 import { cn } from "@/lib/cn";
 import { panelIn } from "@/lib/motion";
-import { QUICK_COLORS } from "@/components/device/device-plate";
+import { QUICK_COLORS } from "@/lib/color-tokens";
 
 /* ==================================================================
    GroupsSection — the dashboard's broadcast panel (extracted from

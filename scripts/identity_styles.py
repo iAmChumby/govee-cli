@@ -186,6 +186,20 @@ def sha256(path: Path) -> str:
 
 
 def inputs() -> dict[str, str]:
+    """Every file the frozen identity depends on, hashed.
+
+    Two groups, and the difference matters:
+
+    * the frozen sources — the identity components themselves and the typed
+      token module. A class edit in one of them changes the markup
+      snapshot; a value edit changes this hash.
+    * the styling inputs — the CSS the identity is painted with, and the
+      document that decides which fonts and which stylesheet reach the page.
+      A token value, a base rule, a new stylesheet or a different font
+      family all land on the same elements as a class edit does, so they
+      are hashed here too (added in #34's follow-up: a restyle through a
+      third styling input must not pass the gate).
+    """
     files = {
         "webui/app/src/styles/tokens.css": APP / "src" / "styles" / "tokens.css",
         "webui/app/src/styles/globals.css": APP / "src" / "styles" / "globals.css",
@@ -195,7 +209,17 @@ def inputs() -> dict[str, str]:
         "webui/app/src/components/ui/chip.tsx": APP / "src" / "components" / "ui" / "chip.tsx",
         "webui/app/src/components/ui/section-label.tsx": APP / "src" / "components" / "ui" / "section-label.tsx",
         "webui/app/src/components/ui/dial.tsx": APP / "src" / "components" / "ui" / "dial.tsx",
+        # CONSENSUS.md:240 names Panel, Odometer and StatusStrip in the same
+        # breath as the rest of the identity set. They were not frozen in
+        # the first pass; these three entries are that gap closing.
+        "webui/app/src/components/ui/panel.tsx": APP / "src" / "components" / "ui" / "panel.tsx",
+        "webui/app/src/components/ui/odometer.tsx": APP / "src" / "components" / "ui" / "odometer.tsx",
+        "webui/app/src/components/shell/status-strip.tsx": APP / "src" / "components" / "shell" / "status-strip.tsx",
         "webui/app/src/components/shell/top-bar.tsx": APP / "src" / "components" / "shell" / "top-bar.tsx",
+        # QUICK_COLORS and the paint palette: typed tokens with one owner
+        # (#34 "QUICK_COLORS -> typed tokens"). The swatch values are part
+        # of the console's identity, so a palette edit fails the gate.
+        "webui/app/src/lib/color-tokens.ts": APP / "src" / "lib" / "color-tokens.ts",
     }
     missing = [k for k, p in files.items() if not p.exists()]
     if missing:

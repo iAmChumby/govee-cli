@@ -5,14 +5,18 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, it } from "vitest";
 
 import { Chip } from "./chip";
 import { Dial } from "./dial";
+import { Odometer } from "./odometer";
+import { Panel } from "./panel";
 import { SectionLabel } from "./section-label";
 import { Slider } from "./slider";
 import { StatusDot } from "./status-dot";
 import { Switch } from "./switch";
+import { StatusStrip } from "@/components/shell/status-strip";
 
 /**
  * #34 — freeze the identity components before the purge.
@@ -25,8 +29,10 @@ import { Switch } from "./switch";
  *     combinations that carry its identity (Switch neutral/hue/pending,
  *     Slider neutral/tinted with its value bubble, all three StatusDot tones
  *     with and without the #15 second channel, all five Chip tones,
- *     SectionLabel with and without its index, the Dial, the brand wordmark)
- *     and the exact emitted markup is compared with a committed snapshot;
+ *     SectionLabel with and without its index, the Dial, the brand wordmark,
+ *     and — per CONSENSUS.md:240 — Panel flat/raised/bleed, the Odometer at
+ *     both sizes, and the StatusStrip) and the exact emitted markup is
+ *     compared with a committed snapshot;
  *  2. tokens.css and globals.css — the other two inputs to every computed
  *     style — are hashed against the values recorded when the computed-style
  *     snapshot was taken.
@@ -144,6 +150,38 @@ function renderAll(): Record<string, { html: string; reason: string }> {
         onValueChange: noop,
       }),
       reason: "the instrument: 270-degree arc, 28 ticks, indicator, readout and unit",
+    },
+    "panel.flat": {
+      element: React.createElement(Panel, null, "content"),
+      reason: "CONSENSUS.md:240 names Panel: the signature flat container",
+    },
+    "panel.raised": {
+      element: React.createElement(Panel, { variant: "raised" }, "content"),
+      reason: "Panel's raised variant — one step up, for dialogs and popovers",
+    },
+    "panel.bleed": {
+      element: React.createElement(Panel, { bleed: true }, "content"),
+      reason: "Panel's Chassis/Signal card spill (`dev-bleed`)",
+    },
+    "odometer.sm": {
+      element: React.createElement(Odometer, { value: 70, suffix: "%" }),
+      reason: "CONSENSUS.md:240 names Odometer: the rolling numeric readout",
+    },
+    "odometer.lg": {
+      element: React.createElement(Odometer, { value: 70, suffix: "%", size: "lg" }),
+      reason: "the odometer's instrument-cluster size (`text-display-lg`)",
+    },
+    "statusstrip": {
+      element: React.createElement(
+        QueryClientProvider,
+        { client: new QueryClient() },
+        React.createElement(StatusStrip, null),
+      ),
+      reason:
+        "CONSENSUS.md:240 names StatusStrip: the app's bottom rail. Rendered " +
+        "with an empty query cache, so the snapshot pins the shell's own " +
+        "classes (the queries' pending state is deterministic: the clock " +
+        "reads --:--:-- before its first tick).",
     },
   };
 

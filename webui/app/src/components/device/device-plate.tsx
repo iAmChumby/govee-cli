@@ -8,6 +8,7 @@ import { motion, useReducedMotion } from "motion/react";
 import { Chip, Odometer, Panel, Slider, StatusDot, Switch } from "@/components/ui";
 import { LampStage } from "@/lib/lamp3d/LampStage";
 import { prefersColorTemp, type Hsl } from "@/components/stage/color";
+import { QUICK_COLORS } from "@/lib/color-tokens";
 import type { DeviceSummary } from "@/lib/api";
 import { useDeviceBleed } from "@/lib/device-bleed";
 import { dominantHsl } from "@/lib/motion-engine/dominant-hsl";
@@ -27,17 +28,6 @@ import { cn } from "@/lib/cn";
 
 /** Compact temperature presets — inside every registered model's range. */
 export const TEMP_PRESETS = [2700, 4000, 6500] as const;
-
-/** Six quick colors, shared with the device console's paint palette and
- *  the dashboard's group broadcast row (see groups-section.tsx). */
-export const QUICK_COLORS = [
-  "#FF4545",
-  "#FFA53D",
-  "#FFD23D",
-  "#46D06A",
-  "#3D7BFF",
-  "#EAF2FF",
-] as const;
 
 /**
  * "The one colour this device is emitting right now", for the card's bleed.

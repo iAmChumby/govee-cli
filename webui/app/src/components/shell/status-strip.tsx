@@ -139,6 +139,11 @@ function BudgetCount({ budget }: { budget: BudgetReadoutValue }) {
 }
 
 /**
+ * FROZEN (#34). The purge may promote this markup into primitives; it may not
+ * restyle it. The emitted classes are pinned in identity-classes.snapshot.json
+ * and this file is hashed as a freeze input, so a class edit fails `npm test`.
+ * Change it only with the change that needs it.
+ *
  * Bottom status strip: sidecar health, mock badge, measured API latency,
  * rate-limit hint, ticking mono clock. Sits in the app frame's footer row.
  *

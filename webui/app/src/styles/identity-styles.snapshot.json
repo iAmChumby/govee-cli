@@ -1,9 +1,9 @@
 {
  "_meta": {
   "base": "http://127.0.0.1:6456",
-  "commit": "7d5ddbe254beb255a07542ecce362b8e2f1d1e3b",
+  "commit": "ff38f222b52241684c123e4b2ab88f4426c47f27",
   "note": "Computed styles of the seven identity components #34 freezes, recorded in a real Chromium. The CI test guards the inputs (component source, tokens.css, globals.css); `identity_styles.py check` re-measures a running app against this file.",
-  "recorded_at": "2026-10-19T20:49:01+00:00",
+  "recorded_at": "2026-10-19T21:36:37+00:00",
   "themes": [
    "dark",
    "light"
@@ -20,13 +20,17 @@
   }
  },
  "inputs": {
+  "webui/app/src/components/shell/status-strip.tsx": "94f27dcfc19f3be7434b1cb7149ef849a0b54477443a9544ffbd540c3708c817",
   "webui/app/src/components/shell/top-bar.tsx": "db166e731acddf2dd5f4edc38ab490255d9282de6c88335ae32e9ab02e5ea3ad",
   "webui/app/src/components/ui/chip.tsx": "6e9e77d56b5655a9273a83f446debe711574d36e2b361e8786dd9b3f70bc91a3",
   "webui/app/src/components/ui/dial.tsx": "926e61fa4f3046e2a6f7e3cec5832784823b9a7acafe6a8fe1e0ade1c970af7d",
+  "webui/app/src/components/ui/odometer.tsx": "4b4e86e913529f32fded7b58dbc78e1c6d02cb7ff56bcde9ab37ed5ad758b621",
+  "webui/app/src/components/ui/panel.tsx": "73b9a55e3486941c12ad2575c23605ea6ff30e897b2a44062de93a494d904261",
   "webui/app/src/components/ui/section-label.tsx": "15730104681b806d9126679a189546c8efc26f183fb99136e9f29cb3c5d5e579",
   "webui/app/src/components/ui/slider.tsx": "c69db0c7d2e8f4906a7ac2e489fec86345de833e7582e0a505bc779f8395ae13",
   "webui/app/src/components/ui/status-dot.tsx": "cf52265337e685ce96472271c2eb4fbe650ff8af237c21cd4318cf3c54b2d914",
   "webui/app/src/components/ui/switch.tsx": "e5f7dfdc6c8946c76a7a6c6ac0f7a1b48b45a558b7e398fa3f916bc91bd3d96f",
+  "webui/app/src/lib/color-tokens.ts": "297f181187eb676b3e3c1abb36196234192d8aceded9da01bacd29fa4d0f8e21",
   "webui/app/src/styles/globals.css": "ceab8a5074b07555a612d23c5041d65016fd6a3c55732297a9f78af20cbb7464",
   "webui/app/src/styles/tokens.css": "b670a90d411bfc553d21d6bbbb3a7aa24ce0fd8320b70f93e1611ec4ec299b49"
  },

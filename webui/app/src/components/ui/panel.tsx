@@ -18,6 +18,11 @@ export interface PanelProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 /**
+ * FROZEN (#34). The purge may promote this markup into primitives; it may not
+ * restyle it. The emitted classes are pinned in identity-classes.snapshot.json
+ * and this file is hashed as a freeze input, so a class edit fails `npm test`.
+ * Change it only with the change that needs it.
+ *
  * The signature container: a flat hairline-bordered rounded rectangle.
  * No offset rings, no registration marks, no shadows — per the v2
  * "optical" contract the drama lives in content, never in decoration.
