@@ -11,6 +11,7 @@ import { Box3, Vector3, type BufferGeometry, type Mesh } from "three";
 import { h6022Source } from "./h6022";
 import { h6056Source } from "./h6056";
 import { h6008Source } from "./h6008";
+import { h6004Source } from "./h6004";
 import { unknownSource } from "./unknown";
 import { acquireModel, releaseModel, modelCacheTestHooks } from "./source";
 import { ledCount, singleEmitterLayout, type LedLayout, type LedPlacement } from "./types";
@@ -402,6 +403,57 @@ describe("h6008Source", () => {
 
   it("disposes without throwing, twice (idempotent)", () => {
     const disposable = h6008Source.build(singleEmitterLayout());
+    expect(() => disposable.dispose()).not.toThrow();
+    expect(() => disposable.dispose()).not.toThrow();
+  });
+});
+
+describe("h6004Source", () => {
+  const model = h6004Source.build(singleEmitterLayout());
+
+  it("places exactly one emitter on a 1x1 layout", () => {
+    expect(model.leds.length).toBe(1);
+    expect(model.layout.rows).toBe(1);
+    expect(model.layout.cols).toBe(1);
+    expect(model.leds[0].index).toBe(0);
+  });
+
+  it("gives the emitter a unit-length upward normal", () => {
+    const [nx, ny, nz] = model.leds[0].normal;
+    expect(Math.abs(vecLength([nx, ny, nz]) - 1)).toBeLessThan(EPS);
+    expect(ny).toBeGreaterThan(0);
+  });
+
+  it("puts the emitter inside the shade, not at the centroid of a 56-inch pole", () => {
+    // The spill is thrown from this point. On a floor lamp the model's own
+    // mid-height lands around the lower shelf, where there is no light
+    // source — so this asserts the emitter is up in the shade instead.
+    const box = new Box3().setFromObject(model.object3D);
+    const shadeBottom = box.max.y - (11.5 / 56) * (box.max.y - box.min.y);
+    expect(model.leds[0].position[1]).toBeGreaterThan(shadeBottom);
+    expect(model.leds[0].position[1]).toBeLessThan(box.max.y);
+  });
+
+  it("stands on y = 0 and is far taller than it is wide, as a floor lamp is", () => {
+    const box = new Box3().setFromObject(model.object3D);
+    expect(Math.abs(box.min.y)).toBeLessThan(EPS);
+    // Published: 56" tall on an 11" footprint. The ratio is the check that
+    // survives any change of model unit.
+    const width = Math.max(box.max.x - box.min.x, box.max.z - box.min.z);
+    expect((box.max.y - box.min.y) / width).toBeCloseTo(56 / 11, 2);
+  });
+
+  it("keeps the shade a true cylinder — equal top and bottom radius, per the spec", () => {
+    // Target lists the shade as 11" at BOTH top and bottom. A taper here
+    // would be a fabrication, and would also put each row of a future
+    // multi-texel layout at its own radius (see h6022.ts).
+    const shade = model.diffusers[0];
+    const box = new Box3().setFromObject(shade);
+    expect(box.max.x - box.min.x).toBeCloseTo(box.max.z - box.min.z, 6);
+  });
+
+  it("disposes without throwing, twice (idempotent)", () => {
+    const disposable = h6004Source.build(singleEmitterLayout());
     expect(() => disposable.dispose()).not.toThrow();
     expect(() => disposable.dispose()).not.toThrow();
   });

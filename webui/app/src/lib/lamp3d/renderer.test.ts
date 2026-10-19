@@ -23,6 +23,7 @@ import {
   cameraFitDistance,
   computeFrameRects,
   dueForSlowRedraw,
+  planFrameDraws,
   isWebGLAvailable,
 } from "./renderer";
 
@@ -164,5 +165,53 @@ describe("cameraFitDistance", () => {
     // edge push out of frame, so the returned distance must always exceed it.
     const body = { radiusXZ: 3, halfHeight: 0.001 };
     expect(cameraFitDistance(body, 1)).toBeGreaterThan(body.radiusXZ);
+  });
+});
+
+describe("planFrameDraws", () => {
+  // The regression this guards: the redraw budget used to decide *presence*,
+  // not just animation rate. `renderFrame` skipped a slow-tier view entirely
+  // until its cadence came due, on the premise (stated in driver.ts) that
+  // "the rest hold their last frame". That premise is false here — the shared
+  // canvas is created without `preserveDrawingBuffer`, so the drawing buffer
+  // is cleared after every composite and a view that isn't drawn this frame
+  // is simply absent from it. With exactly `PLATE_CONCURRENCY_CAP` visible
+  // plates the `slow` set was always empty and nothing showed; the fifth
+  // device put a plate in `slow` and it visibly blinked ~4x/second.
+  const due = () => true;
+  const notDue = () => false;
+
+  it("draws every visible view, whichever side of the budget it fell on", () => {
+    const plan = planFrameDraws(["hero", "a"], ["b", "c"], notDue);
+    expect(plan.map((s) => s.view)).toEqual(["hero", "a", "b", "c"]);
+  });
+
+  it("recomputes the LED field for budgeted views", () => {
+    const plan = planFrameDraws(["a"], [], notDue);
+    expect(plan).toEqual([{ view: "a", recomputeField: true }]);
+  });
+
+  it("still draws a slow view that is not due, without recomputing its field", () => {
+    // The whole point of the fix: presence every frame, motion at the slow
+    // cadence. Dropping the draw is what made the lamp blink.
+    const plan = planFrameDraws([], ["b"], notDue);
+    expect(plan).toEqual([{ view: "b", recomputeField: false }]);
+  });
+
+  it("recomputes a slow view's field once its cadence comes due", () => {
+    const plan = planFrameDraws([], ["b"], due);
+    expect(plan).toEqual([{ view: "b", recomputeField: true }]);
+  });
+
+  it("consults the cadence per view, not once for the whole slow set", () => {
+    const plan = planFrameDraws([], ["b", "c"], (v) => v === "c");
+    expect(plan).toEqual([
+      { view: "b", recomputeField: false },
+      { view: "c", recomputeField: true },
+    ]);
+  });
+
+  it("emits nothing when no view is visible", () => {
+    expect(planFrameDraws([], [], due)).toEqual([]);
   });
 });

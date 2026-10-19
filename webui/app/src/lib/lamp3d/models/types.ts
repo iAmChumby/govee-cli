@@ -68,6 +68,9 @@ const MODEL_MATRIX: Readonly<Record<string, LedLayout>> = {
   H6022: { rows: 11, cols: 12, wrapCol: true },
   H6056: { rows: 2, cols: 48, wrapCol: false },
   H6008: { rows: 1, cols: 1, wrapCol: false },
+  // Same GVH-era single-zone bulb as the H6008 (transport.py reports 0x0
+  // for both): one controllable colour, so one emitter.
+  H6004: { rows: 1, cols: 1, wrapCol: false },
 };
 
 export function layoutFromCapabilities(
