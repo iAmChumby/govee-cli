@@ -26,7 +26,13 @@ export function markInAppNav(): void {
   hasNavigated = true;
 }
 
-/** Clear the flag. Used by tests and by a full unload of the document. */
+/**
+ * Clear the flag.
+ *
+ * The app never calls this: the flag is per document, so a reload gets a
+ * fresh module and a fresh false without anything being reset. It exists
+ * for the tests, which share one module instance across cases.
+ */
 export function resetInAppNav(): void {
   hasNavigated = false;
 }
