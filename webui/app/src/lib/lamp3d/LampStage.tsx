@@ -30,7 +30,15 @@ import { UnknownModeChooser } from "@/components/stage/mode-picker";
 import { brightnessGlow, type ResolvedLampState } from "./active-mode";
 import { type PointerInputKind, shouldClaimGesture } from "./controls";
 import { findScrollAncestor, useLampStage } from "./use-lamp-stage";
-import { intersectBox, maskClipPath, type Box } from "./stage-corner-mask";
+import {
+  findInlineCarrier,
+  intersectBox,
+  maskClipPath,
+  pickBackgroundIndex,
+  stepFollow,
+  type Box,
+  type FollowStep,
+} from "./stage-corner-mask";
 
 export interface LampStageProps {
   state: DeviceState | DeviceSummary;
@@ -275,22 +283,94 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
     mask.className = "pointer-events-none fixed z-30 rounded-stage";
     document.body.appendChild(mask);
 
-    const bleed = stage.closest(".dev-bleed");
-    const surfaceOf = (): string => {
-      // The overlay lives at body level, so it does not inherit the card's
-      // --dev-* tokens. Read the resolved surface colour instead: the bleed
-      // panel's computed background (or the nearest opaque ancestor for a
-      // non-bleed card).
-      let el: Element | null = bleed ?? stage.parentElement;
-      while (el) {
-        const bg = window.getComputedStyle(el).backgroundColor;
-        if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") {
-          return bg;
-        }
-        el = el.parentElement;
-      }
-      return "var(--panel)";
+    // The surface the wedge has to match. The overlay lives at body level,
+    // so it inherits none of the card's `--dev-*` tokens: the surface
+    // colour is read from the DOM instead. It is the `.dev-bleed` panel
+    // when the stage sits on a card, else the nearest opaque ancestor —
+    // the app frame's own `bg-bg` on the device page, where the stage is
+    // not on a card at all.
+    const surfaceChain: HTMLElement[] = [];
+    for (
+      let el: HTMLElement | null =
+        (stage.closest(".dev-bleed") as HTMLElement | null) ?? stage.parentElement;
+      el;
+      el = el.parentElement
+    ) {
+      surfaceChain.push(el);
+    }
+    const surfaceIndex = pickBackgroundIndex(
+      surfaceChain.map((candidate) => window.getComputedStyle(candidate).backgroundColor),
+    );
+    const surfaceElement = surfaceIndex >= 0 ? surfaceChain[surfaceIndex] : null;
+
+    let surfaceColor = "";
+    const readSurface = (): string =>
+      surfaceElement ? window.getComputedStyle(surfaceElement).backgroundColor : "";
+    const applySurface = (step: FollowStep): void => {
+      if (!step.changed) return;
+      surfaceColor = step.colour;
+      mask.style.boxShadow = `0 0 0 100px ${step.colour}`;
     };
+    const paintSurface = (): void => {
+      applySurface(stepFollow({ colour: surfaceColor, settled: 0 }, readSurface(), FOLLOW_SETTLED_READS));
+    };
+
+    // The card's surface is a MOVING target. `--dev-hue`/`--dev-alpha` are
+    // written on the card's root and the panel's background transitions
+    // over `--dur-slow`, so the mask has to follow the colour rather than
+    // freeze the one it read at mount — otherwise every console plate is
+    // painted in the untinted `--panel` colour while the card around it
+    // carries the device's tint.
+    //
+    // The element that actually carries those properties is the card's
+    // ROOT, an ancestor of the `.dev-bleed` panel, which only inherits
+    // them: the panel's own attributes never change, so watching the panel
+    // — as the first version of this mask did — never fired. The card
+    // writes them in an effect that runs after this one, so the carrier is
+    // resolved lazily and re-resolved on every tick until it appears.
+    let carrier: Element | null = null;
+    const carrierObserver = new MutationObserver(() => startFollowing());
+    function resolveCarrier(): void {
+      const found = findInlineCarrier(surfaceElement, "--dev-hue");
+      if (found === carrier) return;
+      carrierObserver.disconnect();
+      carrier = found;
+      if (carrier) {
+        carrierObserver.observe(carrier, { attributes: true, attributeFilter: ["style"] });
+      }
+    }
+
+    // While the surface is still moving, keep reading it: the card's
+    // background transitions for `--dur-slow` after the last write, and a
+    // mask frozen at the last write's colour would sit a visible step
+    // behind the card it is imitating. The poll stops as soon as the
+    // colour stops changing, so a settled card costs nothing.
+    const FOLLOW_INTERVAL_MS = 40;
+    const FOLLOW_SETTLED_READS = 3;
+    let followTimer: number | null = null;
+    let settledReads = 0;
+    function followSurface(): void {
+      resolveCarrier();
+      const step = stepFollow(
+        { colour: surfaceColor, settled: settledReads },
+        readSurface(),
+        FOLLOW_SETTLED_READS,
+      );
+      applySurface(step);
+      settledReads = step.settled;
+      if (!step.keepGoing) {
+        followTimer = null;
+        return;
+      }
+      followTimer = window.setTimeout(followSurface, FOLLOW_INTERVAL_MS);
+    }
+    function startFollowing(): void {
+      resolveCarrier();
+      paintSurface();
+      if (followTimer !== null) window.clearTimeout(followTimer);
+      settledReads = 0;
+      followTimer = window.setTimeout(followSurface, FOLLOW_INTERVAL_MS);
+    }
 
     const toBox = (r: DOMRect): Box => ({
       left: r.left,
@@ -328,10 +408,11 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
       mask.style.height = `${rect.height}px`;
       mask.style.borderRadius = cs.borderRadius;
       mask.style.clipPath = maskClipPath(maskBox, clipBox);
-      mask.style.boxShadow = `0 0 0 100px ${surfaceOf()}`;
+      paintSurface();
     };
 
     update();
+    startFollowing();
     // The stage can still be moving when the effect first runs (the page's
     // entrance transition), so settle it once afterwards as well.
     const settle = window.setTimeout(update, 500);
@@ -341,18 +422,14 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
     observer.observe(stage);
 
     // Theme and per-device hue can change without a scroll/resize.
-    const themeObserver = new MutationObserver(update);
+    const themeObserver = new MutationObserver(() => {
+      update();
+      startFollowing();
+    });
     themeObserver.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ["class", "data-theme", "style"],
     });
-    const surfaceObserver = new MutationObserver(update);
-    if (bleed) {
-      surfaceObserver.observe(bleed, {
-        attributes: true,
-        attributeFilter: ["class", "style"],
-      });
-    }
 
     return () => {
       window.clearTimeout(settle);
@@ -360,7 +437,8 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
       window.removeEventListener("resize", update);
       observer.disconnect();
       themeObserver.disconnect();
-      surfaceObserver.disconnect();
+      carrierObserver.disconnect();
+      if (followTimer !== null) window.clearTimeout(followTimer);
       mask.remove();
     };
   }, []);

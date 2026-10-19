@@ -100,3 +100,107 @@ export function maskClipPath(mask: Box, clip: Box | null): string {
   const i = maskClipInsets(mask, clip);
   return `inset(${i.top}px ${i.right}px ${i.bottom}px ${i.left}px)`;
 }
+
+/**
+ * A CSS background colour that can stand in for a surface.
+ *
+ * `getComputedStyle` reports an unset background as fully transparent, and
+ * a transparent background is not a colour anything can be painted over.
+ */
+export function isPaintableBackground(css: string): boolean {
+  return css !== "" && css !== "transparent" && css !== "rgba(0, 0, 0, 0)";
+}
+
+/**
+ * The index of the first background in a chain that can be painted over, or
+ * `-1` when the chain has none.
+ *
+ * The chain runs from the element the mask is imitating outwards: the
+ * `.dev-bleed` panel when the stage sits on a card, else the stage's own
+ * ancestors — the first opaque one is the surface the wedge has to match.
+ */
+export function pickBackgroundIndex(backgrounds: readonly string[]): number {
+  for (let i = 0; i < backgrounds.length; i += 1) {
+    if (isPaintableBackground(backgrounds[i])) return i;
+  }
+  return -1;
+}
+
+/**
+ * The minimum an element must expose to be searched for a custom property.
+ *
+ * Structural on purpose: the search is pure and testable without a DOM.
+ */
+export interface InlineStyleHost {
+  readonly parentElement: InlineStyleHost | null;
+  readonly style: { getPropertyValue(property: string): string };
+}
+
+/**
+ * The nearest ancestor (inclusive) whose **inline** style declares
+ * `property`.
+ *
+ * This is the element that actually carries a device card's `--dev-hue` and
+ * `--dev-alpha`: the card's own root, which `lib/device-bleed.ts` writes
+ * them on. The `.dev-bleed` panel is that root's *child* and only inherits
+ * them, so the panel's own attributes never change — reading the panel is
+ * how the first version of the corner mask missed every tint change and
+ * painted the corners in the untinted `--panel` colour.
+ *
+ * The card writes those properties in an effect that runs after the stage's
+ * own, so the carrier is resolved lazily and re-resolved on every tick
+ * until it appears.
+ */
+export function findInlineCarrier<T extends InlineStyleHost>(
+  start: T | null,
+  property: string,
+): T | null {
+  let el: InlineStyleHost | null = start;
+  while (el) {
+    if (el.style.getPropertyValue(property) !== "") return el as T;
+    el = el.parentElement;
+  }
+  return null;
+}
+
+/** What the follower remembers between reads. */
+export interface FollowState {
+  /** The colour the mask is painted in right now. */
+  colour: string;
+  /** How many consecutive reads have seen that same colour. */
+  settled: number;
+}
+
+/** What one read of the surface decided. */
+export interface FollowStep {
+  /** The colour the mask should be painted in now. */
+  colour: string;
+  /** Whether that is different from the colour it was painted in. */
+  changed: boolean;
+  /** Whether the follower should keep reading. */
+  keepGoing: boolean;
+  /** How many consecutive reads have now seen `colour`. */
+  settled: number;
+}
+
+/**
+ * One read of the card's surface colour.
+ *
+ * The card's background is a moving target — `--dev-hue`/`--dev-alpha` are
+ * written on the card's root and the panel's background transitions over
+ * `--dur-slow` — so the mask has to follow it rather than freeze the colour
+ * it read at mount. But a settled card must cost nothing, so the follower
+ * stops once the colour has stopped changing: `settledNeeded` consecutive
+ * identical reads end the follow.
+ */
+export function stepFollow(
+  state: FollowState,
+  read: string,
+  settledNeeded: number,
+): FollowStep {
+  const colour = isPaintableBackground(read) ? read : state.colour;
+  const settled = colour === state.colour ? state.settled + 1 : 0;
+  return { colour, changed: colour !== state.colour, keepGoing: settled < settledNeeded, settled };
+}
+
+
