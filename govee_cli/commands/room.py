@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Any, Callable
 
 import click
 
-from govee_cli import ledger, room_restore, room_scenes
+from govee_cli import room_restore, room_scenes
 from govee_cli.config import GoveeConfig, load_config
 from govee_cli.room_scenes import CapturedDevice
 from govee_cli.transport import get_spec
@@ -196,20 +196,9 @@ def _convert_device(
     # be promoted to white.
     if kelvin is not None and explicit_mode not in ("white", "basic"):
         if explicit_mode is None:
-            # Consult the ledger: a device whose recorded mode is basic may
-            # legitimately carry a temperature, even without an explicit mode
-            # in the profile entry.
-            try:
-                ledger_entry = ledger.read_one(mac)
-            except Exception:
-                ledger_entry = None
-            if ledger_entry is not None and ledger_entry.mode == "basic":
-                pass
-            else:
-                return ("temperature taken from state with no explicit mode; "
-                        "not authored as white")
-        else:
-            return (f"mode {explicit_mode!r} does not match a white temperature")
+            return ("temperature taken from state with no explicit mode; "
+                    "not authored as white")
+        return (f"mode {explicit_mode!r} does not match a white temperature")
 
     base: dict[str, Any] = {"device_id": mac, "power": True, "brightness": brightness}
     if kelvin is not None:
