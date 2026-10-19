@@ -63,7 +63,7 @@ export function GroupsSection() {
         // exactly (same 12px top margin, mono 11px, ember).
         <Panel
           style={{ borderWidth: 0, background: "transparent", padding: 0 }}
-          className="mt-3 font-mono text-label text-ember"
+          className="mt-3 font-mono text-data text-ember"
         >
           sidecar unreachable — groups unknown
         </Panel>
@@ -108,7 +108,7 @@ export function GroupsSection() {
                   label={d.online === false ? "offline" : "online"}
                 />
                 <span className="text-body text-hi">{d.name ?? d.ref}</span>
-                <span className="ml-auto font-mono text-label text-low">
+                <span className="ml-auto font-mono text-data text-low">
                   {d.power ? "on" : "off"} · {d.brightness ?? "?"}%
                 </span>
                 {d.color ? (
@@ -122,7 +122,7 @@ export function GroupsSection() {
             ))}
           </ul>
           {(state.data?.errors ?? []).map((e) => (
-            <p key={e.ref} className="py-1 font-mono text-label text-ember">
+            <p key={e.ref} className="py-1 font-mono text-data text-ember">
               {e.ref}: {e.message}
             </p>
           ))}
@@ -217,7 +217,7 @@ function GroupBroadcast({ name, members }: { name: string; members: string[] }) 
           ariaLabel={`${name} group brightness`}
           className="max-w-[280px] flex-1"
         />
-        <span className="font-mono text-micro text-low">
+        <span className="font-mono text-data text-low">
           {scrub !== null ? `${scrub}%` : "drag to set all"}
         </span>
       </div>

@@ -119,7 +119,7 @@ interface QueryErrorLineProps {
 export function QueryErrorLine({ message, onRetry }: QueryErrorLineProps) {
   return (
     <div className="flex items-center gap-3 rounded-card border border-ember/30 px-3 py-2.5">
-      <p className="min-w-0 font-mono text-label leading-relaxed text-ember">
+      <p className="min-w-0 font-mono text-data leading-relaxed text-ember">
         {message}
       </p>
       {onRetry ? (

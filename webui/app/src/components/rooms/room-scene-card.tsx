@@ -164,7 +164,7 @@ export function RoomSceneCard({
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             <p className="break-words text-title-sm font-medium leading-tight text-hi">{scene.name}</p>
-            <p className="mt-0.5 font-mono text-micro text-low">{formatCapturedAt(scene.created_at)}</p>
+            <p className="mt-0.5 font-mono text-data text-low">{formatCapturedAt(scene.created_at)}</p>
           </div>
           <div className="flex shrink-0 flex-wrap justify-end gap-1">
             <Chip>{scene.source === "authored" ? "authored" : "captured"}</Chip>
@@ -175,13 +175,13 @@ export function RoomSceneCard({
         </div>
 
         {scene.note ? (
-          <p className="mt-2 whitespace-normal break-words font-mono text-micro leading-snug text-low">
+          <p className="mt-2 whitespace-normal break-words font-mono text-data leading-snug text-low">
             {scene.note}
           </p>
         ) : null}
 
         {scene.unknown_count > 0 ? (
-          <p className="mt-2 flex items-start gap-1.5 font-mono text-micro leading-snug text-ember">
+          <p className="mt-2 flex items-start gap-1.5 font-mono text-data leading-snug text-ember">
             <AlertTriangle size={12} strokeWidth={1.75} aria-hidden className="mt-px shrink-0" />
             {scene.unknown_count} {scene.unknown_count === 1 ? "device was" : "devices were"} unknown
             at capture — skipped on restore, not guessed
@@ -224,7 +224,7 @@ export function RoomSceneCard({
         </div>
 
         {armDelete && !checkingRefs ? (
-          <p role="alert" className="mt-2 flex items-start gap-1.5 font-mono text-micro leading-snug text-ember">
+          <p role="alert" className="mt-2 flex items-start gap-1.5 font-mono text-data leading-snug text-ember">
             <AlertTriangle size={12} strokeWidth={1.75} aria-hidden className="mt-px shrink-0" />
             {references.isError
               ? "could not check which schedule rules use this scene — deleting may stop them firing"
@@ -242,7 +242,7 @@ export function RoomSceneCard({
             className="mt-3 space-y-1 overflow-hidden border-t border-hairline pt-2.5"
           >
             {lastRestore.results.map((step) => (
-              <li key={step.ref} className="flex flex-wrap items-start gap-1.5 font-mono text-micro leading-snug">
+              <li key={step.ref} className="flex flex-wrap items-start gap-1.5 font-mono text-data leading-snug">
                 {/* A skip gets its own mark. The route reports it as ok:true —
                     correctly, since nothing failed — but a green tick beside
                     the word "skipped" tells the eye the device was restored

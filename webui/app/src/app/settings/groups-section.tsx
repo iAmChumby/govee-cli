@@ -142,7 +142,7 @@ function CreateGroupDialog({
                       className="h-3.5 w-3.5 accent-accent"
                     />
                     <span className="truncate">{d.name ?? d.ref}</span>
-                    <span className="ml-auto font-mono text-micro text-low">{d.model}</span>
+                    <span className="ml-auto font-mono text-data text-low">{d.model}</span>
                   </label>
                 ))
               )}
@@ -150,7 +150,7 @@ function CreateGroupDialog({
           </Field>
 
           {errors.form ? (
-            <p role="alert" className="font-mono text-label leading-snug text-ember">
+            <p role="alert" className="font-mono text-data leading-snug text-ember">
               {errors.form}
             </p>
           ) : null}
@@ -256,13 +256,13 @@ export function GroupsSection() {
                       `title`. No fixed max-w on this element to lift; the
                       parent's `min-w-0 flex-1` already bounds it. */}
                   <p
-                    className="mt-0.5 truncate font-mono text-micro text-low pointer-coarse:whitespace-normal pointer-coarse:break-words"
+                    className="mt-0.5 truncate font-mono text-data text-low pointer-coarse:whitespace-normal pointer-coarse:break-words"
                     title={memberIds.map(nameOf).join(" · ")}
                   >
                     {memberIds.map(nameOf).join(" · ")}
                   </p>
                 </div>
-                <span className="shrink-0 font-mono text-label tabular-nums text-low">
+                <span className="shrink-0 font-mono text-data tabular-nums text-low">
                   {memberIds.length}
                 </span>
                 <ConfirmDeleteButton
@@ -275,7 +275,7 @@ export function GroupsSection() {
         )}
 
         {groups.isError ? (
-          <p className="mt-3 border-t border-hairline pt-3 font-mono text-label text-ember">
+          <p className="mt-3 border-t border-hairline pt-3 font-mono text-data text-ember">
             {errMessage(groups.error)}
           </p>
         ) : null}

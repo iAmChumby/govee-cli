@@ -127,14 +127,14 @@ function DiyRow({ scene, active, pending, onApply }: DiyRowProps) {
         {scene.name}
       </span>
 
-      <span className="font-mono text-micro text-low">
+      <span className="font-mono text-data text-low">
         #{scene.value}
       </span>
 
       {pending ? (
         <Spinner label={`applying ${scene.name}`} />
       ) : active ? (
-        <span className="font-mono text-nano uppercase leading-none tracking-caps text-accent">
+        <span className="font-mono text-data uppercase leading-none tracking-caps text-accent">
           playing
         </span>
       ) : null}

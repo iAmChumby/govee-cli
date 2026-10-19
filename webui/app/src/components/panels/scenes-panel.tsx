@@ -131,7 +131,7 @@ export function ScenesPanel({ deviceRef }: { deviceRef: string }) {
       {/* grid */}
       {scenes.data && !scenes.isError && all.length > 0 ? (
         filtered.length === 0 ? (
-          <p className="mt-3 font-mono text-label text-low">
+          <p className="mt-3 font-mono text-data text-low">
             no scenes match &ldquo;{query}&rdquo;
           </p>
         ) : (
@@ -202,7 +202,7 @@ function SceneCard({ scene, active, pending, onApply }: SceneCardProps) {
         <span className="block truncate text-data leading-tight text-hi">
           {scene.name}
         </span>
-        <span className="mt-1 flex items-center gap-1.5 font-mono text-nano uppercase leading-none tracking-caps text-low">
+        <span className="mt-1 flex items-center gap-1.5 font-mono text-data uppercase leading-none tracking-caps text-low">
           id {String(scene.scene_id).padStart(2, "0")}
           {active ? <span className="normal-case tracking-normal text-accent">· playing</span> : null}
         </span>

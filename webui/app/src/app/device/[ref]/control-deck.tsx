@@ -169,7 +169,7 @@ function HeaderPower({ refId, state, pending }: { refId: string; state: DeviceSt
   const controls = useDeviceControls();
   return (
     <div className="ml-auto flex items-center gap-2.5">
-      <span className="text-label uppercase tracking-micro text-low">
+      <span className="text-data uppercase tracking-micro text-low">
         {pending ? "syncing" : state.power === null ? "?" : state.power ? "on" : "off"}
       </span>
       <Switch
@@ -319,7 +319,7 @@ function LightTab({ refId, state }: ControlDeckProps) {
       <div>
         <div className="flex items-baseline justify-between">
           <SectionLabel index="02" title="temperature" />
-          <span className="font-mono text-label tabular-nums text-mid">
+          <span className="font-mono text-data tabular-nums text-mid">
             {tempScrub !== null || state.color_temp_k !== null
               ? `${Math.round(tempValue)}K`
               : "—"}
@@ -345,7 +345,10 @@ function LightTab({ refId, state }: ControlDeckProps) {
               onValueCommit={commitTemperature}
             />
           </div>
-          <span className="w-[9ch] text-right font-mono text-micro leading-none text-low">
+          {/* #16: 9ch was measured at 11px; at the 12px data rung the range
+              (e.g. "2700–6500") no longer fits and wrapped to two lines. The
+              box widens with the type, it does not shrink the type back. */}
+          <span className="w-[10ch] text-right font-mono text-data leading-none text-low">
             {tempMin}–{tempMax}
           </span>
         </div>
@@ -381,14 +384,14 @@ function ReadoutStrip({ state }: { state: DeviceState }) {
     <div className="mt-5 flex items-center gap-4 border-t border-hairline pt-4">
       <span className="flex items-center gap-2">
         <StatusDot tone={online ? "ok" : "off"} />
-        <span className="text-label uppercase tracking-micro text-low">
+        <span className="text-data uppercase tracking-micro text-low">
           {online ? "online" : "offline"}
         </span>
       </span>
 
       <span aria-hidden className="h-3 w-px bg-hairline" />
 
-      <span className="flex items-center gap-2 font-mono text-label text-mid">
+      <span className="flex items-center gap-2 font-mono text-data text-mid">
         {asTemp ? (
           `${state.color_temp_k}K`
         ) : state.color ? (

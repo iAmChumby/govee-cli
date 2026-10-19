@@ -154,7 +154,7 @@ function DeviceConsoleContent({ ref }: { ref: string }) {
                 fine-pointer desktops never match it at all.
               */}
               <LampStage state={state.data} className="h-[260px] sm:h-[380px] lg:h-[480px] pointer-coarse:landscape:h-[var(--stage-height-landscape)]" />
-              <p className="mt-3 max-md:mt-1.5 px-1 font-mono text-micro leading-relaxed max-md:leading-snug text-low">
+              <p className="mt-3 max-md:mt-1.5 px-1 font-mono text-data leading-relaxed max-md:leading-snug text-low">
                 {state.data.id}
                 {state.data.model === "H6022" ? " · 132-led 12×11 wrapped matrix" : ""}
                 {state.data.capabilities?.segments
@@ -206,7 +206,7 @@ function ErrorPanel({ message, onRetry }: { message: string; onRetry: () => void
   return (
     <Panel className="mt-4 border-ember/40 p-5">
       <p className="text-body font-medium text-hi">Device unavailable</p>
-      <p className="mt-1 font-mono text-label leading-relaxed text-mid">{message}</p>
+      <p className="mt-1 font-mono text-data leading-relaxed text-mid">{message}</p>
       <Button variant="ghost" size="sm" className="mt-4" onClick={onRetry}>
         <RefreshCw size={12} strokeWidth={1.75} aria-hidden />
         retry

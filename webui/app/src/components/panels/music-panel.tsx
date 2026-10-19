@@ -279,7 +279,7 @@ function MusicControls({ deviceRef, modes, active }: MusicControlsProps) {
             );
           })}
         </div>
-        <p className="mt-2 font-mono text-micro leading-relaxed text-low">
+        <p className="mt-2 font-mono text-data leading-relaxed text-low">
           {provenanceNote}
         </p>
       </StaggerItem>
@@ -324,7 +324,7 @@ function MusicControls({ deviceRef, modes, active }: MusicControlsProps) {
             ariaGroupLabel="Fixed music color"
           />
           {hex ? (
-            <span className="font-mono text-micro uppercase text-low">{hex}</span>
+            <span className="font-mono text-data uppercase text-low">{hex}</span>
           ) : null}
         </div>
         <p className="mt-2 font-mono text-micro leading-relaxed text-low">
@@ -338,7 +338,7 @@ function MusicControls({ deviceRef, modes, active }: MusicControlsProps) {
       {/* apply footer */}
       <StaggerItem className="mt-5 block">
         <div className="flex items-center gap-3 border-t border-hairline pt-4">
-          <span aria-live="polite" className="min-w-0 truncate font-mono text-label text-mid">
+          <span aria-live="polite" className="min-w-0 truncate font-mono text-data text-mid">
             {summary}
           </span>
           <Button

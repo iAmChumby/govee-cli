@@ -71,7 +71,7 @@ function Rail({ devices }: { devices: DeviceSummary[] }) {
                 label={d.online === false ? "offline" : "online"}
               />
               <span className="truncate">{d.name ?? d.ref}</span>
-              <span className="ml-auto font-mono text-micro text-low">
+              <span className="ml-auto font-mono text-data text-low">
                 {d.model}
               </span>
             </Link>
@@ -113,7 +113,7 @@ function GroupRailButton({ name }: { name: string }) {
       className="flex w-full cursor-pointer items-center gap-2.5 rounded-btn px-2.5 py-2 text-body text-mid transition-colors duration-150 hover:bg-accent-dim hover:text-hi"
     >
       {name}
-      <span className="ml-auto font-mono text-micro text-low">
+      <span className="ml-auto font-mono text-data text-low">
         {members.length}
       </span>
     </button>
@@ -158,7 +158,7 @@ export default function ConsolePage() {
                   <h1 className="text-xl font-semibold leading-tight tracking-display text-hi">
                     Console
                   </h1>
-                  <p className="mt-1 font-mono text-label text-low">
+                  <p className="mt-1 font-mono text-data text-low">
                     {devices.isLoading
                       ? "connecting…"
                       : `${list.length} devices · ${health.data?.mock ? "mock sidecar" : "live sidecar"} · v${health.data?.version ?? "?"}`}
@@ -245,7 +245,7 @@ export default function ConsolePage() {
                   : filtered.map((d) => <DevicePlate key={d.id} device={d} />)}
               </div>
               {!devices.isLoading && filtered.length === 0 && !devices.isError ? (
-                <p className="mt-3 font-mono text-label text-low">
+                <p className="mt-3 font-mono text-data text-low">
                   no devices match &ldquo;{query}&rdquo;
                 </p>
               ) : null}

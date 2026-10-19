@@ -426,7 +426,7 @@ export function Dial({
           {readout}
         </span>
         {unit ? (
-          <span className="mt-1 text-nano uppercase leading-none tracking-micro text-low">
+          <span className="mt-1 text-data uppercase leading-none tracking-micro text-low">
             {unit}
           </span>
         ) : null}

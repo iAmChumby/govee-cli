@@ -220,7 +220,7 @@ export function Slider({
             {showBubble ? (
               <span
                 className={cn(
-                  "pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 rounded-chip border border-hairline bg-raised px-1.5 py-0.5 font-mono text-micro leading-none text-hi transition-opacity duration-150",
+                  "pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 rounded-chip border border-hairline bg-raised px-1.5 py-0.5 font-mono text-data leading-none text-hi transition-opacity duration-150",
                   dragging ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100",
                 )}
               >

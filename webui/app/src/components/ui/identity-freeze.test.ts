@@ -246,10 +246,14 @@ describe("identity components are frozen (#34)", () => {
     assert.equal(value("statusdot.labelled.dot", "width"), "7px");
     assert.equal(value("sectionLabel.title", "font-size"), "11px");
     assert.equal(value("sectionLabel.index", "font-size"), "10px");
-    assert.equal(value("chip.neutral", "font-size"), "10px");
+    // #16 raised the two data-bearing sub-12px parts of the identity set
+    // (Chip carries model/transport/state tags; the Dial unit annotates a
+    // measurement). SectionLabel is explicitly out of #16's scope and stays
+    // at 10/11px above — that contrast is the scope guard working.
+    assert.equal(value("chip.neutral", "font-size"), "12px");
     assert.equal(value("dial.root", "width"), "160px");
     assert.equal(value("dial.readout", "font-size"), "14px");
-    assert.equal(value("dial.unit", "font-size"), "9px");
+    assert.equal(value("dial.unit", "font-size"), "12px");
     assert.equal(value("brand.wordmark", "font-size"), "17px");
 
     // Both themes must resolve to different ink; a frozen "style" that is the
@@ -262,5 +266,17 @@ describe("identity components are frozen (#34)", () => {
       value("chip.neutral", "color", "dark"),
       value("chip.neutral", "color", "light"),
     );
+
+    // #16 changes inside the identity set are deliberate and named: the
+    // Slider's value bubble and every Chip tone carry data. SectionLabel is
+    // explicitly outside #16's scope and must keep its frozen sizes.
+    const classes = JSON.parse(readFileSync(CLASS_SNAPSHOT, "utf8")) as Record<
+      string,
+      { html: string }
+    >;
+    assert.match(classes["slider.tinted"].html, /\btext-data\b/);
+    assert.match(classes["chip.signal"].html, /\btext-data\b/);
+    assert.match(classes["sectionLabel.index"].html, /\btext-micro\b/);
+    assert.match(classes["sectionLabel.index"].html, /\btext-label\b/);
   });
 });

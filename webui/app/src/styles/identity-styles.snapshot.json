@@ -1,9 +1,9 @@
 {
  "_meta": {
   "base": "http://127.0.0.1:6456",
-  "commit": "b9474bc3f563e194b97bd2874ba5c63a61f401e6",
+  "commit": "405d527eb2d212c92cbe17f72c75fce8e00bdfa1",
   "note": "Computed styles of the seven identity components #34 freezes, recorded in a real Chromium. The CI test guards the inputs (component source, tokens.css, globals.css); `identity_styles.py check` re-measures a running app against this file.",
-  "recorded_at": "2026-10-19T20:15:40+00:00",
+  "recorded_at": "2026-10-19T20:36:33+00:00",
   "themes": [
    "dark",
    "light"
@@ -21,10 +21,10 @@
  },
  "inputs": {
   "webui/app/src/components/shell/top-bar.tsx": "db166e731acddf2dd5f4edc38ab490255d9282de6c88335ae32e9ab02e5ea3ad",
-  "webui/app/src/components/ui/chip.tsx": "dd5f05bfb81088a48475fdf028e3df228251f6a280aa45743878349cf99d58c4",
-  "webui/app/src/components/ui/dial.tsx": "cd58e92d3e1782907a9aeea43c4fc4ac72eb21cf0e1baf4c9382e4f36291c852",
+  "webui/app/src/components/ui/chip.tsx": "6e9e77d56b5655a9273a83f446debe711574d36e2b361e8786dd9b3f70bc91a3",
+  "webui/app/src/components/ui/dial.tsx": "926e61fa4f3046e2a6f7e3cec5832784823b9a7acafe6a8fe1e0ade1c970af7d",
   "webui/app/src/components/ui/section-label.tsx": "15730104681b806d9126679a189546c8efc26f183fb99136e9f29cb3c5d5e579",
-  "webui/app/src/components/ui/slider.tsx": "93e30ead5732f502f290c3845578f34721d88bd982d11d8fb50a036f7e1f7784",
+  "webui/app/src/components/ui/slider.tsx": "c69db0c7d2e8f4906a7ac2e489fec86345de833e7582e0a505bc779f8395ae13",
   "webui/app/src/components/ui/status-dot.tsx": "cf52265337e685ce96472271c2eb4fbe650ff8af237c21cd4318cf3c54b2d914",
   "webui/app/src/components/ui/switch.tsx": "e5f7dfdc6c8946c76a7a6c6ac0f7a1b48b45a558b7e398fa3f916bc91bd3d96f",
   "webui/app/src/styles/globals.css": "41ed902850942e0da51d82656f7bc9d35482c5298d27c3cc470b08c92b802e7b",
@@ -206,7 +206,7 @@
    "route": "/device/Shelf%20Lamp",
    "selector": "span.rounded-chip.border.bg-accent-dim",
    "values": {
-    "@class": "inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-space-3 font-mono text-micro uppercase leading-none tracking-caps border-hairline-strong bg-accent-dim text-hi pointer-coarse:landscape:shrink-0",
+    "@class": "inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-space-3 font-mono text-data uppercase leading-none tracking-caps border-hairline-strong bg-accent-dim text-hi pointer-coarse:landscape:shrink-0",
     "@tag": "span",
     "animation-duration": "0s",
     "animation-name": "none",
@@ -227,12 +227,12 @@
     "column-gap": "4px",
     "fill": "rgb(0, 0, 0)",
     "font-family": "\"IBM Plex Mono\", \"IBM Plex Mono Fallback\", \"IBM Plex Mono\", ui-monospace, \"Cascadia Mono\", monospace",
-    "font-size": "10px",
+    "font-size": "12px",
     "font-style": "normal",
     "font-weight": "400",
-    "height": "18px",
-    "letter-spacing": "0.8px",
-    "line-height": "10px",
+    "height": "20px",
+    "letter-spacing": "0.96px",
+    "line-height": "12px",
     "opacity": "1",
     "padding-bottom": "3px",
     "padding-left": "6px",
@@ -241,7 +241,7 @@
     "stroke": "none",
     "stroke-width": "1px",
     "text-transform": "uppercase",
-    "width": "48px"
+    "width": "54.8125px"
    }
   },
   "chip.accent.light": {
@@ -249,7 +249,7 @@
    "route": "/device/Shelf%20Lamp",
    "selector": "span.rounded-chip.border.bg-accent-dim",
    "values": {
-    "@class": "inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-space-3 font-mono text-micro uppercase leading-none tracking-caps border-hairline-strong bg-accent-dim text-hi pointer-coarse:landscape:shrink-0",
+    "@class": "inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-space-3 font-mono text-data uppercase leading-none tracking-caps border-hairline-strong bg-accent-dim text-hi pointer-coarse:landscape:shrink-0",
     "@tag": "span",
     "animation-duration": "0s",
     "animation-name": "none",
@@ -270,12 +270,12 @@
     "column-gap": "4px",
     "fill": "rgb(0, 0, 0)",
     "font-family": "\"IBM Plex Mono\", \"IBM Plex Mono Fallback\", \"IBM Plex Mono\", ui-monospace, \"Cascadia Mono\", monospace",
-    "font-size": "10px",
+    "font-size": "12px",
     "font-style": "normal",
     "font-weight": "400",
-    "height": "18px",
-    "letter-spacing": "0.8px",
-    "line-height": "10px",
+    "height": "20px",
+    "letter-spacing": "0.96px",
+    "line-height": "12px",
     "opacity": "1",
     "padding-bottom": "3px",
     "padding-left": "6px",
@@ -284,7 +284,7 @@
     "stroke": "none",
     "stroke-width": "1px",
     "text-transform": "uppercase",
-    "width": "48px"
+    "width": "54.8125px"
    }
   },
   "chip.neutral.dark": {
@@ -292,7 +292,7 @@
    "route": "/",
    "selector": "span.rounded-chip.border.border-hairline.text-mid",
    "values": {
-    "@class": "inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-space-3 font-mono text-micro uppercase leading-none tracking-caps border-hairline text-mid",
+    "@class": "inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-space-3 font-mono text-data uppercase leading-none tracking-caps border-hairline text-mid",
     "@tag": "span",
     "animation-duration": "0s",
     "animation-name": "none",
@@ -313,12 +313,12 @@
     "column-gap": "4px",
     "fill": "rgb(0, 0, 0)",
     "font-family": "\"IBM Plex Mono\", \"IBM Plex Mono Fallback\", \"IBM Plex Mono\", ui-monospace, \"Cascadia Mono\", monospace",
-    "font-size": "10px",
+    "font-size": "12px",
     "font-style": "normal",
     "font-weight": "400",
-    "height": "18px",
-    "letter-spacing": "0.8px",
-    "line-height": "10px",
+    "height": "20px",
+    "letter-spacing": "0.96px",
+    "line-height": "12px",
     "opacity": "1",
     "padding-bottom": "3px",
     "padding-left": "6px",
@@ -327,7 +327,7 @@
     "stroke": "none",
     "stroke-width": "1px",
     "text-transform": "uppercase",
-    "width": "68.4062px"
+    "width": "79.2812px"
    }
   },
   "chip.neutral.light": {
@@ -335,7 +335,7 @@
    "route": "/",
    "selector": "span.rounded-chip.border.border-hairline.text-mid",
    "values": {
-    "@class": "inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-space-3 font-mono text-micro uppercase leading-none tracking-caps border-hairline text-mid",
+    "@class": "inline-flex select-none items-center gap-1 rounded-chip border px-1.5 py-space-3 font-mono text-data uppercase leading-none tracking-caps border-hairline text-mid",
     "@tag": "span",
     "animation-duration": "0s",
     "animation-name": "none",
@@ -356,12 +356,12 @@
     "column-gap": "4px",
     "fill": "rgb(0, 0, 0)",
     "font-family": "\"IBM Plex Mono\", \"IBM Plex Mono Fallback\", \"IBM Plex Mono\", ui-monospace, \"Cascadia Mono\", monospace",
-    "font-size": "10px",
+    "font-size": "12px",
     "font-style": "normal",
     "font-weight": "400",
-    "height": "18px",
-    "letter-spacing": "0.8px",
-    "line-height": "10px",
+    "height": "20px",
+    "letter-spacing": "0.96px",
+    "line-height": "12px",
     "opacity": "1",
     "padding-bottom": "3px",
     "padding-left": "6px",
@@ -370,7 +370,7 @@
     "stroke": "none",
     "stroke-width": "1px",
     "text-transform": "uppercase",
-    "width": "68.4062px"
+    "width": "79.2812px"
    }
   },
   "dial.arc.dark": {
@@ -892,9 +892,9 @@
   "dial.unit.dark": {
    "index": 0,
    "route": "/device/Shelf%20Lamp",
-   "selector": "div[role=slider] .text-nano",
+   "selector": "div[role=slider] .text-data",
    "values": {
-    "@class": "mt-1 text-nano uppercase leading-none tracking-micro text-low",
+    "@class": "mt-1 text-data uppercase leading-none tracking-micro text-low",
     "@tag": "span",
     "animation-duration": "0s",
     "animation-name": "none",
@@ -915,12 +915,12 @@
     "column-gap": "normal",
     "fill": "rgb(0, 0, 0)",
     "font-family": "Archivo, \"Archivo Fallback\", Archivo, \"Helvetica Neue\", sans-serif",
-    "font-size": "9px",
+    "font-size": "12px",
     "font-style": "normal",
     "font-weight": "400",
-    "height": "9px",
-    "letter-spacing": "1.26px",
-    "line-height": "9px",
+    "height": "12px",
+    "letter-spacing": "1.68px",
+    "line-height": "12px",
     "opacity": "1",
     "padding-bottom": "0px",
     "padding-left": "0px",
@@ -929,15 +929,15 @@
     "stroke": "none",
     "stroke-width": "1px",
     "text-transform": "uppercase",
-    "width": "9.8125px"
+    "width": "13.0938px"
    }
   },
   "dial.unit.light": {
    "index": 0,
    "route": "/device/Shelf%20Lamp",
-   "selector": "div[role=slider] .text-nano",
+   "selector": "div[role=slider] .text-data",
    "values": {
-    "@class": "mt-1 text-nano uppercase leading-none tracking-micro text-low",
+    "@class": "mt-1 text-data uppercase leading-none tracking-micro text-low",
     "@tag": "span",
     "animation-duration": "0s",
     "animation-name": "none",
@@ -958,12 +958,12 @@
     "column-gap": "normal",
     "fill": "rgb(0, 0, 0)",
     "font-family": "Archivo, \"Archivo Fallback\", Archivo, \"Helvetica Neue\", sans-serif",
-    "font-size": "9px",
+    "font-size": "12px",
     "font-style": "normal",
     "font-weight": "400",
-    "height": "9px",
-    "letter-spacing": "1.26px",
-    "line-height": "9px",
+    "height": "12px",
+    "letter-spacing": "1.68px",
+    "line-height": "12px",
     "opacity": "1",
     "padding-bottom": "0px",
     "padding-left": "0px",
@@ -972,7 +972,7 @@
     "stroke": "none",
     "stroke-width": "1px",
     "text-transform": "uppercase",
-    "width": "9.8125px"
+    "width": "13.0938px"
    }
   },
   "sectionLabel.dash.dark": {
@@ -1359,7 +1359,7 @@
     "stroke": "none",
     "stroke-width": "1px",
     "text-transform": "none",
-    "width": "198.688px"
+    "width": "189.688px"
    }
   },
   "slider.neutral.fill.light": {
@@ -1402,7 +1402,7 @@
     "stroke": "none",
     "stroke-width": "1px",
     "text-transform": "none",
-    "width": "198.688px"
+    "width": "189.688px"
    }
   },
   "slider.neutral.thumb.dark": {
@@ -1531,7 +1531,7 @@
     "stroke": "none",
     "stroke-width": "1px",
     "text-transform": "none",
-    "width": "397.391px"
+    "width": "379.391px"
    }
   },
   "slider.neutral.track.light": {
@@ -1574,7 +1574,7 @@
     "stroke": "none",
     "stroke-width": "1px",
     "text-transform": "none",
-    "width": "397.391px"
+    "width": "379.391px"
    }
   },
   "slider.tinted.fill.dark": {

@@ -163,7 +163,7 @@ export function CalibrationWizard({ refId, geometry, segmentCount, open, onOpenC
         {step === "applying" ? (
           <div className="mt-4 flex items-center gap-3">
             <Loader2 size={16} strokeWidth={2} className="animate-spin text-mid" aria-hidden />
-            <span className="font-mono text-label text-mid">
+            <span className="font-mono text-data text-mid">
               segment {applyProgress} of {segmentCount}
             </span>
           </div>
@@ -182,7 +182,7 @@ export function CalibrationWizard({ refId, geometry, segmentCount, open, onOpenC
                     className="h-6 w-6 shrink-0 rounded-chip border border-hairline-strong"
                     style={{ background: referenceHex(segId, segmentCount) }}
                   />
-                  <span className="flex-1 font-mono text-label text-mid">
+                  <span className="flex-1 font-mono text-data text-mid">
                     position {position} · segment {segId}
                   </span>
                   <button

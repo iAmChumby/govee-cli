@@ -44,7 +44,7 @@ function OwnerRow({ owner }: { owner: OwnerDisplay }) {
       {owner.detail ? (
         <p
           data-volatile="true"
-          className="mt-1.5 break-words font-mono text-label leading-relaxed text-low"
+          className="mt-1.5 break-words font-mono text-data leading-relaxed text-low"
         >
           {owner.detail}
         </p>
@@ -82,7 +82,7 @@ export function ConnectionSection() {
             <Skeleton className="h-5 w-40" />
           </div>
         ) : health.isError || !health.data || !scheduler ? (
-          <p className="py-1 font-mono text-label leading-relaxed text-low">
+          <p className="py-1 font-mono text-data leading-relaxed text-low">
             sidecar unreachable — is the API running on 127.0.0.1:6057?
           </p>
         ) : (

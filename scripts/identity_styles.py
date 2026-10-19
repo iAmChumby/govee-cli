@@ -175,7 +175,7 @@ PARTS = {
          "the rotating indicator"),
         ("dial.readout", "div[role=slider] .font-mono.text-sm", 0,
          "the numeric readout"),
-        ("dial.unit", "div[role=slider] .text-nano", 0,
+        ("dial.unit", "div[role=slider] .text-data", 0,
          "the unit under the readout"),
     ],
 }

@@ -249,7 +249,7 @@ export function LocationSection() {
               </div>
 
               {searchError ? (
-                <p role="alert" className="font-mono text-label leading-relaxed text-ember">
+                <p role="alert" className="font-mono text-data leading-relaxed text-ember">
                   {searchError}
                 </p>
               ) : null}
@@ -257,12 +257,12 @@ export function LocationSection() {
               {result ? (
                 <div className="space-y-2">
                   {result.source === "offline" ? (
-                    <p className="font-mono text-label leading-relaxed text-mid">
+                    <p className="font-mono text-data leading-relaxed text-mid">
                       {`source: offline list${result.error ? ` — ${result.error}` : ""}`}
                     </p>
                   ) : null}
                   {result.matches.length === 0 ? (
-                    <p className="font-mono text-label leading-relaxed text-mid">
+                    <p className="font-mono text-data leading-relaxed text-mid">
                       {`no city found for '${result.query}'`}
                     </p>
                   ) : (
@@ -276,7 +276,7 @@ export function LocationSection() {
                             className="flex w-full flex-col gap-0.5 px-3 py-2 text-left transition-colors duration-150 hover:bg-raised focus-visible:bg-raised disabled:opacity-50 pointer-coarse:min-h-11 pointer-coarse:justify-center"
                           >
                             <span className="break-words text-body leading-snug text-hi">{match.label}</span>
-                            <span className="break-words font-mono text-label leading-snug text-mid">
+                            <span className="break-words font-mono text-data leading-snug text-mid">
                               {`${match.timezone ?? "timezone not given"} · ${formatCoords(match.latitude, match.longitude)}`}
                             </span>
                           </button>
@@ -288,12 +288,12 @@ export function LocationSection() {
               ) : null}
 
               {pickError ? (
-                <p role="alert" className="font-mono text-label leading-relaxed text-ember">
+                <p role="alert" className="font-mono text-data leading-relaxed text-ember">
                   {pickError}
                 </p>
               ) : null}
               {saved ? (
-                <p role="status" className="break-words font-mono text-label leading-relaxed text-hi">
+                <p role="status" className="break-words font-mono text-data leading-relaxed text-hi">
                   {`Saved: ${saved}`}
                 </p>
               ) : null}
@@ -359,7 +359,7 @@ export function LocationSection() {
             </div>
 
             {errors.form ? (
-              <p role="alert" className="font-mono text-label leading-relaxed text-ember">
+              <p role="alert" className="font-mono text-data leading-relaxed text-ember">
                 {errors.form}
               </p>
             ) : null}

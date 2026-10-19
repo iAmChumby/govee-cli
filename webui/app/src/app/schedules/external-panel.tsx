@@ -84,7 +84,7 @@ function rampWindowText(entry: ExternalScheduleEntry): string {
 
 function SourceCaption({ crontab }: { crontab: CrontabStatus }) {
   return (
-    <p className="font-mono text-nano uppercase tracking-caps text-low">
+    <p className="font-mono text-data uppercase tracking-caps text-low">
       source: {crontab.source} · read-only
       {crontab.source === "snapshot" && crontab.stale_seconds !== null
         ? ` · cached ${formatStaleAge(crontab.stale_seconds)}`
@@ -117,7 +117,7 @@ function WakeRampRow({ entry, crontab }: { entry: ExternalScheduleEntry; crontab
         <Lock size={12} strokeWidth={1.5} className="shrink-0 text-low" aria-hidden />
         <p className="text-body font-medium leading-tight text-hi">wake-ramp</p>
         {entry.device_hint ? <Chip>{entry.device_hint}</Chip> : null}
-        <span className="flex items-center gap-1.5 font-mono text-label text-mid">
+        <span className="flex items-center gap-1.5 font-mono text-data text-mid">
           {/* #15: the second channel beside the colour — and the same
               honesty the visible text keeps: an unreadable script is
               "status unknown", never "not armed". */}
@@ -137,12 +137,12 @@ function WakeRampRow({ entry, crontab }: { entry: ExternalScheduleEntry; crontab
               ? `armed · ${armedDate}`
               : "weekend: not armed"}
         </span>
-        <span data-volatile="true" className="ml-auto shrink-0 font-mono text-label tabular-nums text-low" title="next fire">
+        <span data-volatile="true" className="ml-auto shrink-0 font-mono text-data tabular-nums text-low" title="next fire">
           next: {formatExternalNextFire(entry)}
         </span>
       </div>
 
-      <p className="mt-2 font-mono text-micro leading-relaxed text-low">
+      <p className="mt-2 font-mono text-data leading-relaxed text-low">
         ramps {entry.device_hint ?? "the target device"} 1% → 50% brightness at 2000K
         {rampWindowText(entry)}
         {status?.weekdays_always ? " · weekdays always" : ""}
@@ -186,20 +186,20 @@ function CronRow({ entry, crontab }: { entry: ExternalScheduleEntry; crontab: Cr
             recovers it on a phone; `max-w-full` already bounds this to
             the row's own width so there is nothing narrower to lift. */}
         <span
-          className="max-w-full truncate font-mono text-label text-mid pointer-coarse:whitespace-normal pointer-coarse:break-words"
+          className="max-w-full truncate font-mono text-data text-mid pointer-coarse:whitespace-normal pointer-coarse:break-words"
           title={entry.raw_line ?? entry.command}
         >
           {entry.command}
         </span>
-        <span className="shrink-0 font-mono text-micro tabular-nums text-low" title={entry.cron_expr ?? undefined}>
+        <span className="shrink-0 font-mono text-data tabular-nums text-low" title={entry.cron_expr ?? undefined}>
           {entry.cron_expr ?? "—"}
         </span>
-        <span data-volatile="true" className="ml-auto shrink-0 font-mono text-label tabular-nums text-low" title="next fire">
+        <span data-volatile="true" className="ml-auto shrink-0 font-mono text-data tabular-nums text-low" title="next fire">
           next: {formatExternalNextFire(entry)}
         </span>
       </div>
       {entry.parse_error ? (
-        <p className="mt-1.5 font-mono text-micro leading-snug text-ember">{entry.parse_error}</p>
+        <p className="mt-1.5 font-mono text-data leading-snug text-ember">{entry.parse_error}</p>
       ) : null}
       <div className="mt-2 border-t border-hairline pt-2">
         <SourceCaption crontab={crontab} />
@@ -224,13 +224,13 @@ export function ExternalAutomationPanel() {
             ))}
           </div>
         ) : external.isError || !external.data ? (
-          <p className="py-1 font-mono text-label leading-relaxed text-low">
+          <p className="py-1 font-mono text-data leading-relaxed text-low">
             external automation unavailable — {errMessage(external.error)}
           </p>
         ) : !external.data.crontab.readable ? (
           <div className="flex items-start gap-2.5 rounded-card border border-ember/30 bg-ember/[0.06] px-3.5 py-3">
             <AlertTriangle size={15} strokeWidth={1.75} className="mt-0.5 shrink-0 text-ember" aria-hidden />
-            <p className="font-mono text-label leading-relaxed text-ember">
+            <p className="font-mono text-data leading-relaxed text-ember">
               External automation status unknown — could not read crontab (
               {external.data.crontab.error ?? "unknown error"}
               ). Lighting may still be running on a schedule this page cannot see.
