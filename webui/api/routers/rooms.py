@@ -108,7 +108,20 @@ async def capture_room(request: Request, body: RoomSceneCaptureRequest) -> dict[
         mode = entry.mode if entry is not None else "unknown"
         label = entry.label if entry is not None else None
         payload = entry.payload if entry is not None else None
-        color_rgb = (state.get("color") or {}).get("rgb")
+        # A colour or colour temperature read from /device/state is only
+        # trustworthy when the ledger says this device is in basic mode: state
+        # always reports a stale colorTemperatureK (and often a stale colorRgb)
+        # for a lamp running a DIY/scene/music/segment/effect. Promoting that
+        # stale value into a stored white/colour row is exactly the bug the
+        # ledger exists to prevent, one level earlier. For any other mode the
+        # basic fields are dropped (None) so plan_restore() never replays a
+        # guessed colour.
+        if mode == "basic":
+            color_rgb = (state.get("color") or {}).get("rgb")
+            color_temp_k = state.get("color_temp_k")
+        else:
+            color_rgb = None
+            color_temp_k = None
 
         captured.append(CapturedDevice(
             device_id=target.device_id,
@@ -116,7 +129,7 @@ async def capture_room(request: Request, body: RoomSceneCaptureRequest) -> dict[
             power=bool(state.get("power")),
             brightness=int(state.get("brightness") or 0),
             color=color_rgb,
-            color_temp_k=state.get("color_temp_k"),
+            color_temp_k=color_temp_k,
             mode=mode,
             label=label,
             payload=payload,

@@ -7,6 +7,7 @@ import pathlib
 from click.testing import CliRunner
 
 from govee_cli import config as config_mod
+from govee_cli import ledger
 from govee_cli import room_scenes
 from govee_cli.commands import room as room_cmd
 from govee_cli.config import DeviceConfig, GoveeConfig
@@ -69,3 +70,62 @@ def test_empty_diy_list_skips_as_unverifiable(monkeypatch):
         config_mod.load_config(), lambda mac, model: [], set(),
     )
     assert out.outcomes[0].skipped == "could not verify DIY scene: list unavailable"
+
+
+def test_state_derived_temperature_without_explicit_mode_is_not_authored(monkeypatch):
+    config_mod.save_config(GoveeConfig(devices={
+        "50:CE:E8:6E:80:C6:50:3F": DeviceConfig(model="H6022", name="Shelf Lamp"),
+    }))
+    import govee_cli.http_v2 as http_v2
+
+    monkeypatch.setattr(http_v2, "GoveeHTTPv2", lambda: SendForbidden())
+
+    entry = {"power": "on", "brightness": 60, "color_temp_k": 2700}
+    out = room_cmd.convert_profile(
+        {"name": "x", "devices": {"Shelf Lamp": entry}}, "x.json",
+        config_mod.load_config(), lambda mac, model: [], set(),
+    )
+    assert out.outcomes[0].skipped is not None
+    assert "not authored as white" in out.outcomes[0].skipped
+    assert out.devices == []
+
+
+def test_explicit_white_mode_authors_state_temperature(monkeypatch):
+    config_mod.save_config(GoveeConfig(devices={
+        "50:CE:E8:6E:80:C6:50:3F": DeviceConfig(model="H6022", name="Shelf Lamp"),
+    }))
+    import govee_cli.http_v2 as http_v2
+
+    monkeypatch.setattr(http_v2, "GoveeHTTPv2", lambda: SendForbidden())
+
+    entry = {"power": "on", "brightness": 60, "color_temp_k": 2700, "mode": "white"}
+    out = room_cmd.convert_profile(
+        {"name": "x", "devices": {"Shelf Lamp": entry}}, "x.json",
+        config_mod.load_config(), lambda mac, model: [], set(),
+    )
+    assert out.outcomes[0].skipped is None
+    assert out.devices[0].mode == "basic"
+    assert out.devices[0].color_temp_k == 2700
+
+
+def test_ledger_basic_mode_authors_state_temperature(monkeypatch, tmp_path):
+    config_mod.save_config(GoveeConfig(devices={
+        "50:CE:E8:6E:80:C6:50:3F": DeviceConfig(model="H6022", name="Shelf Lamp"),
+    }))
+    ledger.LEDGER_PATH = tmp_path / "active-mode.json"
+    ledger.LEDGER_LOCK_PATH = tmp_path / "active-mode.json.lock"
+    ledger.record_mode("50:CE:E8:6E:80:C6:50:3F", "basic", None,
+                      {"color_temp_k": 2700}, source="cli")
+
+    import govee_cli.http_v2 as http_v2
+
+    monkeypatch.setattr(http_v2, "GoveeHTTPv2", lambda: SendForbidden())
+
+    entry = {"power": "on", "brightness": 60, "color_temp_k": 2700}
+    out = room_cmd.convert_profile(
+        {"name": "x", "devices": {"Shelf Lamp": entry}}, "x.json",
+        config_mod.load_config(), lambda mac, model: [], set(),
+    )
+    assert out.outcomes[0].skipped is None
+    assert out.devices[0].mode == "basic"
+    assert out.devices[0].color_temp_k == 2700
