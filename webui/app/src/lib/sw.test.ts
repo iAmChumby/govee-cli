@@ -27,6 +27,8 @@ const apiSource = readAppFile("src/lib/api.ts");
 interface CacheRequest {
   method: string;
   url: string;
+  /** a real Request has headers; the plain objects above do not */
+  headers?: { get(name: string): string | null };
 }
 
 /** Execute public/sw.js and take its shouldCache function. */
@@ -167,6 +169,53 @@ describe("Service Worker cache contract (#6)", () => {
     assert.equal(
       shouldCache({ method: "GET", url: "https://other.example/" }),
       false,
+    );
+  });
+
+  it("never caches a Next.js flight (RSC) request", () => {
+    // The flight payload rides the same path as the shell document, so
+    // the allowlist cannot tell the two apart by pathname. Next.js marks
+    // it two ways: `?_rsc=<hash>` on the URL, and an `RSC: 1` header.
+    for (const pathname of ["/", "/device/Shelf%20Lamp", "/settings"]) {
+      assert.equal(
+        shouldCache({
+          method: "GET",
+          url: `${ORIGIN}${pathname}?_rsc=1a2b3c`,
+        }),
+        false,
+        `${pathname}?_rsc=… must never be served from the cache`,
+      );
+      assert.equal(
+        shouldCache({
+          method: "GET",
+          url: `${ORIGIN}${pathname}`,
+          headers: { get: (name) => (name === "RSC" ? "1" : null) },
+        }),
+        false,
+        `${pathname} with an RSC: 1 header must never be served from the cache`,
+      );
+    }
+  });
+
+  it("still caches the shell when the request is not a flight payload", () => {
+    // The header check is exactly `RSC: 1` — a request without it, or
+    // with another value, is the document and stays cacheable.
+    assert.equal(
+      shouldCache({
+        method: "GET",
+        url: `${ORIGIN}/`,
+        headers: { get: () => null },
+      }),
+      true,
+    );
+    assert.equal(
+      shouldCache({
+        method: "GET",
+        url: `${ORIGIN}/?tab=scenes`,
+        headers: { get: () => null },
+      }),
+      true,
+      "an ordinary query string is not a flight payload",
     );
   });
 

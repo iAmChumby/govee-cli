@@ -4,7 +4,8 @@
  * Caches the app shell and static assets only. The cache is an ALLOWLIST:
  * a request is cached only if its path is one of the shell/static shapes
  * below. Everything else — most importantly every sidecar route under
- * `/api/` — goes straight to the network.
+ * `/api/`, and every Next.js flight (RSC) request — goes straight to the
+ * network.
  *
  * Why not a denylist: the previous version listed only
  * `/api/v1/devices*` and `/api/v1/effects*`, so every other same-origin API
@@ -35,6 +36,29 @@ function isShellOrStatic(pathname) {
   return false;
 }
 
+/**
+ * Next.js App Router flight (RSC) requests.
+ *
+ * A client-side navigation asks the server for the *flight payload* rather
+ * than a document: the URL carries `?_rsc=<hash>` and the request carries
+ * an `RSC: 1` header. The path is the same path the shell is cached under
+ * (`/`, `/device/<ref>`), so the allowlist below cannot tell them apart
+ * by pathname alone — and a cached flight payload is a cached page whose
+ * server-rendered state is frozen at cache time.
+ *
+ * Today every page in this app is a client component, so the payload is
+ * module references and nothing stale ships; that is a property of the
+ * current pages, not of the cache contract, so the contract says no.
+ */
+function isRscRequest(request, url) {
+  if (url.searchParams.has("_rsc")) return true;
+  // `headers` is absent in the unit test's plain objects and present on a
+  // real Request; both must be safe to read.
+  const headers = request.headers;
+  if (!headers || typeof headers.get !== "function") return false;
+  return headers.get("RSC") === "1";
+}
+
 function shouldCache(request) {
   const url = new URL(request.url);
   // Only ever cache same-origin GETs.
@@ -42,6 +66,8 @@ function shouldCache(request) {
   if (url.origin !== location.origin) return false;
   // Belt and braces: the API is state, never shell — whatever else says.
   if (url.pathname === "/api" || url.pathname.startsWith("/api/")) return false;
+  // A flight payload is state too: the same path, a different document.
+  if (isRscRequest(request, url)) return false;
   return isShellOrStatic(url.pathname);
 }
 
