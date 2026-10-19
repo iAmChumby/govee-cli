@@ -5,7 +5,7 @@
  * other model in this directory, what the console draws is the *fixture*, and
  * the Govee hardware is the thing lighting its shade from inside.
  *
- * ## Dimensions are measured, not invented
+ * ## What is published, and where
  *
  * Every number below comes from Target's own published specification for this
  * SKU, converted to model units by the lamp's stated width. One unit = the
@@ -24,21 +24,25 @@
  *                        each other"
  *   - frame              black metal, E26 socket, pull chain
  *
- * ## What is inferred, and why
+ * ## What is inferred from the photos, and why
  *
- * Two things are NOT in the published spec and are reasoned from what is:
+ *  - **The shelves are round.** Target gives their count and spacing but not
+ *    their shape. The assembled footprint is 11" x 11" and the base is round
+ *    at 11" — an 11" *square* shelf would have a 15.6" diagonal and could not
+ *    fit inside a stated 11" depth, so a shelf that spans the full width has
+ *    to be round. Modelled at the base's own radius on that basis.
+ *  - **The frame is an open post frame, not a centre pole.** The straight-on
+ *    product image shows two posts because the front/back pairs align; the
+ *    angled images show four around the circular shelf rims. This model uses
+ *    four posts at 45° offsets, a flat ring under the shade, and the shelves
+ *    supported at their rims. The only centre member is the pull chain. A
+ *    first port of this model used a centred pole; the photos contradict it.
+ *  - **Post, shelf and ring thickness, socket/bulb size, chain length.** Not
+ *    published. They are set to ordinary values for a lamp of this weight
+ *    (8 lb) and read correctly at any size the console draws. They are the
+ *    free parameters here.
  *
- *  - **The shelves are round.** Target states the shelf count and heights but
- *    never their shape. The assembled footprint is 11" x 11" and the base is
- *    round at 11" — an 11" *square* shelf would have a 15.6" diagonal and
- *    could not fit inside a stated 11" depth, so a shelf that spans the full
- *    width has to be round. Modelled at the base's own radius on that basis.
- *  - **Pole and shelf thickness.** Neither is published. Both are set to
- *    ordinary values for a lamp of this weight (8 lb) and read as "a thin
- *    black metal tube" and "a thin black metal plate" at any size the console
- *    draws. They are the only free parameters here.
- *
- * Anything else that looks like a choice was read off the spec.
+ * Anything else that looks like a choice was read off the spec or the photos.
  *
  * ## Why the shade is the diffuser, and why it is dark
  *
@@ -77,6 +81,7 @@ import {
   LatheGeometry,
   Mesh,
   MeshPhysicalMaterial,
+  SphereGeometry,
   Vector2,
   type BufferGeometry,
   type Material,
@@ -101,9 +106,9 @@ const BASE_RADIUS = 5.5 * INCH;
 const BASE_HEIGHT = 1 * INCH;
 
 /** Two shelves, the lower "14 1/8 off the floor" and the upper the same
- *  distance again above it. The published figure is read as the shelf's own
- *  surface — the height you would stand something on — so each plate hangs
- *  just below its quoted y rather than straddling it. */
+ *  distance again above it, per Target's Q&A (not the spec block). The
+ *  figure is read as the shelf's own surface — the height you would stand
+ *  something on — so each plate hangs just below its quoted y. */
 const SHELF_SPACING = 14.125 * INCH;
 const SHELF_LOWER_Y = SHELF_SPACING;
 const SHELF_UPPER_Y = SHELF_SPACING * 2;
@@ -111,21 +116,34 @@ const SHELF_RADIUS = 5.5 * INCH;
 /** Inferred — see the file header. A thin metal plate. */
 const SHELF_THICKNESS = 0.4 * INCH;
 
-/** Inferred — see the file header. An ordinary floor-lamp tube, ~0.55" dia. */
-const POLE_RADIUS = 0.275 * INCH;
+/** Four vertical posts, at 45°/135°/225°/315°, just inside the shelf rims.
+ *  Inferred from the two product views — see the file header. */
+const POST_COUNT = 4;
+const POST_RADIUS = 0.275 * INCH;
+const POST_RING_RADIUS = SHELF_RADIUS - POST_RADIUS;
+const POST_TOP_Y = SHADE_BOTTOM_Y - SHELF_THICKNESS;
+const POST_HEIGHT = POST_TOP_Y - BASE_HEIGHT;
+const POST_SEGMENTS = 12;
 
-/** The pole runs from the base up to the socket, which sits inside the shade.
- *  Stopping it just past the shade's bottom edge is what keeps the fixture
- *  from appearing to float: the shade is visibly carried by the pole rather
- *  than hovering above a gap. */
-const POLE_TOP_Y = SHADE_BOTTOM_Y + SHADE_HEIGHT * 0.35;
+/** The flat ring the shade sits on; the socket passes through its hole. The
+ *  photos show a black disc with a centre opening, not a torus. */
+const RING_INNER_RADIUS = 0.09;
+const TOP_RING_THICKNESS = SHELF_THICKNESS;
+
+/** Inferred — see the file header. A standard E26 socket and the pull chain
+ *  that hangs through the ring. */
+const SOCKET_RADIUS = 0.06;
+const SOCKET_HEIGHT = 0.14;
+const LED_Y = SHADE_BOTTOM_Y + SOCKET_HEIGHT;
+const CHAIN_RADIUS = 0.006;
+const CHAIN_LENGTH = 5 * INCH;
+const CHAIN_BALL_RADIUS = 0.02;
 
 /** Angular smoothness. The shade is the silhouette that matters and is the
  *  one surface lit from within, so it gets the same 40 as `h6008.ts`'s glass;
  *  the black frame parts read as outline only and are cheaper. */
 const SHADE_SEGMENTS = 40;
 const FRAME_SEGMENTS = 32;
-const POLE_SEGMENTS = 16;
 
 /**
  * The shade wall: a true cylinder, per the spec's equal top and bottom
@@ -150,20 +168,36 @@ function buildShadeGeometry(): BufferGeometry {
 }
 
 /**
+ * The flat annulus under the shade: outer radius at the shade wall, inner
+ * radius at the socket opening. A closed lathe profile gives it a real
+ * thickness and an inner wall, unlike a zero-thickness `RingGeometry`.
+ */
+function buildTopRingGeometry(): BufferGeometry {
+  const profile: Vector2[] = [
+    new Vector2(RING_INNER_RADIUS, 0),
+    new Vector2(SHELF_RADIUS, 0),
+    new Vector2(SHELF_RADIUS, TOP_RING_THICKNESS),
+    new Vector2(RING_INNER_RADIUS, TOP_RING_THICKNESS),
+    new Vector2(RING_INNER_RADIUS, 0),
+  ];
+  return new LatheGeometry(profile, FRAME_SEGMENTS);
+}
+
+/**
  * The one emitter, at the shade's optical centre.
  *
  * There is no matrix to distribute across, so what this position decides is
  * where `cast-light.ts` throws the fixture's spill from. That is the middle
  * of the shade — where the E26 socket puts the bulb — not the centroid of the
- * whole lamp, which on a 56" pole would sit around the lower shelf and throw
- * light from a point with no lamp in it.
+ * whole lamp, which on a 56" floor lamp sits around the lower shelf and
+ * throws light from a point with no light source in it.
  */
 function placeLed(): LedPlacement {
   return {
     index: 0,
     row: 0,
     col: 0,
-    position: [0, SHADE_BOTTOM_Y + SHADE_HEIGHT / 2, 0],
+    position: [0, LED_Y, 0],
     normal: [0, 1, 0],
   };
 }
@@ -181,8 +215,11 @@ export const h6004Source: ProceduralSource = {
     // One geometry, two meshes: the shelves are identical plates, so building
     // this twice would be two copies of the same buffer to dispose.
     const shelfGeometry = new CylinderGeometry(SHELF_RADIUS, SHELF_RADIUS, SHELF_THICKNESS, FRAME_SEGMENTS);
-    const poleHeight = POLE_TOP_Y - BASE_HEIGHT;
-    const poleGeometry = new CylinderGeometry(POLE_RADIUS, POLE_RADIUS, poleHeight, POLE_SEGMENTS);
+    const ringGeometry = buildTopRingGeometry();
+    const postGeometry = new CylinderGeometry(POST_RADIUS, POST_RADIUS, POST_HEIGHT, POST_SEGMENTS);
+    const socketGeometry = new CylinderGeometry(SOCKET_RADIUS, SOCKET_RADIUS, SOCKET_HEIGHT, FRAME_SEGMENTS);
+    const chainGeometry = new CylinderGeometry(CHAIN_RADIUS, CHAIN_RADIUS, CHAIN_LENGTH, 6);
+    const chainBallGeometry = new SphereGeometry(CHAIN_BALL_RADIUS, 8, 6);
 
     // See the file header: dark on purpose, and these numbers are h6022.ts's
     // proven cylinder values rather than a fresh guess.
@@ -202,7 +239,7 @@ export const h6004Source: ProceduralSource = {
     diffuser.userData.baseTransmission = diffuser.transmission;
 
     // Black powder-coated steel, which is what this fixture actually is:
-    // metallic enough to catch the key light along the pole, rough enough not
+    // metallic enough to catch the key light along the posts, rough enough not
     // to mirror the environment map the way the H6008's nickel base does.
     const metal = new MeshPhysicalMaterial({
       color: 0x1c1c20,
@@ -215,25 +252,56 @@ export const h6004Source: ProceduralSource = {
     const baseMesh = new Mesh(baseGeometry, metal);
     baseMesh.position.y = BASE_HEIGHT / 2;
 
-    const poleMesh = new Mesh(poleGeometry, metal);
-    poleMesh.position.y = BASE_HEIGHT + poleHeight / 2;
-
     const lowerShelf = new Mesh(shelfGeometry, metal);
     lowerShelf.position.y = SHELF_LOWER_Y - SHELF_THICKNESS / 2;
     const upperShelf = new Mesh(shelfGeometry, metal);
     upperShelf.position.y = SHELF_UPPER_Y - SHELF_THICKNESS / 2;
 
+    // The ring's top face is the shade's bottom: the shade sits on it.
+    const ringMesh = new Mesh(ringGeometry, metal);
+    ringMesh.position.y = SHADE_BOTTOM_Y - TOP_RING_THICKNESS;
+
+    const socketMesh = new Mesh(socketGeometry, metal);
+    socketMesh.position.y = SHADE_BOTTOM_Y + SOCKET_HEIGHT / 2;
+
+    const chainMesh = new Mesh(chainGeometry, metal);
+    chainMesh.position.y = SHADE_BOTTOM_Y - CHAIN_LENGTH / 2;
+    const chainBallMesh = new Mesh(chainBallGeometry, metal);
+    chainBallMesh.position.y = SHADE_BOTTOM_Y - CHAIN_LENGTH - CHAIN_BALL_RADIUS;
+
+    // Four posts at the shelf rims (45° offsets), from the base to the ring.
+    const postMeshes = Array.from({ length: POST_COUNT }, (_, i) => {
+      const angle = Math.PI / 4 + (i * Math.PI * 2) / POST_COUNT;
+      const post = new Mesh(postGeometry, metal);
+      post.position.set(
+        Math.cos(angle) * POST_RING_RADIUS,
+        BASE_HEIGHT + POST_HEIGHT / 2,
+        Math.sin(angle) * POST_RING_RADIUS,
+      );
+      return post;
+    });
+
     const group = new Group();
-    group.add(baseMesh, poleMesh, lowerShelf, upperShelf, shadeMesh);
+    group.add(
+      baseMesh,
+      ...postMeshes,
+      lowerShelf,
+      upperShelf,
+      ringMesh,
+      socketMesh,
+      chainMesh,
+      chainBallMesh,
+      shadeMesh,
+    );
 
     const led = placeLed();
 
     // Bounding radius about the model's own mid-height, the same measure
     // `h6008.ts` reports. On a lamp this slender the height dominates: the
-    // widest ring is only 0.5 out, so the top and bottom of the pole are the
-    // extremes. `renderer.ts` frames the camera from a measured `Box3` and
-    // uses this only for the key light and the ground disc, both of which
-    // want the lamp's true reach rather than its footprint.
+    // widest ring is only 0.5 out, so the shade top and the base bottom are
+    // the extremes. `renderer.ts` frames the camera from a measured `Box3`
+    // and uses this only for the key light and the ground disc, both of
+    // which want the lamp's true reach rather than its footprint.
     const halfHeight = TOTAL_HEIGHT / 2;
     const fitRadius = Math.max(
       Math.hypot(SHADE_RADIUS, TOTAL_HEIGHT - halfHeight),
@@ -257,7 +325,11 @@ export const h6004Source: ProceduralSource = {
         shadeGeometry.dispose();
         baseGeometry.dispose();
         shelfGeometry.dispose();
-        poleGeometry.dispose();
+        ringGeometry.dispose();
+        postGeometry.dispose();
+        socketGeometry.dispose();
+        chainGeometry.dispose();
+        chainBallGeometry.dispose();
         (diffuser as Material).dispose();
         (metal as Material).dispose();
       },
