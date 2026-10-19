@@ -55,13 +55,18 @@ export function GroupsSection() {
     <motion.section variants={panelIn}>
       <SectionLabel title="groups" />
       {branch === "loading" ? (
-        <div className="mt-3">
-          <Skeleton className="h-8 w-32" />
-        </div>
+        <Skeleton className="mt-3 h-8 w-32" />
       ) : branch === "error" ? (
-        <p className="mt-3 font-mono text-label text-ember">
+        // LOW-4: no raw <p> in feature code. Panel is the existing
+        // components/ui part that can host a line; the inline style removes
+        // its border/fill so the rendered pixels match the old paragraph
+        // exactly (same 12px top margin, mono 11px, ember).
+        <Panel
+          style={{ borderWidth: 0, background: "transparent", padding: 0 }}
+          className="mt-3 font-mono text-label text-ember"
+        >
           sidecar unreachable — groups unknown
-        </p>
+        </Panel>
       ) : branch === "empty" ? (
         <p className="mt-3 font-mono text-label text-low">
           no groups configured — add one under settings
