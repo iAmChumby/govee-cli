@@ -95,8 +95,8 @@ function RuleRow({
         />
 
         <div className={cn("min-w-0", !rule.enabled && "opacity-55")}>
-          <p className="break-words text-[13px] font-medium leading-tight text-hi">{rule.name}</p>
-          <p className="mt-0.5 break-words font-mono text-[11px] leading-snug text-mid">
+          <p className="break-words text-body font-medium leading-tight text-hi">{rule.name}</p>
+          <p className="mt-0.5 break-words font-mono text-label leading-snug text-mid">
             {targetLine(rule, devices)}
           </p>
         </div>
@@ -115,7 +115,7 @@ function RuleRow({
 
         <div className={cn("col-span-3 space-y-1.5", !rule.enabled && "opacity-55")}>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <span className="font-mono text-[12px] tabular-nums text-hi">{rule.time}</span>
+            <span className="font-mono text-data tabular-nums text-hi">{rule.time}</span>
             <span className="flex gap-1" role="group" aria-label="Days">
               {DAYS.map((day) => {
                 const on = rule.days.includes(day);
@@ -124,7 +124,7 @@ function RuleRow({
                     key={day}
                     aria-label={`${day} ${on ? "on" : "off"}`}
                     className={cn(
-                      "rounded-chip border px-1.5 py-[3px] font-mono text-[10px] uppercase leading-none tracking-[0.04em]",
+                      "rounded-chip border px-1.5 py-space-3 font-mono text-micro uppercase leading-none tracking-data",
                       on
                         ? "border-hairline-strong bg-accent-dim text-hi"
                         : "border-transparent text-low opacity-40",
@@ -137,13 +137,13 @@ function RuleRow({
             </span>
           </div>
 
-          <p data-volatile="true" className="font-mono text-[11px] tabular-nums text-mid">
+          <p data-volatile="true" className="font-mono text-label tabular-nums text-mid">
             next: {next}
           </p>
         </div>
 
         {rule.target_problem || rule.missed_minute || lastError ? (
-          <div className="col-span-3 space-y-1 font-mono text-[11px] leading-snug">
+          <div className="col-span-3 space-y-1 font-mono text-label leading-snug">
             {rule.target_problem ? (
               <p className="flex items-start gap-1.5 text-ember">
                 <TriangleAlert size={12} strokeWidth={1.75} aria-hidden className="mt-px shrink-0" />
@@ -210,10 +210,10 @@ export default function SchedulesPage() {
           {/* head */}
           <motion.section variants={panelIn} className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h1 className="text-xl font-semibold leading-tight tracking-[-0.02em] text-hi">
+              <h1 className="text-xl font-semibold leading-tight tracking-display text-hi">
                 Schedules
               </h1>
-              <p className="mt-1 font-mono text-[11px] text-low">
+              <p className="mt-1 font-mono text-label text-low">
                 {schedules.isLoading
                   ? "loading rules…"
                   : `${rules.length} ${rules.length === 1 ? "rule" : "rules"} · ${enabledCount} enabled`}
@@ -229,8 +229,8 @@ export default function SchedulesPage() {
           {schedules.isError ? (
             <motion.section variants={panelIn}>
               <Panel className="border-ember/40 p-5">
-                <p className="text-[13px] font-medium text-hi">Rules unavailable</p>
-                <p className="mt-1 font-mono text-[11px] text-mid">
+                <p className="text-body font-medium text-hi">Rules unavailable</p>
+                <p className="mt-1 font-mono text-label text-mid">
                   {errMessage(schedules.error)} — is the sidecar running on 127.0.0.1:6057?
                 </p>
               </Panel>
@@ -275,7 +275,7 @@ export default function SchedulesPage() {
                   ))}
                 </div>
               ) : rules.length === 0 && !schedules.isError ? (
-                <p className="py-2 font-mono text-[11px] leading-relaxed text-low">
+                <p className="py-2 font-mono text-label leading-relaxed text-low">
                   no rules yet — press <span className="text-mid">new rule</span> above to schedule
                   your first command
                 </p>

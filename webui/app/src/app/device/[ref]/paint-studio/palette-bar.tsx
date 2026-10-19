@@ -117,7 +117,7 @@ export function PaletteBar({
               aria-pressed={symmetry === opt.id}
               onClick={() => onSymmetryChange(opt.id)}
               className={cn(
-                "h-11 cursor-pointer rounded-btn border px-2.5 font-mono text-[10px] uppercase tracking-[0.06em] transition-colors duration-150",
+                "h-11 cursor-pointer rounded-btn border px-2.5 font-mono text-micro uppercase tracking-label transition-colors duration-150",
                 symmetry === opt.id
                   ? "border-hairline-strong bg-accent-dim text-hi"
                   : "border-hairline text-mid hover:border-hairline-strong hover:text-hi",
@@ -132,7 +132,7 @@ export function PaletteBar({
       {/* palette — primary paints; secondary feeds the gradient tool's far end */}
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-3">
-          <span className="w-14 shrink-0 font-mono text-[10px] uppercase tracking-micro text-low">
+          <span className="w-14 shrink-0 font-mono text-micro uppercase tracking-micro text-low">
             primary
           </span>
           <SwatchRow activeHex={primaryColor} onPick={onPrimaryChange} ariaGroupLabel="Primary colors" />
@@ -145,7 +145,7 @@ export function PaletteBar({
         </div>
         {tool === "gradient" ? (
           <div className="flex flex-wrap items-center gap-3">
-            <span className="w-14 shrink-0 font-mono text-[10px] uppercase tracking-micro text-low">
+            <span className="w-14 shrink-0 font-mono text-micro uppercase tracking-micro text-low">
               secondary
             </span>
             <SwatchRow

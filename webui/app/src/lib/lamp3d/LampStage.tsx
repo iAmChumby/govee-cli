@@ -100,7 +100,7 @@ function ActiveModeReset({ deviceRef }: { deviceRef: string }) {
       title="Not what I see — reset"
       onClick={handleReset}
       disabled={busy}
-      className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-low outline-none transition-colors duration-150 hover:text-hi active:scale-95 disabled:opacity-40"
+      className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-low transition-colors duration-150 hover:text-hi active:scale-95 disabled:opacity-40"
     >
       <RotateCcw aria-hidden className="h-3.5 w-3.5" />
     </button>
@@ -210,7 +210,7 @@ function RotateHint() {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute bottom-2 right-2 rounded-chip border border-hairline bg-bg/80 px-1.5 py-0.5 font-mono text-[9px] leading-none tracking-micro text-low"
+      className="pointer-events-none absolute bottom-2 right-2 rounded-chip border border-hairline bg-bg/80 px-1.5 py-0.5 font-mono text-nano leading-none tracking-micro text-low"
     >
       drag to rotate
     </div>
@@ -313,7 +313,7 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
           "absolute inset-0",
           mini
             ? "pointer-events-none"
-            : "pointer-events-auto touch-pan-y outline-none focus-visible:ring-2 focus-visible:ring-accent",
+            : "pointer-events-auto touch-pan-y focus-visible:outline-none focus-visible:ring-(length:--focus-ring-width) focus-visible:ring-(--focus-ring)",
         )}
       />
 
@@ -347,7 +347,7 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
               transition={{ duration: 1, ease: "easeInOut" }}
               className={cn(
                 "relative z-20 min-w-0 max-w-[68%] rounded-chip border border-hairline bg-bg/95 px-1.5 py-0.5 font-mono leading-snug tracking-micro text-low pointer-coarse:whitespace-normal pointer-coarse:break-words",
-                mini ? "text-[7px]" : "text-[9px]",
+                mini ? "text-mini" : "text-nano",
               )}
             >
               {resolved.caption}
@@ -356,7 +356,7 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
             <span
               className={cn(
                 "relative z-20 min-w-0 max-w-[68%] rounded-chip border border-hairline bg-bg/95 px-1.5 py-0.5 font-mono leading-snug tracking-micro text-low pointer-coarse:whitespace-normal pointer-coarse:break-words",
-                mini ? "text-[7px]" : "text-[9px]",
+                mini ? "text-mini" : "text-nano",
               )}
             >
               {resolved.caption}

@@ -55,15 +55,20 @@ export function GroupsSection() {
     <motion.section variants={panelIn}>
       <SectionLabel title="groups" />
       {branch === "loading" ? (
-        <div className="mt-3">
-          <Skeleton className="h-8 w-32" />
-        </div>
+        <Skeleton className="mt-3 h-8 w-32" />
       ) : branch === "error" ? (
-        <p className="mt-3 font-mono text-[11px] text-ember">
+        // LOW-4: no raw <p> in feature code. Panel is the existing
+        // components/ui part that can host a line; the inline style removes
+        // its border/fill so the rendered pixels match the old paragraph
+        // exactly (same 12px top margin, mono 11px, ember).
+        <Panel
+          style={{ borderWidth: 0, background: "transparent", padding: 0 }}
+          className="mt-3 font-mono text-label text-ember"
+        >
           sidecar unreachable — groups unknown
-        </p>
+        </Panel>
       ) : branch === "empty" ? (
-        <p className="mt-3 font-mono text-[11px] text-low">
+        <p className="mt-3 font-mono text-label text-low">
           no groups configured — add one under settings
         </p>
       ) : (
@@ -84,7 +89,7 @@ export function GroupsSection() {
                   // same reasoning as device-plate.tsx's name-Link fix. Both
                   // are inert with a mouse, so desktop's 97x29 box is
                   // unchanged (§11.1).
-                  "cursor-pointer rounded-chip border px-2.5 py-1.5 font-mono text-[10px] uppercase tracking-[0.08em] transition-colors duration-150 pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center pointer-coarse:justify-center",
+                  "cursor-pointer rounded-chip border px-2.5 py-1.5 font-mono text-micro uppercase tracking-caps transition-colors duration-150 pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center pointer-coarse:justify-center",
                   active === name
                     ? "border-hairline-strong bg-accent-dim text-hi"
                     : "border-hairline text-mid hover:border-hairline-strong hover:text-hi",
@@ -102,8 +107,8 @@ export function GroupsSection() {
                   tone={d.online === false ? "off" : "ok"}
                   label={d.online === false ? "offline" : "online"}
                 />
-                <span className="text-[13px] text-hi">{d.name ?? d.ref}</span>
-                <span className="ml-auto font-mono text-[11px] text-low">
+                <span className="text-body text-hi">{d.name ?? d.ref}</span>
+                <span className="ml-auto font-mono text-label text-low">
                   {d.power ? "on" : "off"} · {d.brightness ?? "?"}%
                 </span>
                 {d.color ? (
@@ -117,7 +122,7 @@ export function GroupsSection() {
             ))}
           </ul>
           {(state.data?.errors ?? []).map((e) => (
-            <p key={e.ref} className="py-1 font-mono text-[11px] text-ember">
+            <p key={e.ref} className="py-1 font-mono text-label text-ember">
               {e.ref}: {e.message}
             </p>
           ))}
@@ -145,7 +150,7 @@ function GroupBroadcast({ name, members }: { name: string; members: string[] }) 
   return (
     <div className="mt-4 space-y-3 border-t border-hairline pt-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-[11px] uppercase tracking-micro text-low">
+        <span className="text-label uppercase tracking-micro text-low">
           broadcast
         </span>
         {/* WEBUI_V3_SPEC.md §11.6: measured 56x32 / 55x32 at 390px — width
@@ -157,14 +162,14 @@ function GroupBroadcast({ name, members }: { name: string; members: string[] }) 
         <button
           type="button"
           onClick={() => fire("power on")}
-          className="cursor-pointer rounded-btn border border-hairline px-3 py-1.5 text-[12px] text-hi transition-colors duration-150 hover:border-hairline-strong hover:bg-accent-dim pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center pointer-coarse:justify-center"
+          className="cursor-pointer rounded-btn border border-hairline px-3 py-1.5 text-data text-hi transition-colors duration-150 hover:border-hairline-strong hover:bg-accent-dim pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center pointer-coarse:justify-center"
         >
           all on
         </button>
         <button
           type="button"
           onClick={() => fire("power off")}
-          className="cursor-pointer rounded-btn border border-hairline px-3 py-1.5 text-[12px] text-hi transition-colors duration-150 hover:border-hairline-strong hover:bg-accent-dim pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center pointer-coarse:justify-center"
+          className="cursor-pointer rounded-btn border border-hairline px-3 py-1.5 text-data text-hi transition-colors duration-150 hover:border-hairline-strong hover:bg-accent-dim pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center pointer-coarse:justify-center"
         >
           all off
         </button>
@@ -212,7 +217,7 @@ function GroupBroadcast({ name, members }: { name: string; members: string[] }) 
           ariaLabel={`${name} group brightness`}
           className="max-w-[280px] flex-1"
         />
-        <span className="font-mono text-[10px] text-low">
+        <span className="font-mono text-micro text-low">
           {scrub !== null ? `${scrub}%` : "drag to set all"}
         </span>
       </div>

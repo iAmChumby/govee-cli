@@ -155,7 +155,7 @@ export function ExportDialog({
 
         <div className="mt-4 space-y-4">
           <div>
-            <label htmlFor="effect-name" className="mb-1.5 block font-mono text-[10px] uppercase tracking-micro text-low">
+            <label htmlFor="effect-name" className="mb-1.5 block font-mono text-micro uppercase tracking-micro text-low">
               name
             </label>
             <input
@@ -165,13 +165,13 @@ export function ExportDialog({
               onChange={(e) => setName(e.target.value)}
               placeholder="shelf-drum-spiral"
               autoComplete="off"
-              className="h-9 w-full rounded-btn border border-hairline bg-raised px-3 text-[13px] text-hi outline-none transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong pointer-coarse:h-11 pointer-coarse:text-base"
+              className="h-9 w-full rounded-btn border border-hairline bg-raised px-3 text-body text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong pointer-coarse:h-11 pointer-coarse:text-base"
             />
           </div>
 
           {canBle ? (
             <div>
-              <span className="mb-1.5 block font-mono text-[10px] uppercase tracking-micro text-low">
+              <span className="mb-1.5 block font-mono text-micro uppercase tracking-micro text-low">
                 transport
               </span>
               <div role="group" aria-label="Export transport" className="flex items-center gap-1">
@@ -186,8 +186,8 @@ export function ExportDialog({
                     }}
                     className={
                       transport === t
-                        ? "h-8 cursor-pointer rounded-btn border border-hairline-strong bg-accent-dim px-3 font-mono text-[10px] uppercase tracking-[0.06em] text-hi"
-                        : "h-8 cursor-pointer rounded-btn border border-hairline px-3 font-mono text-[10px] uppercase tracking-[0.06em] text-mid hover:border-hairline-strong hover:text-hi"
+                        ? "h-8 cursor-pointer rounded-btn border border-hairline-strong bg-accent-dim px-3 font-mono text-micro uppercase tracking-label text-hi"
+                        : "h-8 cursor-pointer rounded-btn border border-hairline px-3 font-mono text-micro uppercase tracking-label text-mid hover:border-hairline-strong hover:text-hi"
                     }
                   >
                     {t === "ble" ? "ble · full rate" : "cloud · 2fps cap"}
@@ -196,22 +196,22 @@ export function ExportDialog({
               </div>
             </div>
           ) : (
-            <p className="font-mono text-[10px] text-low">
+            <p className="font-mono text-micro text-low">
               cloud v2 only — {segmentCount} segments, capped near {CLOUD_MAX_FPS}fps.
             </p>
           )}
 
           <div className="flex items-center justify-between">
-            <span className="font-mono text-[10px] uppercase tracking-micro text-low">loop playback</span>
+            <span className="font-mono text-micro uppercase tracking-micro text-low">loop playback</span>
             <Switch checked={loop} onCheckedChange={setLoop} ariaLabel="Loop playback" />
           </div>
 
           <div className="flex items-center justify-between">
-            <span className="font-mono text-[10px] uppercase tracking-micro text-low">play after saving</span>
+            <span className="font-mono text-micro uppercase tracking-micro text-low">play after saving</span>
             <Switch checked={playAfter} onCheckedChange={setPlayAfter} ariaLabel="Play after saving" />
           </div>
 
-          <p className="border-t border-hairline pt-3 font-mono text-[10px] leading-relaxed text-low">
+          <p className="border-t border-hairline pt-3 font-mono text-micro leading-relaxed text-low">
             {frameCount} frame{frameCount === 1 ? "" : "s"} → {segmentCount} segments at {fps}fps.
           </p>
 

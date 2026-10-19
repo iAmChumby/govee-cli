@@ -19,7 +19,7 @@
  * path in src/lib/api.ts and proves none of them is ever cached.
  */
 
-const CACHE_NAME = "filament-shell-v2";
+const CACHE_NAME = "filament-shell-v3";
 const STATIC_ASSETS = ["/", "/manifest.webmanifest"];
 
 /**
@@ -82,15 +82,67 @@ self.addEventListener("install", (event) => {
   self.skipWaiting();
 });
 
+/**
+ * Is a cached build asset still part of the current build?
+ *
+ * The server's build output IS the manifest: a chunk or a font from a
+ * previous deploy is no longer served (404), and one from the current
+ * deploy is (200). Asking the server answers for EVERY route's chunk and
+ * for the fonts.
+ *
+ * Reading a document cannot: a document only ever names its own scripts,
+ * so the shell document never names another route's chunk, and the fonts
+ * are named by the CSS. An earlier version of this file kept only what
+ * the `/` document named and therefore deleted the current build's
+ * /settings chunk and its fonts (PR #12 review).
+ *
+ * `null` means "could not verify" — offline, a 5xx, a HEAD the server
+ * refuses. The safe answer is to KEEP: deleting an asset we cannot prove
+ * is gone breaks the app, while keeping one we cannot prove is stale
+ * costs a few kilobytes until the next activation.
+ */
+async function assetStillServed(url) {
+  try {
+    const response = await fetch(url, { method: "HEAD", cache: "no-store" });
+    if (response.status === 404 || response.status === 410) return false;
+    if (response.status < 400) return true;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Drop the build assets the current build no longer has, and keep every
+ * asset it still has — whatever route the asset belongs to.
+ *
+ * The old rule ("keep what today's document names") was the wrong question:
+ * it could not tell a previous deploy's chunk from the current build's
+ * chunk for a route the document did not name.
+ */
+async function evictStaleStatic(cache) {
+  const requests = await cache.keys();
+  const buildAssets = requests
+    .map((request) => request.url)
+    .filter((url) => new URL(url).pathname.startsWith("/_next/static/"));
+  const verdicts = await Promise.all(
+    buildAssets.map(async (url) => [(await assetStillServed(url)) === false, url]),
+  );
+  const stale = verdicts.filter(([gone]) => gone).map(([, url]) => url);
+  await Promise.all(stale.map((url) => cache.delete(url)));
+  return stale;
+}
+
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
-          keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)),
-        ),
-      ),
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(
+        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)),
+      );
+      const cache = await caches.open(CACHE_NAME);
+      await evictStaleStatic(cache);
+    })(),
   );
   self.clients.claim();
 });

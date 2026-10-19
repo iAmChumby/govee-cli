@@ -113,7 +113,7 @@ function AddDeviceDialog({
               placeholder="AA:BB:CC:DD:EE:FF:00:11"
               spellCheck={false}
               autoComplete="off"
-              className={cn(INPUT_CLASS, "font-mono text-[12px]")}
+              className={cn(INPUT_CLASS, "font-mono")}
             />
           </Field>
 
@@ -123,7 +123,7 @@ function AddDeviceDialog({
                 <select
                   value={draft.model}
                   onChange={(e) => setDraft((prev) => ({ ...prev, model: e.target.value }))}
-                  className={cn(INPUT_CLASS, "cursor-pointer appearance-none pr-8 font-mono text-[12px]")}
+                  className={cn(INPUT_CLASS, "cursor-pointer appearance-none pr-8 font-mono")}
                 >
                   {SUPPORTED_MODELS.map((model) => (
                     <option key={model} value={model}>
@@ -160,12 +160,12 @@ function AddDeviceDialog({
               placeholder="AA:BB:CC:DD:EE:FF"
               spellCheck={false}
               autoComplete="off"
-              className={cn(INPUT_CLASS, "font-mono text-[12px]")}
+              className={cn(INPUT_CLASS, "font-mono")}
             />
           </Field>
 
           {errors.form ? (
-            <p role="alert" className="font-mono text-[11px] leading-snug text-ember">
+            <p role="alert" className="font-mono text-label leading-snug text-ember">
               {errors.form}
             </p>
           ) : null}
@@ -251,7 +251,7 @@ export function DevicesSection() {
             ))}
           </div>
         ) : list.length === 0 && !devices.isError ? (
-          <p className="py-1 font-mono text-[11px] leading-relaxed text-low">
+          <p className="py-1 font-mono text-label leading-relaxed text-low">
             no devices registered — scan the cloud or add one manually
           </p>
         ) : (
@@ -266,7 +266,7 @@ export function DevicesSection() {
                     tone={d.online === false ? "off" : "ok"}
                     label={d.online === false ? "offline" : "online"}
                   />
-                  <span className="truncate text-[13px] font-medium text-hi">
+                  <span className="truncate text-body font-medium text-hi">
                     {d.name ?? d.ref}
                   </span>
                 </span>
@@ -282,7 +282,7 @@ export function DevicesSection() {
                     max-w to lift); wrapping under pointer:coarse just lets
                     it use that same width across more than one line. */}
                 <span
-                  className="min-w-0 flex-1 truncate font-mono text-[11px] text-low pointer-coarse:whitespace-normal pointer-coarse:break-words"
+                  className="min-w-0 flex-1 truncate font-mono text-label text-low pointer-coarse:whitespace-normal pointer-coarse:break-words"
                   title={d.id}
                 >
                   {d.id}
@@ -298,7 +298,7 @@ export function DevicesSection() {
         )}
 
         {devices.isError ? (
-          <p className="mt-3 border-t border-hairline pt-3 font-mono text-[11px] text-ember">
+          <p className="mt-3 border-t border-hairline pt-3 font-mono text-label text-ember">
             {errMessage(devices.error)}
           </p>
         ) : null}

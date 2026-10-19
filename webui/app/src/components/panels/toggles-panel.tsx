@@ -103,7 +103,7 @@ export function TogglesPanel({ deviceRef }: { deviceRef: string }) {
             ))}
           </StaggerList>
 
-          <p className="mt-3 border-t border-hairline pt-3 font-mono text-[10px] leading-relaxed text-low">
+          <p className="mt-3 border-t border-hairline pt-3 font-mono text-micro leading-relaxed text-low">
             the device reports no toggle state — positions reflect this session
             only. a rejected toggle surfaces verbatim as an error toast.
           </p>
@@ -125,7 +125,7 @@ interface ToggleRowProps {
 function ToggleRow({ toggle, checked, pending, onFlip }: ToggleRowProps) {
   return (
     <div className="flex items-center gap-3 rounded-card border border-hairline bg-raised px-3 py-2.5">
-      <span className="min-w-0 flex-1 truncate font-mono text-[12px] leading-tight text-hi">
+      <span className="min-w-0 flex-1 truncate font-mono text-data leading-tight text-hi">
         {toggle.instance}
       </span>
 

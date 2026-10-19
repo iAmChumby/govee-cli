@@ -171,10 +171,10 @@ export function MusicPanel({ deviceRef }: { deviceRef: string }) {
 function UnsupportedMusic() {
   return (
     <Panel className="rounded-card border-hairline bg-transparent p-4">
-      <p className="text-[12px] font-medium leading-snug text-mid">
+      <p className="text-data font-medium leading-snug text-mid">
         Music mode is unsupported on this model
       </p>
-      <p className="mt-1.5 font-mono text-[10px] leading-relaxed text-low">
+      <p className="mt-1.5 font-mono text-micro leading-relaxed text-low">
         PUT /music → 400 &ldquo;devices not support this instance&rdquo; — the
         capability is advertised, the hardware refuses it.
       </p>
@@ -268,7 +268,7 @@ function MusicControls({ deviceRef, modes, active }: MusicControlsProps) {
                 aria-pressed={isActive}
                 onClick={() => setModeKey(m.key)}
                 className={cn(
-                  "cursor-pointer rounded-chip border px-2.5 py-1.5 font-mono text-[10px] uppercase leading-none tracking-[0.08em] transition-colors duration-150",
+                  "cursor-pointer rounded-chip border px-2.5 py-1.5 font-mono text-micro uppercase leading-none tracking-caps transition-colors duration-150",
                   isActive
                     ? "border-hairline-strong bg-accent-dim text-hi"
                     : "border-hairline text-mid hover:border-hairline-strong hover:text-hi",
@@ -279,7 +279,7 @@ function MusicControls({ deviceRef, modes, active }: MusicControlsProps) {
             );
           })}
         </div>
-        <p className="mt-2 font-mono text-[10px] leading-relaxed text-low">
+        <p className="mt-2 font-mono text-micro leading-relaxed text-low">
           {provenanceNote}
         </p>
       </StaggerItem>
@@ -299,7 +299,7 @@ function MusicControls({ deviceRef, modes, active }: MusicControlsProps) {
             className="flex-1"
           />
           <span className="w-[5ch] text-right">
-            <Odometer value={sensitivity} pad={3} className="text-[13px] text-hi" />
+            <Odometer value={sensitivity} pad={3} className="text-body text-hi" />
           </span>
         </div>
       </StaggerItem>
@@ -314,7 +314,7 @@ function MusicControls({ deviceRef, modes, active }: MusicControlsProps) {
               onCheckedChange={toggleAuto}
               ariaLabel="Auto color"
             />
-            <span className="text-[11px] uppercase leading-none tracking-micro text-mid">
+            <span className="text-label uppercase leading-none tracking-micro text-mid">
               auto
             </span>
           </span>
@@ -324,10 +324,10 @@ function MusicControls({ deviceRef, modes, active }: MusicControlsProps) {
             ariaGroupLabel="Fixed music color"
           />
           {hex ? (
-            <span className="font-mono text-[10px] uppercase text-low">{hex}</span>
+            <span className="font-mono text-micro uppercase text-low">{hex}</span>
           ) : null}
         </div>
-        <p className="mt-2 font-mono text-[10px] leading-relaxed text-low">
+        <p className="mt-2 font-mono text-micro leading-relaxed text-low">
           auto color and a fixed color are mutually exclusive — picking one
           clears the other. Turning auto off with no color picked is still a
           real command (matches the CLI&apos;s <code>--no-auto-color</code>{" "}
@@ -338,7 +338,7 @@ function MusicControls({ deviceRef, modes, active }: MusicControlsProps) {
       {/* apply footer */}
       <StaggerItem className="mt-5 block">
         <div className="flex items-center gap-3 border-t border-hairline pt-4">
-          <span aria-live="polite" className="min-w-0 truncate font-mono text-[11px] text-mid">
+          <span aria-live="polite" className="min-w-0 truncate font-mono text-label text-mid">
             {summary}
           </span>
           <Button

@@ -197,9 +197,9 @@ export function UnknownModeChooser({ deviceRef }: UnknownModeChooserProps) {
         // overlay) is safe here because the chip is absolutely positioned
         // over the stage canvas, with no flex siblings a taller box could
         // shove — and a fine-pointer desktop never evaluates the rule.
-        className="group pointer-events-auto flex shrink-0 cursor-pointer items-center outline-none pointer-coarse:h-11"
+        className="group pointer-events-auto flex shrink-0 cursor-pointer items-center pointer-coarse:h-11"
       >
-        <span className="flex h-6 items-center gap-1 rounded-chip border border-dashed border-hairline bg-bg/80 px-2 font-mono text-[9px] uppercase leading-none tracking-micro text-low transition-colors duration-150 group-hover:border-hairline-strong">
+        <span className="flex h-6 items-center gap-1 rounded-chip border border-dashed border-hairline bg-bg/80 px-2 font-mono text-nano uppercase leading-none tracking-micro text-low transition-colors duration-150 group-hover:border-hairline-strong">
           <HelpCircle aria-hidden className="h-3 w-3 shrink-0" />
           what&rsquo;s playing?
         </span>
@@ -224,7 +224,7 @@ export function UnknownModeChooser({ deviceRef }: UnknownModeChooserProps) {
           />
 
           {listsLoading ? (
-            <div className="flex items-center gap-2 py-2 font-mono text-[11px] text-low">
+            <div className="flex items-center gap-2 py-2 font-mono text-label text-low">
               <Spinner /> loading this device&rsquo;s real scene/DIY/music lists…
             </div>
           ) : null}
@@ -260,7 +260,7 @@ export function UnknownModeChooser({ deviceRef }: UnknownModeChooserProps) {
           ) : null}
 
           {listsFailed ? (
-            <p className="font-mono text-[11px] leading-snug text-low">
+            <p className="font-mono text-label leading-snug text-low">
               couldn&rsquo;t load this device&rsquo;s scene/DIY/music libraries —
               basic and off are still available above.
             </p>
@@ -277,7 +277,7 @@ export function UnknownModeChooser({ deviceRef }: UnknownModeChooserProps) {
               // `pointer-coarse:` bumps it past the 44px floor via padding
               // alone; the fine-pointer geometry (px-3 py-1.5, ~26-28px) is
               // untouched.
-              className="rounded-btn border border-hairline px-3 py-1.5 font-medium uppercase tracking-[0.08em] text-[10px] text-mid transition-colors duration-150 hover:border-hairline-strong hover:text-hi pointer-coarse:min-h-11 pointer-coarse:px-4 pointer-coarse:py-3"
+              className="rounded-btn border border-hairline px-3 py-1.5 font-medium uppercase tracking-caps text-micro text-mid transition-colors duration-150 hover:border-hairline-strong hover:text-hi pointer-coarse:min-h-11 pointer-coarse:px-4 pointer-coarse:py-3"
             >
               cancel
             </button>
@@ -356,8 +356,8 @@ function OptionRow({
         "disabled:pointer-events-none disabled:opacity-40",
       )}
     >
-      <span className="truncate text-[12px] text-hi">{optionName(opt)}</span>
-      <span className="flex shrink-0 items-center gap-1.5 font-mono text-[9px] uppercase leading-none tracking-[0.08em] text-low">
+      <span className="truncate text-data text-hi">{optionName(opt)}</span>
+      <span className="flex shrink-0 items-center gap-1.5 font-mono text-nano uppercase leading-none tracking-caps text-low">
         {pending ? (
           <Spinner label={`loading ${optionName(opt)}`} />
         ) : null}

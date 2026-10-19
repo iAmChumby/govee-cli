@@ -123,18 +123,18 @@ function DiyRow({ scene, active, pending, onApply }: DiyRowProps) {
         style={{ background: gradient }}
       />
 
-      <span className="min-w-0 flex-1 truncate text-[12px] leading-tight text-hi">
+      <span className="min-w-0 flex-1 truncate text-data leading-tight text-hi">
         {scene.name}
       </span>
 
-      <span className="font-mono text-[10px] text-low">
+      <span className="font-mono text-micro text-low">
         #{scene.value}
       </span>
 
       {pending ? (
         <Spinner label={`applying ${scene.name}`} />
       ) : active ? (
-        <span className="font-mono text-[9px] uppercase leading-none tracking-[0.08em] text-accent">
+        <span className="font-mono text-nano uppercase leading-none tracking-caps text-accent">
           playing
         </span>
       ) : null}

@@ -34,10 +34,10 @@ export default function RoomsPage() {
         {/* head */}
         <motion.section variants={panelIn} className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-xl font-semibold leading-tight tracking-[-0.02em] text-hi">
+            <h1 className="text-xl font-semibold leading-tight tracking-display text-hi">
               Rooms
             </h1>
-            <p className="mt-1 font-mono text-[11px] text-low">
+            <p className="mt-1 font-mono text-label text-low">
               {rooms.isLoading
                 ? "loading scenes…"
                 : `${scenes.length} saved ${scenes.length === 1 ? "scene" : "scenes"}`}
@@ -59,8 +59,8 @@ export default function RoomsPage() {
         {rooms.isError ? (
           <motion.section variants={panelIn}>
             <Panel className="border-ember/40 p-5">
-              <p className="text-[13px] font-medium text-hi">Room scenes unavailable</p>
-              <p className="mt-1 font-mono text-[11px] text-mid">
+              <p className="text-body font-medium text-hi">Room scenes unavailable</p>
+              <p className="mt-1 font-mono text-label text-mid">
                 {rooms.error instanceof Error ? rooms.error.message : String(rooms.error)} — is
                 the sidecar running on 127.0.0.1:6057?
               </p>
@@ -82,7 +82,7 @@ export default function RoomsPage() {
               ))}
             </div>
           ) : scenes.length === 0 && !rooms.isError ? (
-            <p className="mt-3 font-mono text-[11px] leading-relaxed text-low">
+            <p className="mt-3 font-mono text-label leading-relaxed text-low">
               no room scenes yet — press{" "}
               <span className="text-mid">capture scene</span> above to save every device&rsquo;s
               current mode under one name, or <span className="text-mid">new scene</span> to

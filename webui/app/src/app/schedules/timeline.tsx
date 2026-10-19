@@ -153,7 +153,7 @@ const MarkerDot = React.forwardRef<
         // buttons) but the actual tap target is grown to ~44px via an
         // invisible ::before overlay — this rail is dense enough on a phone
         // viewport that an 8px raw hit box is very hard to land a thumb on.
-        "absolute h-2 w-2 -translate-x-1/2 cursor-pointer rounded-full border transition-transform duration-150 before:absolute before:-inset-[18px] before:content-[''] hover:scale-125",
+        "absolute h-2 w-2 -translate-x-1/2 cursor-pointer rounded-full border transition-transform duration-150 before:absolute before:-inset-space-18 before:content-[''] hover:scale-125",
         tone === "accent"
           ? "border-hi bg-hi"
           : dashed
@@ -199,8 +199,8 @@ function WakeRampPopover({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent align="center" className="w-64">
-        <p className="text-[12px] font-medium text-hi">wake-ramp</p>
-        <p className="mt-1 font-mono text-[10px] leading-snug text-low">
+        <p className="text-data font-medium text-hi">wake-ramp</p>
+        <p className="mt-1 font-mono text-micro leading-snug text-low">
           {entry.device_hint ?? "unknown device"} · ramps 1% → 50% brightness at
           2000K over ~30 min (fixed to this one automation)
         </p>
@@ -219,7 +219,7 @@ function WakeRampPopover({
                   : "not armed"
             }
           />
-          <span className="font-mono text-[11px] text-mid">
+          <span className="font-mono text-label text-mid">
             {status === null
               ? "status unknown — script unreachable"
               : armedDate
@@ -248,7 +248,7 @@ function WakeRampPopover({
           </Button>
         </div>
         <p
-          className="mt-2 truncate font-mono text-[9px] text-low"
+          className="mt-2 truncate font-mono text-nano text-low"
           style={{ color: hslCss(hsl) }}
           title="device color used for this band"
         >
@@ -370,7 +370,7 @@ export function ScheduleTimeline({
               // the box is >=44x44 (ink width + 19px each side, 44px tall at
               // y=44..88 of the 96px rail) while the ink stays 28px tall at
               // y=52..80, and the dot row's boxes end at y=44 so nothing overlaps.
-              className="group absolute bottom-1 top-8 w-[var(--band-w)] cursor-pointer pointer-coarse:bottom-0 pointer-coarse:top-11 pointer-coarse:-ml-[19px] pointer-coarse:w-[calc(var(--band-w)+38px)]"
+              className="group absolute bottom-1 top-8 w-[var(--band-w)] cursor-pointer pointer-coarse:bottom-0 pointer-coarse:top-11 pointer-coarse:-ml-space-19 pointer-coarse:w-[calc(var(--band-w)+38px)]"
               style={
                 {
                   left: `${bandStartPct}%`,
@@ -380,7 +380,7 @@ export function ScheduleTimeline({
             >
               <span
                 aria-hidden
-                className="absolute inset-0 rounded-chip border transition-transform duration-150 group-hover:scale-[1.03] pointer-coarse:inset-x-[19px] pointer-coarse:inset-y-2"
+                className="absolute inset-0 rounded-chip border transition-transform duration-150 group-hover:scale-[1.03] pointer-coarse:inset-x-space-19 pointer-coarse:inset-y-2"
                 style={{
                   backgroundColor: statusUnknown
                     ? "var(--accent-dim)"
@@ -414,7 +414,7 @@ export function ScheduleTimeline({
                       />
                     </PopoverTrigger>
                     <PopoverContent align="center" className="w-72">
-                      <p className="font-mono text-[10px] leading-snug text-mid">
+                      <p className="font-mono text-micro leading-snug text-mid">
                         {estimated ? "~" : ""}
                         {formatClock(d.getHours(), d.getMinutes())} ·{" "}
                         {estimated ? "estimated from cron syntax" : "exact"}
@@ -426,13 +426,13 @@ export function ScheduleTimeline({
                           PopoverContent's own width (`w-72` below) already
                           bounds this, so wrapping needs no max-w lift. */}
                       <p
-                        className="mt-1.5 truncate font-mono text-[10px] text-low pointer-coarse:whitespace-normal pointer-coarse:break-words"
+                        className="mt-1.5 truncate font-mono text-micro text-low pointer-coarse:whitespace-normal pointer-coarse:break-words"
                         title={entry.raw_line ?? undefined}
                       >
                         {entry.raw_line ?? entry.command}
                       </p>
                       {entry.today_occurrences_truncated ? (
-                        <p className="mt-1.5 font-mono text-[9px] text-low">
+                        <p className="mt-1.5 font-mono text-nano text-low">
                           +more today (capped at 20 shown)
                         </p>
                       ) : null}
@@ -468,7 +468,7 @@ export function ScheduleTimeline({
               // Centre y is fixed (13px fine, 24px coarse) so the rail's rows
               // never collide; dots within 44px of each other are all listed
               // by the inline label on tap (selectAround).
-              className="absolute top-[13px] flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center pointer-coarse:top-[22px] pointer-coarse:h-11 pointer-coarse:w-11"
+              className="absolute top-space-13 flex h-5 w-5 -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center pointer-coarse:top-space-22 pointer-coarse:h-11 pointer-coarse:w-11"
               style={{ left: `${pct}%` }}
             >
               <span
@@ -496,7 +496,7 @@ export function ScheduleTimeline({
       </div>
 
       {/* hour labels */}
-      <div className="mt-1.5 flex justify-between font-mono text-[9px] text-low">
+      <div className="mt-1.5 flex justify-between font-mono text-nano text-low">
         {GRID_HOURS.filter((h) => h % 6 === 0).map((h) => (
           <span key={h}>{pad2(h % 24)}:00</span>
         ))}
@@ -510,7 +510,7 @@ export function ScheduleTimeline({
               <button
                 type="button"
                 onClick={() => onSelectRule?.(r.id)}
-                className="min-h-7 w-full cursor-pointer rounded-chip border border-hairline px-2 py-1 text-left font-mono text-[11px] leading-snug text-mid hover:border-hairline-strong hover:text-hi pointer-coarse:min-h-11"
+                className="min-h-7 w-full cursor-pointer rounded-chip border border-hairline px-2 py-1 text-left font-mono text-label leading-snug text-mid hover:border-hairline-strong hover:text-hi pointer-coarse:min-h-11"
               >
                 <span data-volatile={isSun(parseWhen(r.time)?.kind ?? "clock") ? "true" : undefined}>
                   {dotLabel(r)}
@@ -520,18 +520,18 @@ export function ScheduleTimeline({
           ))}
         </ul>
       ) : plotted.length > 0 ? (
-        <p className="mt-2 font-mono text-[11px] leading-snug text-mid">tap a dot for its time</p>
+        <p className="mt-2 font-mono text-label leading-snug text-mid">tap a dot for its time</p>
       ) : null}
 
       {unplotted.length > 0 ? (
-        <p className="mt-1 font-mono text-[11px] leading-snug text-mid">
+        <p className="mt-1 font-mono text-label leading-snug text-mid">
           {unplotted.length} {unplotted.length === 1 ? "rule" : "rules"} not on today&apos;s timeline:{" "}
           {unplotted.map((r) => `${r.name} (${r.today_reason ?? "unknown"})`).join(", ")}
         </p>
       ) : null}
 
       {/* legend */}
-      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 font-mono text-[9px] uppercase tracking-[0.06em] text-low">
+      <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 font-mono text-nano uppercase tracking-label text-low">
         <span className="flex items-center gap-1.5">
           <span className="h-2 w-2 rounded-full border border-accent-contrast bg-accent" /> native rule
         </span>

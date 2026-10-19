@@ -203,7 +203,7 @@ export function PaintStudioPanel({ refId, state }: PaintStudioPanelProps) {
   if (geometry.rows <= 0 || geometry.cols <= 0) {
     return (
       <Panel className="mt-5 p-5">
-        <p className="text-[12px] text-mid">
+        <p className="text-data text-mid">
           This model has no addressable matrix — paint studio isn&rsquo;t available.
         </p>
       </Panel>
@@ -271,7 +271,7 @@ export function PaintStudioPanel({ refId, state }: PaintStudioPanelProps) {
           />
 
           {paint.tool === "gradient" ? (
-            <p className="-mt-3 font-mono text-[10px] text-low">
+            <p className="-mt-3 font-mono text-micro text-low">
               {gradientPoint ? "tap the gradient's end point" : "tap the gradient's start point"}
             </p>
           ) : null}
@@ -321,7 +321,7 @@ export function PaintStudioPanel({ refId, state }: PaintStudioPanelProps) {
                 "preview on device"
               )}
             </Button>
-            <span className="font-mono text-[9px] text-low">
+            <span className="font-mono text-nano text-low">
               sends the current drawing to the real lamp, one segment/second
             </span>
           </div>

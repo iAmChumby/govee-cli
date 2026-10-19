@@ -62,16 +62,21 @@ export function ControlDeck({ refId, state }: ControlDeckProps) {
     // dial does not get (measured; see reports/wave2-fix.md).
     <motion.section variants={panelIn} className="flex min-w-0 flex-col gap-5 max-md:gap-3 pointer-coarse:landscape:gap-1">
       {/* header */}
-      {/* #10 landscape: `flex-nowrap` keeps the device header on one row.
-          At 667px the deck column is 316px and the header's content (name
-          + model chip + transport chip + power switch) is 306px — it
-          wrapped to two rows there and the second row (the 44px power
-          switch) pushed the dial 34px further down the page. The name
-          truncates instead of wrapping, so a long device name costs
-          ellipsis rather than fold; the chips never shrink (a shrunk
-          chip wraps its own text — "CLOUD-V2" broke over two lines). */}
-      <div className="flex flex-wrap items-center gap-3 pointer-coarse:landscape:flex-nowrap pointer-coarse:landscape:gap-2">
-        <h1 className="text-lg font-medium leading-tight tracking-[-0.02em] text-hi pointer-coarse:landscape:min-w-0 pointer-coarse:landscape:truncate">
+      {/* #10 landscape + the coarse-pointer wrap rule. The name no longer
+          truncates: touch has no hover, so an ellipsis would hide the
+          device's own name with no second channel to reveal it (CLAUDE.md).
+          It gets its own full-width row (`basis-full`) so a long name wraps
+          at the deck width instead of being squeezed into the ~97px left
+          beside the chips; the chips and power switch take the next row.
+          `leading-none` + `gap-y-1` claw back the height that second row
+          costs (the column gap stays the wave-2 `gap-2`). Measured on the
+          mock at 667×375 and 844×390: normal name
+          dial 216–352, a 55-character name 234–370, both above the 375px
+          fold. Every class is pointer-coarse:landscape:-gated, so desktop
+          and portrait are untouched. The chips never shrink (a shrunk chip
+          wraps its own text — "CLOUD-V2" broke over two lines). */}
+      <div className="flex flex-wrap items-center gap-3 pointer-coarse:landscape:gap-2 pointer-coarse:landscape:gap-y-1">
+        <h1 className="text-lg font-medium leading-tight tracking-display text-hi pointer-coarse:landscape:min-w-0 pointer-coarse:landscape:basis-full pointer-coarse:landscape:break-words pointer-coarse:landscape:leading-none">
           {name}
         </h1>
         {state.model ? (
@@ -164,7 +169,7 @@ function HeaderPower({ refId, state, pending }: { refId: string; state: DeviceSt
   const controls = useDeviceControls();
   return (
     <div className="ml-auto flex items-center gap-2.5">
-      <span className="text-[11px] uppercase tracking-micro text-low">
+      <span className="text-label uppercase tracking-micro text-low">
         {pending ? "syncing" : state.power === null ? "?" : state.power ? "on" : "off"}
       </span>
       <Switch
@@ -314,7 +319,7 @@ function LightTab({ refId, state }: ControlDeckProps) {
       <div>
         <div className="flex items-baseline justify-between">
           <SectionLabel index="02" title="temperature" />
-          <span className="font-mono text-[11px] tabular-nums text-mid">
+          <span className="font-mono text-label tabular-nums text-mid">
             {tempScrub !== null || state.color_temp_k !== null
               ? `${Math.round(tempValue)}K`
               : "—"}
@@ -325,7 +330,7 @@ function LightTab({ refId, state }: ControlDeckProps) {
             {/* kelvin ramp underlay: warm → white → cool, behind the track */}
             <div
               aria-hidden
-              className="pointer-events-none absolute left-[9px] right-[9px] top-1/2 h-[3px] -translate-y-1/2 rounded-full"
+              className="pointer-events-none absolute left-space-9 right-space-9 top-1/2 h-[3px] -translate-y-1/2 rounded-full"
               style={{
                 background: "linear-gradient(90deg, #FFB46B, #FFFFFF, #BBD8FF)",
               }}
@@ -340,7 +345,7 @@ function LightTab({ refId, state }: ControlDeckProps) {
               onValueCommit={commitTemperature}
             />
           </div>
-          <span className="w-[9ch] text-right font-mono text-[10px] leading-none text-low">
+          <span className="w-[9ch] text-right font-mono text-micro leading-none text-low">
             {tempMin}–{tempMax}
           </span>
         </div>
@@ -376,14 +381,14 @@ function ReadoutStrip({ state }: { state: DeviceState }) {
     <div className="mt-5 flex items-center gap-4 border-t border-hairline pt-4">
       <span className="flex items-center gap-2">
         <StatusDot tone={online ? "ok" : "off"} />
-        <span className="text-[11px] uppercase tracking-micro text-low">
+        <span className="text-label uppercase tracking-micro text-low">
           {online ? "online" : "offline"}
         </span>
       </span>
 
       <span aria-hidden className="h-3 w-px bg-hairline" />
 
-      <span className="flex items-center gap-2 font-mono text-[11px] text-mid">
+      <span className="flex items-center gap-2 font-mono text-label text-mid">
         {asTemp ? (
           `${state.color_temp_k}K`
         ) : state.color ? (

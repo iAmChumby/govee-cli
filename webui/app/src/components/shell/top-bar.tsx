@@ -53,7 +53,7 @@ export function TopBar() {
           hidden-elements inventory rather than surfaced. */}
       <div className="flex items-baseline gap-3">
         <span className="flex items-baseline">
-          <span className="text-[17px] font-semibold lowercase leading-none tracking-[-0.02em] text-hi">
+          <span className="text-title font-semibold lowercase leading-none tracking-display text-hi">
             filament
           </span>
           <span
@@ -61,7 +61,7 @@ export function TopBar() {
             className="ml-1 inline-block h-[5px] w-[5px] animate-dot-breathe rounded-full bg-accent"
           />
         </span>
-        <span className="hidden text-[11px] uppercase leading-none tracking-micro text-low sm:inline">
+        <span className="hidden text-label uppercase leading-none tracking-micro text-low sm:inline">
           govee control console
         </span>
       </div>
@@ -73,7 +73,7 @@ export function TopBar() {
           renders its own <h1> and the device console renders a "← console"
           back link above the device name — so hiding this is deduplication,
           not omission. */}
-      <span className="hidden items-center gap-2 font-mono text-[11px] text-low md:flex">
+      <span className="hidden items-center gap-2 font-mono text-label text-low md:flex">
         <Link href="/" className="text-low hover:text-hi transition-colors duration-150">
           console
         </Link>

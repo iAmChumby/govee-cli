@@ -118,7 +118,7 @@ export function DefaultsSection() {
                   <select
                     value={form.mac}
                     onChange={(e) => setForm((prev) => ({ ...prev, mac: e.target.value }))}
-                    className={cn(INPUT_CLASS, "cursor-pointer appearance-none pr-8 font-mono text-[12px]")}
+                    className={cn(INPUT_CLASS, "cursor-pointer appearance-none pr-8 font-mono")}
                   >
                     <option value="">— none —</option>
                     {deviceList.map((d) => (
@@ -147,7 +147,7 @@ export function DefaultsSection() {
                   min={0}
                   step={0.5}
                   inputMode="decimal"
-                  className={cn(INPUT_CLASS, "font-mono text-[12px] tabular-nums")}
+                  className={cn(INPUT_CLASS, "font-mono tabular-nums")}
                 />
               </Field>
 
@@ -163,7 +163,7 @@ export function DefaultsSection() {
                   max={100}
                   step={1}
                   inputMode="numeric"
-                  className={cn(INPUT_CLASS, "font-mono text-[12px] tabular-nums")}
+                  className={cn(INPUT_CLASS, "font-mono tabular-nums")}
                 />
               </Field>
 
@@ -179,13 +179,13 @@ export function DefaultsSection() {
                   spellCheck={false}
                   maxLength={7}
                   autoComplete="off"
-                  className={cn(INPUT_CLASS, "font-mono text-[12px] uppercase")}
+                  className={cn(INPUT_CLASS, "font-mono uppercase")}
                 />
               </Field>
             </div>
 
             {errors.form ? (
-              <p role="alert" className="font-mono text-[11px] leading-snug text-ember">
+              <p role="alert" className="font-mono text-label leading-snug text-ember">
                 {errors.form}
               </p>
             ) : null}

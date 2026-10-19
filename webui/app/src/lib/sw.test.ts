@@ -24,6 +24,8 @@ function readAppFile(...parts: string[]): string {
 const swSource = readAppFile("public/sw.js");
 const apiSource = readAppFile("src/lib/api.ts");
 
+const CACHE_NAME = "filament-shell-v3";
+
 interface CacheRequest {
   method: string;
   url: string;
@@ -31,31 +33,93 @@ interface CacheRequest {
   headers?: { get(name: string): string | null };
 }
 
-/** Execute public/sw.js and take its shouldCache function. */
-function loadShouldCache(): (request: CacheRequest) => boolean {
+type Listener = (event: { waitUntil(promise: Promise<unknown>): void }) => void;
+
+interface WorkerOptions {
+  /** URLs already in the current cache */
+  cacheUrls?: string[];
+  /** cache names `caches.keys()` reports */
+  cacheKeys?: string[];
+  /** body of the fresh `/` document the activate handler fetches */
+  shellHtml?: string;
+  /**
+   * URLs the current build still serves. A HEAD for any of these answers
+   * 200; every other URL answers 404 ("the last deploy's file"). Unset
+   * means the server serves everything.
+   */
+  servedUrls?: string[];
+  /** every network request fails — an activate while the device is offline */
+  offline?: boolean;
+}
+
+interface Worker {
+  context: Record<string, unknown>;
+  listeners: Record<string, Listener[]>;
+  deletedCacheNames: string[];
+  deletedUrls: string[];
+}
+
+/** Execute public/sw.js with the worker globals the code touches. */
+function loadWorker(options: WorkerOptions = {}): Worker {
+  const deletedCacheNames: string[] = [];
+  const deletedUrls: string[] = [];
+  const listeners: Record<string, Listener[]> = {};
+  const cache = {
+    keys: async () => (options.cacheUrls ?? []).map((url) => ({ url })),
+    delete: async (url: string) => {
+      deletedUrls.push(url);
+      return true;
+    },
+    add: async () => undefined,
+    put: async () => undefined,
+  };
   const context: Record<string, unknown> = {
     location: { origin: ORIGIN },
     self: {
-      addEventListener: () => undefined,
+      addEventListener: (type: string, listener: Listener) => {
+        (listeners[type] ??= []).push(listener);
+      },
       skipWaiting: () => undefined,
       clients: { claim: () => undefined },
     },
     caches: {
-      open: async () => ({
-        add: async () => undefined,
-        put: async () => undefined,
-      }),
+      open: async () => cache,
       match: async () => undefined,
-      keys: async () => [],
-      delete: async () => true,
+      keys: async () => options.cacheKeys ?? [CACHE_NAME],
+      delete: async (key: string) => {
+        deletedCacheNames.push(key);
+        return true;
+      },
     },
-    fetch: async () => undefined,
+    fetch: async (url: string, init?: { method?: string }) => {
+      if (options.offline) throw new Error("offline");
+      const target = String(url);
+      // A HEAD is how the activate handler asks the server whether a
+      // cached build asset is still part of the current build.
+      if (init && init.method === "HEAD") {
+        const served = !options.servedUrls || options.servedUrls.includes(target);
+        return {
+          ok: served,
+          status: served ? 200 : 404,
+          text: async () => "",
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        text: async () => options.shellHtml ?? "",
+      };
+    },
     URL,
     console,
   };
   vm.createContext(context);
   vm.runInContext(swSource, context, { filename: "public/sw.js" });
-  const fn = context.shouldCache;
+  return { context, listeners, deletedCacheNames, deletedUrls };
+}
+
+function loadShouldCache(): (request: CacheRequest) => boolean {
+  const fn = loadWorker().context.shouldCache;
   assert.equal(typeof fn, "function", "public/sw.js must define shouldCache()");
   return fn as (request: CacheRequest) => boolean;
 }
@@ -219,7 +283,74 @@ describe("Service Worker cache contract (#6)", () => {
     );
   });
 
+  it("keeps the current build's chunks and fonts, and drops the last build's", async () => {
+    // A route chunk the shell document never names: only that route's own
+    // document names it, and the old rule read one document.
+    const settingsChunk = `${ORIGIN}/_next/static/chunks/app/settings/page-abc123.js`;
+    // The fonts are named by the CSS, not by any document.
+    const font = `${ORIGIN}/_next/static/media/9f8e7d6c.woff2`;
+    // The previous deploy's chunk: the server no longer has it.
+    const previousBuild = `${ORIGIN}/_next/static/chunks/old-9f8e7d.js`;
+
+    const worker = loadWorker({
+      cacheUrls: [
+        settingsChunk,
+        font,
+        previousBuild,
+        `${ORIGIN}/`,
+        `${ORIGIN}/icons/icon-192.png`,
+      ],
+      cacheKeys: [CACHE_NAME, "filament-shell-v2"],
+      servedUrls: [settingsChunk, font],
+    });
+    const handler = worker.listeners.activate?.[0];
+    assert.ok(handler, "public/sw.js must register an activate handler");
+    const waits: Promise<unknown>[] = [];
+    handler({ waitUntil: (promise) => waits.push(promise) });
+    await Promise.all(waits);
+
+    assert.deepEqual(worker.deletedCacheNames, ["filament-shell-v2"]);
+    // The current build's own assets survive, whatever route they belong to.
+    assert.equal(
+      worker.deletedUrls.includes(settingsChunk),
+      false,
+      "the current build's /settings chunk must survive activation",
+    );
+    assert.equal(
+      worker.deletedUrls.includes(font),
+      false,
+      "the current build's font must survive activation",
+    );
+    // The previous deploy's chunk is gone.
+    assert.deepEqual(worker.deletedUrls, [previousBuild]);
+    // The shell and the icons are not build output and are never evicted.
+    assert.equal(worker.deletedUrls.includes(`${ORIGIN}/`), false);
+    assert.equal(
+      worker.deletedUrls.includes(`${ORIGIN}/icons/icon-192.png`),
+      false,
+    );
+  });
+
+  it("keeps every cached build chunk when the server cannot be reached", async () => {
+    const chunk = `${ORIGIN}/_next/static/chunks/keep.js`;
+    const worker = loadWorker({
+      cacheUrls: [chunk],
+      offline: true,
+    });
+    const handler = worker.listeners.activate?.[0];
+    assert.ok(handler, "public/sw.js must register an activate handler");
+    const waits: Promise<unknown>[] = [];
+    handler({ waitUntil: (promise) => waits.push(promise) });
+    await Promise.all(waits);
+
+    assert.deepEqual(
+      worker.deletedUrls,
+      [],
+      "an asset we cannot prove is gone must be kept, not deleted",
+    );
+  });
+
   it("bumps CACHE_NAME so the previous shell cache is purged", () => {
-    assert.match(swSource, /CACHE_NAME\s*=\s*"filament-shell-v2"/);
+    assert.match(swSource, /CACHE_NAME\s*=\s*"filament-shell-v3"/);
   });
 });

@@ -113,7 +113,7 @@ function Segmented<T extends string>({
             aria-checked={active}
             onClick={() => onChange(o.value)}
             className={cn(
-              "h-7 min-w-0 flex-1 cursor-pointer rounded-chip border font-mono text-[10px] uppercase tracking-[0.08em] transition-colors duration-150 pointer-coarse:min-h-11",
+              "h-7 min-w-0 flex-1 cursor-pointer rounded-chip border font-mono text-micro uppercase tracking-caps transition-colors duration-150 pointer-coarse:min-h-11",
               active
                 ? "border-hairline-strong bg-accent-dim text-hi"
                 : "border-transparent text-mid hover:text-hi",
@@ -167,7 +167,7 @@ function SelectBox({
         onChange={(e) => onChange(e.target.value)}
         className={cn(
           INPUT_CLASS,
-          "cursor-pointer appearance-none pr-8 font-mono text-[12px] pointer-coarse:h-11",
+          "cursor-pointer appearance-none pr-8 font-mono pointer-coarse:h-11",
         )}
       >
         {children}
@@ -191,11 +191,11 @@ function ResolvedLine({ draft, now }: { draft: Draft; now: string }) {
 
   if (time === "") return null;
   if (preview.isLoading) {
-    return <p className="font-mono text-[11px] text-low">resolving…</p>;
+    return <p className="font-mono text-label text-low">resolving…</p>;
   }
   if (preview.isError || !preview.data) {
     return (
-      <p className="font-mono text-[11px] leading-snug text-low">
+      <p className="font-mono text-label leading-snug text-low">
         could not resolve a time: the sidecar did not answer
       </p>
     );
@@ -203,7 +203,7 @@ function ResolvedLine({ draft, now }: { draft: Draft; now: string }) {
   const p = preview.data;
   if (p.error) {
     return (
-      <p role="alert" className="flex items-start gap-1.5 font-mono text-[11px] leading-snug text-ember">
+      <p role="alert" className="flex items-start gap-1.5 font-mono text-label leading-snug text-ember">
         <TriangleAlert size={12} strokeWidth={1.75} aria-hidden className="mt-px shrink-0" />
         {p.error}
       </p>
@@ -212,7 +212,7 @@ function ResolvedLine({ draft, now }: { draft: Draft; now: string }) {
   const noLocation = sun && (p.location.latitude === null || /location/i.test(p.reason ?? ""));
   if (noLocation) {
     return (
-      <p className="font-mono text-[11px] leading-snug text-mid">
+      <p className="font-mono text-label leading-snug text-mid">
         No location set: {draft.kind} times cannot be computed.{" "}
         <Link href="/settings" className="whitespace-nowrap text-hi underline underline-offset-2">
           Set it in Settings
@@ -223,7 +223,7 @@ function ResolvedLine({ draft, now }: { draft: Draft; now: string }) {
   const zone = <span className="whitespace-nowrap">{formatZone(p.location)}</span>;
   const detail = sun && p.event_time ? <>{`${draft.kind} ${wallHM(p.event_time)}, `}{zone}</> : zone;
   return (
-    <div className="space-y-0.5 font-mono text-[11px] leading-snug text-mid">
+    <div className="space-y-0.5 font-mono text-label leading-snug text-mid">
       <p>
         {p.today_fire
           ? <>{`Today: ${wallHM(p.today_fire)} (`}{detail})</>
@@ -344,7 +344,7 @@ function RuleForm({
         </Field>
 
         <div className="space-y-2">
-          <span className="block text-[11px] uppercase leading-none tracking-micro text-mid">when</span>
+          <span className="block text-label uppercase leading-none tracking-micro text-mid">when</span>
           <Segmented<WhenKind>
             label="When"
             value={draft.kind}
@@ -362,10 +362,10 @@ function RuleForm({
                 aria-label="Clock time"
                 value={draft.clock}
                 onChange={(e) => set("clock", e.target.value)}
-                className={cn(INPUT_CLASS, "font-mono text-[12px] pointer-coarse:h-11")}
+                className={cn(INPUT_CLASS, "font-mono pointer-coarse:h-11")}
               />
               {errors.time ? (
-                <span role="alert" className="mt-1.5 block font-mono text-[11px] leading-snug text-ember">
+                <span role="alert" className="mt-1.5 block font-mono text-label leading-snug text-ember">
                   {errors.time}
                 </span>
               ) : null}
@@ -380,7 +380,7 @@ function RuleForm({
               </StepButton>
               <span
                 aria-live="polite"
-                className="min-w-0 flex-1 text-center font-mono text-[12px] tabular-nums text-hi"
+                className="min-w-0 flex-1 text-center font-mono text-data tabular-nums text-hi"
               >
                 {offsetLabel(draft.kind, draft.offsetMinutes)}
               </span>
@@ -396,7 +396,7 @@ function RuleForm({
         </div>
 
         <div>
-          <span className="mb-1.5 block text-[11px] uppercase leading-none tracking-micro text-mid">days</span>
+          <span className="mb-1.5 block text-label uppercase leading-none tracking-micro text-mid">days</span>
           <div className="grid grid-cols-7 gap-1">
             {DAYS.map((day) => {
               const on = draft.days.includes(day);
@@ -408,7 +408,7 @@ function RuleForm({
                   aria-label={`${on ? "Remove" : "Add"} ${day}`}
                   onClick={() => toggleDay(day)}
                   className={cn(
-                    "h-8 min-w-0 cursor-pointer rounded-chip border px-0 font-mono text-[10px] uppercase leading-none tracking-[0.04em] transition-colors duration-150 pointer-coarse:h-11",
+                    "h-8 min-w-0 cursor-pointer rounded-chip border px-0 font-mono text-micro uppercase leading-none tracking-data transition-colors duration-150 pointer-coarse:h-11",
                     on
                       ? "border-hairline-strong bg-accent-dim text-hi"
                       : "border-hairline text-low hover:border-hairline-strong hover:text-hi",
@@ -420,14 +420,14 @@ function RuleForm({
             })}
           </div>
           {errors.days ? (
-            <span role="alert" className="mt-1.5 block font-mono text-[11px] leading-snug text-ember">
+            <span role="alert" className="mt-1.5 block font-mono text-label leading-snug text-ember">
               {errors.days}
             </span>
           ) : null}
         </div>
 
         <div className="space-y-2">
-          <span className="block text-[11px] uppercase leading-none tracking-micro text-mid">target</span>
+          <span className="block text-label uppercase leading-none tracking-micro text-mid">target</span>
           <Segmented<TargetKind>
             label="Target"
             value={draft.target}
@@ -464,7 +464,7 @@ function RuleForm({
                 placeholder="power on"
                 spellCheck={false}
                 autoComplete="off"
-                className={cn(INPUT_CLASS, "font-mono text-[12px] pointer-coarse:h-11")}
+                className={cn(INPUT_CLASS, "font-mono pointer-coarse:h-11")}
               />
             </Field>
             <div className="-mt-2 flex flex-wrap gap-1.5 max-sm:grid max-sm:grid-cols-2">
@@ -476,7 +476,7 @@ function RuleForm({
                   aria-label={`Use command ${cmd}`}
                   onClick={() => set("command", cmd)}
                   className={cn(
-                    "cursor-pointer rounded-chip border px-2.5 py-1.5 font-mono text-[10px] uppercase leading-none tracking-[0.08em] transition-colors duration-150 pointer-coarse:min-h-11",
+                    "cursor-pointer rounded-chip border px-2.5 py-1.5 font-mono text-micro uppercase leading-none tracking-caps transition-colors duration-150 pointer-coarse:min-h-11",
                     draft.command === cmd
                       ? "border-hairline-strong bg-accent-dim text-hi"
                       : "border-hairline text-mid hover:border-hairline-strong hover:text-hi",
@@ -514,7 +514,7 @@ function RuleForm({
         )}
 
         {errors.form ? (
-          <p role="alert" className="flex items-start gap-1.5 font-mono text-[11px] leading-snug text-ember">
+          <p role="alert" className="flex items-start gap-1.5 font-mono text-label leading-snug text-ember">
             <TriangleAlert size={12} strokeWidth={1.75} aria-hidden className="mt-px shrink-0" />
             {errors.form}
           </p>

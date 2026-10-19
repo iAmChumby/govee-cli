@@ -44,13 +44,15 @@
     background: transparent;
   }
 
-  /* focus: keyboard only, 2px accent outline offset 2px */
+  /* focus (#12): keyboard only, one ring from one token.
+     Every control inherits this. A component may cancel the outline only when
+     it paints the same ring from --focus-ring / --focus-ring-width. */
   :focus {
     outline: none;
   }
   :focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
+    outline: var(--focus-ring-width) solid var(--focus-ring);
+    outline-offset: var(--focus-ring-offset);
   }
 
   /* default border color follows the hairline system */

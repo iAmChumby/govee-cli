@@ -119,7 +119,7 @@ function CreateGroupDialog({
           <Field label="members" error={errors.members}>
             <div className="max-h-48 space-y-0.5 overflow-y-auto rounded-btn border border-hairline bg-raised p-1.5">
               {devices.length === 0 ? (
-                <p className="px-2 py-1.5 font-mono text-[11px] text-low">
+                <p className="px-2 py-1.5 font-mono text-label text-low">
                   no devices registered yet
                 </p>
               ) : (
@@ -133,7 +133,7 @@ function CreateGroupDialog({
                   // list, never moving anything else on the page.
                   <label
                     key={d.id}
-                    className="flex cursor-pointer items-center gap-2.5 rounded-chip px-2 py-1.5 pointer-coarse:min-h-11 text-[13px] text-mid transition-colors duration-150 hover:bg-accent-dim hover:text-hi"
+                    className="flex cursor-pointer items-center gap-2.5 rounded-chip px-2 py-1.5 pointer-coarse:min-h-11 text-body text-mid transition-colors duration-150 hover:bg-accent-dim hover:text-hi"
                   >
                     <input
                       type="checkbox"
@@ -142,7 +142,7 @@ function CreateGroupDialog({
                       className="h-3.5 w-3.5 accent-accent"
                     />
                     <span className="truncate">{d.name ?? d.ref}</span>
-                    <span className="ml-auto font-mono text-[10px] text-low">{d.model}</span>
+                    <span className="ml-auto font-mono text-micro text-low">{d.model}</span>
                   </label>
                 ))
               )}
@@ -150,7 +150,7 @@ function CreateGroupDialog({
           </Field>
 
           {errors.form ? (
-            <p role="alert" className="font-mono text-[11px] leading-snug text-ember">
+            <p role="alert" className="font-mono text-label leading-snug text-ember">
               {errors.form}
             </p>
           ) : null}
@@ -217,7 +217,7 @@ export function GroupsSection() {
             <Skeleton className="h-9 w-full" />
           </div>
         ) : entries.length === 0 && !groups.isError ? (
-          <p className="py-1 font-mono text-[11px] leading-relaxed text-low">
+          <p className="py-1 font-mono text-label leading-relaxed text-low">
             no groups — create one to batch-control a room
           </p>
         ) : (
@@ -249,20 +249,20 @@ export function GroupsSection() {
                   }
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] font-medium leading-tight text-hi">{name}</p>
+                  <p className="truncate text-body font-medium leading-tight text-hi">{name}</p>
                   {/* §11.2(6): the member list is the one thing this row
                       exists to say — which lights actually fire when the
                       group is triggered — and it was hover-only via
                       `title`. No fixed max-w on this element to lift; the
                       parent's `min-w-0 flex-1` already bounds it. */}
                   <p
-                    className="mt-0.5 truncate font-mono text-[10px] text-low pointer-coarse:whitespace-normal pointer-coarse:break-words"
+                    className="mt-0.5 truncate font-mono text-micro text-low pointer-coarse:whitespace-normal pointer-coarse:break-words"
                     title={memberIds.map(nameOf).join(" · ")}
                   >
                     {memberIds.map(nameOf).join(" · ")}
                   </p>
                 </div>
-                <span className="shrink-0 font-mono text-[11px] tabular-nums text-low">
+                <span className="shrink-0 font-mono text-label tabular-nums text-low">
                   {memberIds.length}
                 </span>
                 <ConfirmDeleteButton
@@ -275,7 +275,7 @@ export function GroupsSection() {
         )}
 
         {groups.isError ? (
-          <p className="mt-3 border-t border-hairline pt-3 font-mono text-[11px] text-ember">
+          <p className="mt-3 border-t border-hairline pt-3 font-mono text-label text-ember">
             {errMessage(groups.error)}
           </p>
         ) : null}

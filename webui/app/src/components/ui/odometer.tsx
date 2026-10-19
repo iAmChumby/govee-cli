@@ -15,7 +15,7 @@ export type OdometerSize = "sm" | "lg";
     the light is doing *right now*, not a footnote next to it. */
 const SIZE_CLASSES: Record<OdometerSize, string> = {
   sm: "",
-  lg: "text-[21px]",
+  lg: "text-display-lg",
 };
 
 export interface OdometerProps {

@@ -69,7 +69,7 @@ export function Switch({
       {pending ? (
         <motion.span
           aria-hidden
-          className="absolute -inset-[5px] rounded-full border border-accent/50"
+          className="absolute -inset-space-5 rounded-full border border-accent/50"
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: [0, 0.7, 0.25], scale: [0.9, 1.06, 1] }}
           transition={{
@@ -126,7 +126,7 @@ export function Switch({
           {/* thumb */}
           <motion.span
             aria-hidden
-            className="absolute left-[3px] top-1/2 flex h-[22px] w-[22px] items-center justify-center rounded-full border border-hairline-strong bg-raised"
+            className="absolute left-space-3 top-1/2 flex h-[22px] w-[22px] items-center justify-center rounded-full border border-hairline-strong bg-raised"
             style={{ x: thumbX, y: "-50%" }}
           >
             <motion.span
