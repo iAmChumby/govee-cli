@@ -6,7 +6,7 @@ import { AlertTriangle } from "lucide-react";
 import { Chip, Odometer, StatusDot } from "@/components/ui";
 import { useDevices, useHealth, useMeter } from "@/lib/queries";
 import { activeHsl } from "@/components/device/device-plate";
-import type { ActiveModeKind } from "@/lib/api";
+import type { ActiveModeKind, SchedulerOwner } from "@/lib/api";
 import { computeBudgetReadout, shouldShowBudget, type BudgetReadout as BudgetReadoutValue } from "@/lib/budget";
 import { useEdgeScroll, type ScrollEdges } from "@/lib/use-edge-scroll";
 
@@ -21,6 +21,28 @@ const NON_BASIC_MODES: ReadonlySet<ActiveModeKind> = new Set([
   "segments",
   "effect",
 ]);
+
+/**
+ * The scheduler owner's state, in the words the app can defend (#15).
+ *
+ * The dot's colour says "running" or "not running"; this is the second
+ * channel, and it must not sharpen the sidecar's report. "stale" means
+ * the heartbeat is too old — the owner may still be alive — so it is
+ * called stale, not stopped. "nobody" means nobody holds the lock, and
+ * "unknown" means the sidecar did not say.
+ */
+function schedulerOwnerLabel(state: SchedulerOwner["state"] | undefined): string {
+  switch (state) {
+    case "running":
+      return "running";
+    case "stale":
+      return "stale";
+    case "nobody":
+      return "no owner";
+    default:
+      return "unknown";
+  }
+}
 
 function useClock(): string {
   const [time, setTime] = React.useState("--:--:--");
@@ -221,7 +243,14 @@ export function StatusStrip() {
         style={mask ? { maskImage: mask, WebkitMaskImage: mask } : undefined}
       >
         <span className="flex shrink-0 items-center gap-2">
-          <StatusDot tone={health.isError ? "warn" : "ok"} />
+          {/* #15: the dot's colour is the first channel; the label is the
+              second. It says only what the app knows: the health query
+              answered (reachable), failed (unreachable), or has not
+              answered yet (checking). */}
+          <StatusDot
+            tone={health.isError ? "warn" : "ok"}
+            label={health.isError ? "unreachable" : health.isSuccess ? "reachable" : "checking"}
+          />
           {/* The port is dropped below md so the whole row fits a 390px phone
               instead of scrolling the poll chip off its edge. */}
           sidecar<span className="max-md:hidden"> :6057</span>
@@ -238,7 +267,15 @@ export function StatusStrip() {
             as before — it only moves to the pinned group below md. */}
         {scheduler ? (
           <span className="hidden shrink-0 items-center gap-1.5 md:flex">
-            <StatusDot tone={scheduler.native.owner?.state === "running" ? "ok" : "warn"} /> native scheduler
+            {/* #15: the second channel names the owner's actual state —
+                "stale" is not "stopped" and "nobody" is not "error", so
+                the label reports the state the sidecar sent rather than a
+                gloss on it. */}
+            <StatusDot
+              tone={scheduler.native.owner?.state === "running" ? "ok" : "warn"}
+              label={schedulerOwnerLabel(scheduler.native.owner?.state)}
+            />{" "}
+            native scheduler
             {wakeRampWillSkip ? (
               <span title={wakeRampLabel}>
                 <AlertTriangle size={11} strokeWidth={1.75} className="text-ember" aria-hidden />
@@ -251,7 +288,11 @@ export function StatusStrip() {
             warning can never be the thing that scrolls off. */}
         {scheduler ? (
           <span className="flex shrink-0 items-center gap-1.5 md:hidden">
-            <StatusDot tone={scheduler.native.owner?.state === "running" ? "ok" : "warn"} /> scheduler
+            <StatusDot
+              tone={scheduler.native.owner?.state === "running" ? "ok" : "warn"}
+              label={schedulerOwnerLabel(scheduler.native.owner?.state)}
+            />{" "}
+            scheduler
           </span>
         ) : null}
 
