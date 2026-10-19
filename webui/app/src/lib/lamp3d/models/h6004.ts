@@ -49,10 +49,11 @@
  *
  * ## Why the shade is the diffuser, and why it is dark
  *
- * The shade is the only surface the bulb's light reaches an observer through,
- * so it is the mesh that carries `emissiveMap` — the bulb itself is inside it
- * and is deliberately not modelled, because nothing of it is visible once the
- * shade is on.
+ * The shade is the surface the bulb's light reaches an observer through, so it
+ * is the mesh that carries `emissiveMap`. The E26 socket and a small bulb are
+ * modelled inside it as well: the shade is open at the top, and the orbit
+ * controls allow an 83° elevation, so a user can look into the shade. An empty
+ * tube there would be a lie about what the fixture contains.
  *
  * Its base colour is near-black even though the real shade is white, for the
  * reason `h6022.ts`'s `buildDiffuser()` and `h6008.ts` both spell out: the
@@ -137,7 +138,8 @@ const TOP_RING_THICKNESS = SHELF_THICKNESS;
  *  that hangs through the ring. */
 const SOCKET_RADIUS = 0.06;
 const SOCKET_HEIGHT = 0.14;
-const LED_Y = SHADE_BOTTOM_Y + SOCKET_HEIGHT;
+const BULB_RADIUS = 0.16;
+const BULB_CENTER_Y = SHADE_BOTTOM_Y + SOCKET_HEIGHT + BULB_RADIUS * 0.8;
 const CHAIN_RADIUS = 0.006;
 const CHAIN_LENGTH = 5 * INCH;
 const CHAIN_BALL_RADIUS = 0.02;
@@ -200,7 +202,7 @@ function placeLed(): LedPlacement {
     index: 0,
     row: 0,
     col: 0,
-    position: [0, LED_Y, 0],
+    position: [0, BULB_CENTER_Y, 0],
     normal: [0, 1, 0],
   };
 }
@@ -221,6 +223,7 @@ export const h6004Source: ProceduralSource = {
     const ringGeometry = buildTopRingGeometry();
     const postGeometry = new CylinderGeometry(POST_RADIUS, POST_RADIUS, POST_HEIGHT, POST_SEGMENTS);
     const socketGeometry = new CylinderGeometry(SOCKET_RADIUS, SOCKET_RADIUS, SOCKET_HEIGHT, FRAME_SEGMENTS);
+    const bulbGeometry = new SphereGeometry(BULB_RADIUS, 24, 16);
     const chainGeometry = new CylinderGeometry(CHAIN_RADIUS, CHAIN_RADIUS, CHAIN_LENGTH, 6);
     const chainBallGeometry = new SphereGeometry(CHAIN_BALL_RADIUS, 8, 6);
 
@@ -267,6 +270,12 @@ export const h6004Source: ProceduralSource = {
     const socketMesh = new Mesh(socketGeometry, metal);
     socketMesh.position.y = SHADE_BOTTOM_Y + SOCKET_HEIGHT / 2;
 
+    // The bulb shares the shade's material, so `emission.ts` lights both from
+    // the same 1×1 texture; it is the one thing visible when looking down
+    // into the open top of the shade.
+    const bulbMesh = new Mesh(bulbGeometry, diffuser);
+    bulbMesh.position.y = BULB_CENTER_Y;
+
     const chainMesh = new Mesh(chainGeometry, metal);
     chainMesh.position.y = SHADE_BOTTOM_Y - CHAIN_LENGTH / 2;
     const chainBallMesh = new Mesh(chainBallGeometry, metal);
@@ -292,6 +301,7 @@ export const h6004Source: ProceduralSource = {
       upperShelf,
       ringMesh,
       socketMesh,
+      bulbMesh,
       chainMesh,
       chainBallMesh,
       shadeMesh,
@@ -317,7 +327,7 @@ export const h6004Source: ProceduralSource = {
       object3D: group,
       leds: [led],
       layout,
-      diffusers: [shadeMesh],
+      diffusers: [shadeMesh, bulbMesh],
       slots: { diffuser, metal },
       spill: [{ position: led.position, ledIndices: [0] }],
       fitRadius,
@@ -331,6 +341,7 @@ export const h6004Source: ProceduralSource = {
         ringGeometry.dispose();
         postGeometry.dispose();
         socketGeometry.dispose();
+        bulbGeometry.dispose();
         chainGeometry.dispose();
         chainBallGeometry.dispose();
         (diffuser as Material).dispose();
