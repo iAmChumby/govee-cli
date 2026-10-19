@@ -111,6 +111,7 @@ def _location_out(loc: timespec.Location) -> ScheduleLocationOut:
         longitude=loc.longitude,
         timezone=loc.timezone,
         timezone_source=loc.timezone_source,
+        name=load_config().location_name,
     )
 
 

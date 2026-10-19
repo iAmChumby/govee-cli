@@ -61,6 +61,8 @@ export interface SidecarConfig {
   latitude: number | null;
   longitude: number | null;
   timezone: string | null;
+  /** "Rochester, New York, United States" when picked by city; null for raw coordinates. */
+  location_name?: string | null;
   /** The zone sun and clock rules actually use, configured or host default. */
   timezone_effective: string | null;
   timezone_source: "config" | "host" | null;
@@ -76,6 +78,8 @@ export interface ConfigPatchBody {
   longitude?: number;
   /** Omit to keep the host default. */
   timezone?: string;
+  /** City label; the sidecar clears it when coordinates are saved without one. */
+  location_name?: string;
   /** Removes latitude, longitude and timezone together. */
   clear_location?: boolean;
 }

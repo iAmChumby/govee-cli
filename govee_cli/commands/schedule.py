@@ -33,13 +33,14 @@ def schedule() -> None:
 @schedule.command("list")
 def list_cmd() -> None:
     """List schedule rules with their next run, the owner, and the last result."""
-    loc = timespec.resolve_location(load_config())
+    cfg = load_config()
+    loc = timespec.resolve_location(cfg)
     zone = ZoneInfo(loc.timezone)
     now = dt.datetime.now(zone).replace(second=0, microsecond=0)
 
     view = owner.read_owner(now)
     click.echo(
-        f"location: {_location_text(loc)} · timezone: {_zone_text(loc)} · "
+        f"location: {_location_text(loc, cfg.location_name)} · timezone: {_zone_text(loc)} · "
         f"owner: {_owner_text(view, now, zone)}"
     )
 
@@ -54,10 +55,11 @@ def list_cmd() -> None:
         click.echo(_rule_line(rule, now, loc, zone, scene_names, state, readable))
 
 
-def _location_text(loc: timespec.Location) -> str:
+def _location_text(loc: timespec.Location, name: str | None = None) -> str:
     if loc.has_coordinates:
         assert loc.latitude is not None and loc.longitude is not None
-        return f"{loc.latitude:.4f}, {loc.longitude:.4f}"
+        coords = f"{loc.latitude:.4f}, {loc.longitude:.4f}"
+        return f"{name} ({coords})" if name else coords
     return "not set"
 
 

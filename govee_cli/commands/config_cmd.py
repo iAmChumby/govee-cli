@@ -2,11 +2,13 @@
 
 import asyncio
 import json
+import sys
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import click
 
+from govee_cli import geocode
 from govee_cli.config import (
     GoveeConfig,
     _validate_device_id,
@@ -166,11 +168,17 @@ def command(
 @click.option("--timezone", "tz_name", default=None,
               help="IANA zone, e.g. America/New_York. Unset means the host's zone.")
 @click.option("--clear", "clear", is_flag=True, help="Remove the location and timezone.")
+@click.option("--city", "city", default=None,
+              help="Look the location up by city name (needs the network once).")
+@click.option("--pick", "pick", type=click.IntRange(min=1), default=None,
+              help="With --city: choose candidate N from the numbered list.")
 def location_cmd(
     latitude: float | None,
     longitude: float | None,
     tz_name: str | None,
     clear: bool,
+    city: str | None,
+    pick: int | None,
 ) -> None:
     """Set where sun-relative schedule times are computed.
 
@@ -180,8 +188,18 @@ def location_cmd(
 
     \b
         govee-cli config location 40.7128 -74.0060 --timezone America/New_York
+        govee-cli config location --city Rochester --pick 1
         govee-cli config location --clear
     """
+    if city is not None:
+        if clear or latitude is not None or longitude is not None or tz_name is not None:
+            raise click.ClickException(
+                "--city cannot be combined with coordinates, --timezone or --clear."
+            )
+        _set_location_by_city(city, pick)
+        return
+    if pick is not None:
+        raise click.ClickException("--pick only applies together with --city.")
     if clear:
         if latitude is not None or longitude is not None or tz_name is not None:
             raise click.ClickException(
@@ -191,6 +209,7 @@ def location_cmd(
         cfg.latitude = None
         cfg.longitude = None
         cfg.timezone = None
+        cfg.location_name = None
         save_config(cfg)
         click.echo("Location cleared. Sunrise and sunset rules will have no next run.")
         return
@@ -211,10 +230,54 @@ def location_cmd(
     if latitude is not None and longitude is not None:
         cfg.latitude = latitude
         cfg.longitude = longitude
+        # Raw coordinates never keep a label that described other ones.
+        cfg.location_name = None
     if tz_name is not None:
         cfg.timezone = tz_name
     save_config(cfg)
     click.echo("Location updated:")
+    _print_location(cfg)
+
+
+def _set_location_by_city(city: str, pick: int | None) -> None:
+    try:
+        result = geocode.search_city(city)
+    except ValueError as e:
+        raise click.ClickException(str(e)) from e
+
+    suffix = f" (offline list: {result.error})" if result.source == "offline" else ""
+    if not result.matches:
+        raise click.ClickException(f"No city matches '{city}'.{suffix}")
+
+    for i, m in enumerate(result.matches, 1):
+        tz = f" {m.timezone}" if m.timezone else ""
+        click.echo(f"{i}. {m.label} ({m.latitude:.4f}, {m.longitude:.4f}){tz}")
+    if suffix:
+        click.echo(suffix.strip())
+
+    n = len(result.matches)
+    if pick is None:
+        if n == 1:
+            pick = 1
+        elif sys.stdin.isatty():
+            pick = click.prompt("Pick a number", type=click.IntRange(1, n))
+        else:
+            click.echo(
+                f"{n} cities match. Rerun with --pick N (1-{n}) to choose one.", err=True
+            )
+            sys.exit(2)
+    if pick > n:
+        raise click.ClickException(f"--pick {pick} is out of range; there are {n} candidates.")
+
+    chosen = result.matches[pick - 1]
+    cfg = load_config()
+    cfg.latitude = chosen.latitude
+    cfg.longitude = chosen.longitude
+    if chosen.timezone:
+        cfg.timezone = chosen.timezone
+    cfg.location_name = chosen.label
+    save_config(cfg)
+    click.echo("Location saved:")
     _print_location(cfg)
 
 
@@ -230,7 +293,9 @@ def _validate_timezone(name: str) -> None:
 def _print_location(cfg: GoveeConfig) -> None:
     loc = timespec.resolve_location(cfg)
     if loc.latitude is not None and loc.longitude is not None:
-        click.echo(f"location: {loc.latitude:.4f}, {loc.longitude:.4f}")
+        coords = f"{loc.latitude:.4f}, {loc.longitude:.4f}"
+        click.echo(f"location: {cfg.location_name} ({coords})" if cfg.location_name
+                   else f"location: {coords}")
     else:
         click.echo("location: not set (sun rules have no next run)")
     label = f"host: {loc.timezone}" if loc.timezone_source == "host" else loc.timezone

@@ -6,11 +6,12 @@ import { motion } from "motion/react";
 
 import { Button, Panel, SectionLabel, Skeleton } from "@/components/ui";
 import { useToast } from "@/components/ui/toaster";
-import { ApiError, type ScheduleList, type ScheduleLocation } from "@/lib/api";
+import { api, ApiError, type CityMatch, type CitySearch, type ScheduleList, type ScheduleLocation } from "@/lib/api";
 import { useSchedules } from "@/lib/queries";
 import { panelIn } from "@/lib/motion";
 import { formatZone } from "@/lib/schedule-format";
 
+import { cityPatch, describeLocation, formatCoords, storedMatchesCity } from "./city-format";
 import { Field, INPUT_CLASS } from "./field";
 import { patchConfig, type ConfigPatchBody } from "./sidecar";
 
@@ -84,6 +85,59 @@ export function LocationSection() {
 
   const hasLocation = location?.latitude != null || location?.longitude != null;
 
+  const [cityQuery, setCityQuery] = React.useState("");
+  const [result, setResult] = React.useState<CitySearch | null>(null);
+  const [searchError, setSearchError] = React.useState<string | null>(null);
+  const [pickError, setPickError] = React.useState<string | null>(null);
+  const [saved, setSaved] = React.useState<string | null>(null);
+
+  const search = useMutation({
+    mutationFn: (q: string) => api.searchCities(q),
+    onSuccess: (data) => {
+      setSearchError(null);
+      setResult(data);
+    },
+    onError: (err) => {
+      setResult(null);
+      setSearchError(errMessage(err));
+    },
+  });
+
+  const pick = useMutation({
+    mutationFn: (match: CityMatch) => patchConfig(cityPatch(match)),
+    onSuccess: async (_data, match) => {
+      const stored = await storedAs((loc) => storedMatchesCity(loc, match));
+      if (stored) {
+        setPickError(null);
+        setErrors({});
+        setResult(null);
+        setSaved(match.label);
+      } else {
+        setSaved(null);
+        setPickError(
+          "the sidecar accepted the request but its schedule location did not change; check the sidecar log",
+        );
+      }
+    },
+    onError: (err) => {
+      setSaved(null);
+      setPickError(errMessage(err));
+    },
+  });
+
+  function handleSearch(event: React.FormEvent) {
+    event.preventDefault();
+    const q = cityQuery.trim();
+    if (!q) {
+      setResult(null);
+      setSearchError("type a city name to search");
+      return;
+    }
+    setSaved(null);
+    setPickError(null);
+    search.mutate(q);
+  }
+
   /**
    * A 200 from PATCH is not proof the location was stored. Refetch the
    * schedule list and check the effective location the scheduler reports.
@@ -110,6 +164,7 @@ export function LocationSection() {
       const stored = await storedAs((loc) => loc.latitude === lat && loc.longitude === lon);
       if (stored) {
         setErrors({});
+        setSaved(null);
         toast({ variant: "ok", title: "Location saved", description: "sun-relative rules recomputed" });
       } else {
         setErrors({
@@ -128,6 +183,7 @@ export function LocationSection() {
       const cleared = await storedAs((loc) => loc.latitude === null && loc.longitude === null);
       if (cleared) {
         setErrors({});
+        setSaved(null);
         toast({ variant: "ok", title: "Location cleared", description: "sun-relative rules have no next run" });
       } else {
         setErrors({
@@ -159,10 +215,97 @@ export function LocationSection() {
             <Skeleton className="h-14 w-full" />
           </div>
         ) : (
-          <form onSubmit={handleSubmit} noValidate className="space-y-4">
+          <div className="space-y-4">
             <p className="font-mono text-[11px] leading-relaxed text-mid">
               Sun-relative schedule times (sunset-1h) are computed from this location. Without it, those rules do not run.
             </p>
+
+            <div>
+              <span className="block text-[11px] uppercase leading-none tracking-micro text-mid">current</span>
+              <p data-testid="current-location" className="mt-1.5 break-words font-mono text-[12px] leading-snug text-hi">
+                {describeLocation(location)}
+              </p>
+            </div>
+
+            <form onSubmit={handleSearch} noValidate className="space-y-3">
+              <div className="flex items-end gap-2 max-sm:flex-col max-sm:items-stretch">
+                <Field label="city" className="min-w-0 flex-1" hint="e.g. Rochester; Enter to search">
+                  <input
+                    type="search"
+                    value={cityQuery}
+                    onChange={(e) => {
+                      setCityQuery(e.target.value);
+                      setSearchError(null);
+                    }}
+                    placeholder="city name"
+                    spellCheck={false}
+                    autoComplete="off"
+                    className={INPUT_CLASS}
+                  />
+                </Field>
+                <Button type="submit" variant="solid" busy={search.isPending} className="shrink-0">
+                  search
+                </Button>
+              </div>
+
+              {searchError ? (
+                <p role="alert" className="font-mono text-[11px] leading-relaxed text-ember">
+                  {searchError}
+                </p>
+              ) : null}
+
+              {result ? (
+                <div className="space-y-2">
+                  {result.source === "offline" ? (
+                    <p className="font-mono text-[11px] leading-relaxed text-mid">
+                      {`source: offline list${result.error ? ` — ${result.error}` : ""}`}
+                    </p>
+                  ) : null}
+                  {result.matches.length === 0 ? (
+                    <p className="font-mono text-[11px] leading-relaxed text-mid">
+                      {`no city found for '${result.query}'`}
+                    </p>
+                  ) : (
+                    <ul className="divide-y divide-hairline rounded-btn border border-hairline">
+                      {result.matches.map((match) => (
+                        <li key={`${match.label}|${match.latitude}|${match.longitude}`}>
+                          <button
+                            type="button"
+                            disabled={pick.isPending}
+                            onClick={() => pick.mutate(match)}
+                            className="flex w-full flex-col gap-0.5 px-3 py-2 text-left transition-colors duration-150 hover:bg-raised focus-visible:bg-raised focus-visible:outline-none disabled:opacity-50 pointer-coarse:min-h-11 pointer-coarse:justify-center"
+                          >
+                            <span className="break-words text-[13px] leading-snug text-hi">{match.label}</span>
+                            <span className="break-words font-mono text-[11px] leading-snug text-mid">
+                              {`${match.timezone ?? "timezone not given"} · ${formatCoords(match.latitude, match.longitude)}`}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : null}
+
+              {pickError ? (
+                <p role="alert" className="font-mono text-[11px] leading-relaxed text-ember">
+                  {pickError}
+                </p>
+              ) : null}
+              {saved ? (
+                <p role="status" className="break-words font-mono text-[11px] leading-relaxed text-hi">
+                  {`Saved: ${saved}`}
+                </p>
+              ) : null}
+            </form>
+
+            <form onSubmit={handleSubmit} noValidate className="space-y-4 border-t border-hairline pt-4">
+            <div>
+              <span className="block text-[11px] uppercase leading-none tracking-micro text-mid">coordinates</span>
+              <p className="mt-1.5 font-mono text-[10px] leading-snug text-low">
+                Manual path. Entering coordinates replaces the city.
+              </p>
+            </div>
 
             <div className="grid gap-4 sm:grid-cols-3">
               <Field label="latitude" error={errors.lat} hint="decimal degrees, north positive">
@@ -238,7 +381,8 @@ export function LocationSection() {
                 save location
               </Button>
             </div>
-          </form>
+            </form>
+          </div>
         )}
       </Panel>
     </motion.section>
