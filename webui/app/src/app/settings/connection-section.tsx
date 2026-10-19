@@ -21,7 +21,7 @@ function OwnerRow({ owner }: { owner: OwnerDisplay }) {
   return (
     <div className="py-2.5">
       <div className="flex items-center justify-between gap-4">
-        <span className="text-[11px] uppercase leading-none tracking-micro text-mid">
+        <span className="text-label uppercase leading-none tracking-micro text-mid">
           schedule owner
         </span>
         <Chip tone={warn ? "warn" : "neutral"}>
@@ -32,8 +32,8 @@ function OwnerRow({ owner }: { owner: OwnerDisplay }) {
       <p
         className={
           warn
-            ? "mt-2 flex items-start gap-1.5 break-words font-mono text-[12px] leading-relaxed text-ember"
-            : "mt-2 break-words font-mono text-[12px] leading-relaxed text-hi"
+            ? "mt-2 flex items-start gap-1.5 break-words font-mono text-data leading-relaxed text-ember"
+            : "mt-2 break-words font-mono text-data leading-relaxed text-hi"
         }
       >
         {warn ? (
@@ -44,7 +44,7 @@ function OwnerRow({ owner }: { owner: OwnerDisplay }) {
       {owner.detail ? (
         <p
           data-volatile="true"
-          className="mt-1.5 break-words font-mono text-[11px] leading-relaxed text-low"
+          className="mt-1.5 break-words font-mono text-label leading-relaxed text-low"
         >
           {owner.detail}
         </p>
@@ -82,7 +82,7 @@ export function ConnectionSection() {
             <Skeleton className="h-5 w-40" />
           </div>
         ) : health.isError || !health.data || !scheduler ? (
-          <p className="py-1 font-mono text-[11px] leading-relaxed text-low">
+          <p className="py-1 font-mono text-label leading-relaxed text-low">
             sidecar unreachable — is the API running on 127.0.0.1:6057?
           </p>
         ) : (

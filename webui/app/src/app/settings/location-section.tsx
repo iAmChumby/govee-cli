@@ -216,13 +216,13 @@ export function LocationSection() {
           </div>
         ) : (
           <div className="space-y-4">
-            <p className="font-mono text-[11px] leading-relaxed text-mid">
+            <p className="font-mono text-label leading-relaxed text-mid">
               Sun-relative schedule times (sunset-1h) are computed from this location. Without it, those rules do not run.
             </p>
 
             <div>
-              <span className="block text-[11px] uppercase leading-none tracking-micro text-mid">current</span>
-              <p data-testid="current-location" className="mt-1.5 break-words font-mono text-[12px] leading-snug text-hi">
+              <span className="block text-label uppercase leading-none tracking-micro text-mid">current</span>
+              <p data-testid="current-location" className="mt-1.5 break-words font-mono text-data leading-snug text-hi">
                 {describeLocation(location)}
               </p>
             </div>
@@ -249,7 +249,7 @@ export function LocationSection() {
               </div>
 
               {searchError ? (
-                <p role="alert" className="font-mono text-[11px] leading-relaxed text-ember">
+                <p role="alert" className="font-mono text-label leading-relaxed text-ember">
                   {searchError}
                 </p>
               ) : null}
@@ -257,12 +257,12 @@ export function LocationSection() {
               {result ? (
                 <div className="space-y-2">
                   {result.source === "offline" ? (
-                    <p className="font-mono text-[11px] leading-relaxed text-mid">
+                    <p className="font-mono text-label leading-relaxed text-mid">
                       {`source: offline list${result.error ? ` — ${result.error}` : ""}`}
                     </p>
                   ) : null}
                   {result.matches.length === 0 ? (
-                    <p className="font-mono text-[11px] leading-relaxed text-mid">
+                    <p className="font-mono text-label leading-relaxed text-mid">
                       {`no city found for '${result.query}'`}
                     </p>
                   ) : (
@@ -275,8 +275,8 @@ export function LocationSection() {
                             onClick={() => pick.mutate(match)}
                             className="flex w-full flex-col gap-0.5 px-3 py-2 text-left transition-colors duration-150 hover:bg-raised focus-visible:bg-raised focus-visible:outline-none disabled:opacity-50 pointer-coarse:min-h-11 pointer-coarse:justify-center"
                           >
-                            <span className="break-words text-[13px] leading-snug text-hi">{match.label}</span>
-                            <span className="break-words font-mono text-[11px] leading-snug text-mid">
+                            <span className="break-words text-body leading-snug text-hi">{match.label}</span>
+                            <span className="break-words font-mono text-label leading-snug text-mid">
                               {`${match.timezone ?? "timezone not given"} · ${formatCoords(match.latitude, match.longitude)}`}
                             </span>
                           </button>
@@ -288,12 +288,12 @@ export function LocationSection() {
               ) : null}
 
               {pickError ? (
-                <p role="alert" className="font-mono text-[11px] leading-relaxed text-ember">
+                <p role="alert" className="font-mono text-label leading-relaxed text-ember">
                   {pickError}
                 </p>
               ) : null}
               {saved ? (
-                <p role="status" className="break-words font-mono text-[11px] leading-relaxed text-hi">
+                <p role="status" className="break-words font-mono text-label leading-relaxed text-hi">
                   {`Saved: ${saved}`}
                 </p>
               ) : null}
@@ -301,8 +301,8 @@ export function LocationSection() {
 
             <form onSubmit={handleSubmit} noValidate className="space-y-4 border-t border-hairline pt-4">
             <div>
-              <span className="block text-[11px] uppercase leading-none tracking-micro text-mid">coordinates</span>
-              <p className="mt-1.5 font-mono text-[10px] leading-snug text-low">
+              <span className="block text-label uppercase leading-none tracking-micro text-mid">coordinates</span>
+              <p className="mt-1.5 font-mono text-micro leading-snug text-low">
                 Manual path. Entering coordinates replaces the city.
               </p>
             </div>
@@ -321,7 +321,7 @@ export function LocationSection() {
                   step="any"
                   inputMode="decimal"
                   placeholder="51.5074"
-                  className={INPUT_CLASS + " font-mono text-[12px] tabular-nums"}
+                  className={INPUT_CLASS + " font-mono tabular-nums"}
                 />
               </Field>
 
@@ -338,7 +338,7 @@ export function LocationSection() {
                   step="any"
                   inputMode="decimal"
                   placeholder="-0.1278"
-                  className={INPUT_CLASS + " font-mono text-[12px] tabular-nums"}
+                  className={INPUT_CLASS + " font-mono tabular-nums"}
                 />
               </Field>
 
@@ -353,13 +353,13 @@ export function LocationSection() {
                   placeholder="blank = host zone"
                   spellCheck={false}
                   autoComplete="off"
-                  className={INPUT_CLASS + " font-mono text-[12px]"}
+                  className={INPUT_CLASS + " font-mono"}
                 />
               </Field>
             </div>
 
             {errors.form ? (
-              <p role="alert" className="font-mono text-[11px] leading-relaxed text-ember">
+              <p role="alert" className="font-mono text-label leading-relaxed text-ember">
                 {errors.form}
               </p>
             ) : null}

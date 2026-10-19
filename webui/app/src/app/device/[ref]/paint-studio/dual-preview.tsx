@@ -221,7 +221,7 @@ export function DualPreview({
               so the same LED row sat at two different heights. Explicit
               matching tracks make the alignment structural rather than a
               coincidence of how long the labels happen to be. */}
-          <span className="min-w-0 font-mono text-[10px] uppercase leading-snug tracking-micro text-low">
+          <span className="min-w-0 font-mono text-micro uppercase leading-snug tracking-micro text-low">
             canvas · full resolution
           </span>
           <div className="flex min-w-0 items-center">
@@ -237,7 +237,7 @@ export function DualPreview({
             >
               <span
                 className={cn(
-                  "flex items-center rounded-btn border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.06em] transition-colors duration-150",
+                  "flex items-center rounded-btn border px-2 py-0.5 font-mono text-nano uppercase tracking-label transition-colors duration-150",
                   showIntent
                     ? "border-hairline-strong bg-accent-dim text-hi"
                     : "border-hairline text-low group-hover:text-mid",
@@ -248,7 +248,7 @@ export function DualPreview({
             </button>
           </div>
           <StaticGrid geometry={geometry} colors={canvasColors} className="self-start" />
-          <p className="font-mono text-[9px] leading-relaxed text-low">
+          <p className="font-mono text-nano leading-relaxed text-low">
             {showIntent
               ? `smooth preview at ${INTENT_FPS}fps — not what the device will do.`
               : "exactly as drawn, unquantized."}
@@ -260,14 +260,14 @@ export function DualPreview({
             label is the longer of the two and was the one most often seen
             lapping the `{fps}` Chip. */}
         <div className="grid min-w-0 grid-rows-[auto_auto_1fr_auto] gap-y-1.5">
-          <span className="min-w-0 font-mono text-[10px] uppercase leading-snug tracking-micro text-low">
+          <span className="min-w-0 font-mono text-micro uppercase leading-snug tracking-micro text-low">
             hardware · {segmentCount} segments
           </span>
           <div className="flex min-w-0 items-center">
             <Chip tone="neutral">{exportFps}fps</Chip>
           </div>
           <StaticGrid geometry={geometry} colors={hardwareColors} className="self-start" />
-          <p className="font-mono text-[9px] leading-relaxed text-low">
+          <p className="font-mono text-nano leading-relaxed text-low">
             what the lamp actually renders — stepped at the real playback rate.
           </p>
         </div>
@@ -276,7 +276,7 @@ export function DualPreview({
       {!calibration.isLoading && !calibrated ? (
         <div className="flex items-start gap-2.5 rounded-card border border-ember/30 bg-ember/[0.06] px-3 py-2.5">
           <AlertTriangle size={14} strokeWidth={1.75} className="mt-0.5 shrink-0 text-ember" aria-hidden />
-          <p className="font-mono text-[10px] leading-relaxed text-ember">
+          <p className="font-mono text-micro leading-relaxed text-ember">
             approximate mapping — the segment boundaries above are an unverified
             hypothesis, not a measured fact. Calibrate for accuracy.
           </p>

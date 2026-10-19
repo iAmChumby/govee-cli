@@ -51,7 +51,7 @@ export function BackUp({ className }: BackUpProps = {}) {
       type="button"
       onClick={handleClick}
       className={cn(
-        "inline-flex items-center gap-1.5 text-[11px] uppercase tracking-micro text-low transition-colors duration-150 hover:text-hi pointer-coarse:py-4 pointer-coarse:-my-4",
+        "inline-flex items-center gap-1.5 text-label uppercase tracking-micro text-low transition-colors duration-150 hover:text-hi pointer-coarse:py-4 pointer-coarse:-my-4",
         className,
       )}
     >

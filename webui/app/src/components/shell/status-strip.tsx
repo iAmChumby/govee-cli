@@ -198,7 +198,7 @@ export function StatusStrip() {
   const wakeRampLabel = "wake-ramp not armed this weekend — it will not fire";
 
   return (
-    <footer className="flex h-8 shrink-0 items-center gap-4 border-t border-hairline bg-bg px-4 font-mono text-[11px] text-low pointer-coarse:pb-[var(--safe-bottom)]">
+    <footer className="flex h-8 shrink-0 items-center gap-4 border-t border-hairline bg-bg px-4 font-mono text-label text-low pointer-coarse:pb-[var(--safe-bottom)]">
       {/* §11.6 T31, rule 1: a warning must never be the thing that scrolled
           off. Everything below lives inside the scrolling region, so the
           two live alerts — the wake-ramp glyph and a rate-limited budget

@@ -108,10 +108,10 @@ export function EffectsPanel({ deviceRef }: { deviceRef: string }) {
               only rendered when the sidecar reports an effect playing, so
               "playing" is exactly what the app knows. */}
           <StatusDot tone="ok" label="playing" />
-          <span className="min-w-0 truncate font-mono text-[11px] text-hi">
+          <span className="min-w-0 truncate font-mono text-label text-hi">
             {mine.file}
           </span>
-          <span className="ml-auto shrink-0 font-mono text-[10px] tabular-nums text-low">
+          <span className="ml-auto shrink-0 font-mono text-micro tabular-nums text-low">
             {mine.transport} · {mine.fps} fps
           </span>
           <StopButton busy={stopping} onStop={handleStop} label="Stop effect playback" />
@@ -159,7 +159,7 @@ export function EffectsPanel({ deviceRef }: { deviceRef: string }) {
       ) : null}
 
       {/* transport note */}
-      <p className="mt-3 border-t border-hairline pt-3 font-mono text-[10px] leading-relaxed text-low">
+      <p className="mt-3 border-t border-hairline pt-3 font-mono text-micro leading-relaxed text-low">
         {preferBle === false
           ? "cloud playback — the request budget caps animation near 2 fps."
           : "ble-preferred model — keyframes animate at full frame rate over gatt."}
@@ -196,8 +196,8 @@ function EffectRow({
       )}
     >
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[12px] leading-tight text-hi">{effect.name}</p>
-        <p className="mt-0.5 truncate font-mono text-[10px] leading-none text-low">
+        <p className="truncate text-data leading-tight text-hi">{effect.name}</p>
+        <p className="mt-0.5 truncate font-mono text-micro leading-none text-low">
           {effect.fps} fps · {effect.loop ? "loop" : "once"} ·{" "}
           {effect.segments} seg{effect.segments === 1 ? "" : "s"}
           {formatSegmentIds(effect.segment_ids)}
@@ -243,7 +243,7 @@ function StopButton({ busy, onStop, label }: StopButtonProps) {
       disabled={busy}
       aria-busy={busy || undefined}
       aria-label={label}
-      className="inline-flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-btn border border-ember/40 px-2.5 text-[10px] font-medium uppercase leading-none tracking-[0.08em] text-ember transition-colors duration-150 hover:border-ember hover:bg-ember/10 disabled:pointer-events-none disabled:opacity-40"
+      className="inline-flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-btn border border-ember/40 px-2.5 text-micro font-medium uppercase leading-none tracking-caps text-ember transition-colors duration-150 hover:border-ember hover:bg-ember/10 disabled:pointer-events-none disabled:opacity-40"
     >
       {busy ? <Spinner /> : <Square size={10} strokeWidth={2} aria-hidden />}
       stop

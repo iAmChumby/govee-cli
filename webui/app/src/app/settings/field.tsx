@@ -15,7 +15,7 @@ import { cn } from "@/lib/cn";
  * moves at fine-pointer/desktop widths.
  */
 export const INPUT_CLASS =
-  "h-9 w-full rounded-btn border border-hairline bg-raised px-3 text-[13px] text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong focus-visible:outline-none pointer-coarse:h-11 pointer-coarse:text-base";
+  "h-9 w-full rounded-btn border border-hairline bg-raised px-3 text-body text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong focus-visible:outline-none pointer-coarse:h-11 pointer-coarse:text-base";
 
 export interface FieldProps {
   /** micro-label rendered above the control */
@@ -35,16 +35,16 @@ export interface FieldProps {
 export function Field({ label, error, hint, className, children }: FieldProps) {
   return (
     <label className={cn("block", className)}>
-      <span className="mb-1.5 block text-[11px] uppercase leading-none tracking-micro text-mid">
+      <span className="mb-1.5 block text-label uppercase leading-none tracking-micro text-mid">
         {label}
       </span>
       {children}
       {error ? (
-        <span role="alert" className="mt-1.5 block font-mono text-[11px] leading-snug text-ember">
+        <span role="alert" className="mt-1.5 block font-mono text-label leading-snug text-ember">
           {error}
         </span>
       ) : hint ? (
-        <span className="mt-1.5 block font-mono text-[10px] leading-snug text-low">{hint}</span>
+        <span className="mt-1.5 block font-mono text-micro leading-snug text-low">{hint}</span>
       ) : null}
     </label>
   );
@@ -69,7 +69,7 @@ export function ConfigRow({
         stack && "max-sm:flex-col max-sm:items-start max-sm:gap-1.5",
       )}
     >
-      <span className="text-[11px] uppercase leading-none tracking-micro text-mid pointer-coarse:shrink-0">
+      <span className="text-label uppercase leading-none tracking-micro text-mid pointer-coarse:shrink-0">
         {label}
       </span>
       {/* §11.2(6): truncate + this row's own values (e.g. the raw crontab
@@ -83,7 +83,7 @@ export function ConfigRow({
           already fits on one line and shrinking never triggers regardless. */}
       <span
         className={cn(
-          "min-w-0 truncate font-mono text-[12px] tabular-nums text-mid pointer-coarse:whitespace-normal pointer-coarse:break-words",
+          "min-w-0 truncate font-mono text-data tabular-nums text-mid pointer-coarse:whitespace-normal pointer-coarse:break-words",
           stack && "max-sm:block max-sm:w-full max-sm:overflow-visible max-sm:whitespace-normal max-sm:break-words",
         )}
       >

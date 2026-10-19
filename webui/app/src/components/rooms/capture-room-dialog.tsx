@@ -34,7 +34,7 @@ import { useCaptureRoom, useDeleteRoom, useDevices } from "@/lib/queries";
 // taller intrinsic content size the way a shared primitive's floor has to
 // guard against.
 const INPUT_CLASS =
-  "h-9 w-full rounded-btn border border-hairline bg-raised px-3 text-[13px] text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong focus-visible:outline-none pointer-coarse:h-11 pointer-coarse:text-base";
+  "h-9 w-full rounded-btn border border-hairline bg-raised px-3 text-body text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong focus-visible:outline-none pointer-coarse:h-11 pointer-coarse:text-base";
 
 function errMessage(err: unknown): string {
   return err instanceof ApiError ? err.message : String(err);
@@ -126,7 +126,7 @@ export function CaptureRoomDialog({
 
             <form onSubmit={handleCapture} noValidate className="mt-5 space-y-4">
               <label className="block">
-                <span className="mb-1.5 block text-[11px] uppercase leading-none tracking-micro text-mid">
+                <span className="mb-1.5 block text-label uppercase leading-none tracking-micro text-mid">
                   name
                 </span>
                 <input
@@ -143,7 +143,7 @@ export function CaptureRoomDialog({
                 {error ? (
                   <span
                     role="alert"
-                    className="mt-1.5 block font-mono text-[11px] leading-snug text-ember"
+                    className="mt-1.5 block font-mono text-label leading-snug text-ember"
                   >
                     {error}
                   </span>
@@ -170,11 +170,11 @@ export function CaptureRoomDialog({
 
             {result.unknown.length > 0 ? (
               <div className="mt-4 rounded-btn border border-ember/40 bg-ember/[0.08] p-3">
-                <p className="flex items-center gap-1.5 text-[12px] font-medium leading-tight text-ember">
+                <p className="flex items-center gap-1.5 text-data font-medium leading-tight text-ember">
                   <AlertTriangle size={13} strokeWidth={1.75} aria-hidden />
                   {result.unknown.length} device{result.unknown.length === 1 ? "" : "s"} unknown
                 </p>
-                <p className="mt-1.5 font-mono text-[10px] leading-relaxed text-mid">
+                <p className="mt-1.5 font-mono text-micro leading-relaxed text-mid">
                   the console never saw what {result.unknown.length === 1 ? "this device" : "these devices"}{" "}
                   {result.unknown.length === 1 ? "was" : "were"} playing, so restoring this
                   scene will skip {result.unknown.length === 1 ? "it" : "them"} rather than
@@ -182,7 +182,7 @@ export function CaptureRoomDialog({
                 </p>
               </div>
             ) : (
-              <p className="mt-4 flex items-center gap-1.5 font-mono text-[11px] text-sage">
+              <p className="mt-4 flex items-center gap-1.5 font-mono text-label text-sage">
                 <CheckCircle2 size={13} strokeWidth={1.75} aria-hidden />
                 every device captured with a known mode
               </p>

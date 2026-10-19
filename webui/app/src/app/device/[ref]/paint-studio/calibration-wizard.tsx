@@ -149,7 +149,7 @@ export function CalibrationWizard({ refId, geometry, segmentCount, open, onOpenC
           <div className="mt-4 space-y-3">
             <div className="flex items-start gap-2.5 rounded-card border border-hairline bg-raised px-3 py-2.5">
               <AlertTriangle size={14} strokeWidth={1.75} className="mt-0.5 shrink-0 text-low" aria-hidden />
-              <p className="font-mono text-[10px] leading-relaxed text-low">
+              <p className="font-mono text-micro leading-relaxed text-low">
                 This changes what the lamp shows right now. Nothing else in the paint
                 studio touches the device without an explicit action.
               </p>
@@ -163,7 +163,7 @@ export function CalibrationWizard({ refId, geometry, segmentCount, open, onOpenC
         {step === "applying" ? (
           <div className="mt-4 flex items-center gap-3">
             <Loader2 size={16} strokeWidth={2} className="animate-spin text-mid" aria-hidden />
-            <span className="font-mono text-[11px] text-mid">
+            <span className="font-mono text-label text-mid">
               segment {applyProgress} of {segmentCount}
             </span>
           </div>
@@ -182,7 +182,7 @@ export function CalibrationWizard({ refId, geometry, segmentCount, open, onOpenC
                     className="h-6 w-6 shrink-0 rounded-chip border border-hairline-strong"
                     style={{ background: referenceHex(segId, segmentCount) }}
                   />
-                  <span className="flex-1 font-mono text-[11px] text-mid">
+                  <span className="flex-1 font-mono text-label text-mid">
                     position {position} · segment {segId}
                   </span>
                   <button

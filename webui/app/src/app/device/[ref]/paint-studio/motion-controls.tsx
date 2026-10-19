@@ -113,7 +113,7 @@ export function MotionControls({
             >
               <span
                 className={cn(
-                  "flex h-8 items-center rounded-btn border px-3 font-mono text-[10px] uppercase tracking-[0.06em] transition-colors duration-150",
+                  "flex h-8 items-center rounded-btn border px-3 font-mono text-micro uppercase tracking-label transition-colors duration-150",
                   active
                     ? "border-hairline-strong bg-accent-dim text-hi"
                     : "border-hairline text-mid group-hover:border-hairline-strong group-hover:text-hi",
@@ -137,7 +137,7 @@ export function MotionControls({
                   aria-pressed={axis === a}
                   onClick={() => onChange({ ...motion, axis: a } as Motion)}
                   className={cn(
-                    "h-7 cursor-pointer rounded-btn border px-2.5 font-mono text-[10px] uppercase tracking-[0.06em] transition-colors duration-150",
+                    "h-7 cursor-pointer rounded-btn border px-2.5 font-mono text-micro uppercase tracking-label transition-colors duration-150",
                     axis === a
                       ? "border-hairline-strong bg-accent-dim text-hi"
                       : "border-hairline text-mid hover:border-hairline-strong hover:text-hi",
@@ -148,7 +148,7 @@ export function MotionControls({
               ))}
             </div>
           ) : (
-            <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-micro text-low">
+            <span className="inline-flex items-center gap-1.5 font-mono text-micro uppercase tracking-micro text-low">
               <RotateCw size={12} strokeWidth={1.6} aria-hidden />
               around the drum
             </span>
@@ -179,11 +179,11 @@ export function MotionControls({
       {motion.type !== "static" ? (
         <div>
           <div className="flex items-baseline justify-between">
-            <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-micro text-low">
+            <span className="inline-flex items-center gap-1.5 font-mono text-micro uppercase tracking-micro text-low">
               {motion.type === "pulse" ? <Waves size={12} strokeWidth={1.6} aria-hidden /> : null}
               cycle speed
             </span>
-            <span className="font-mono text-[11px] tabular-nums text-mid">
+            <span className="font-mono text-label tabular-nums text-mid">
               {motion.periodSeconds.toFixed(1)}s / cycle
             </span>
           </div>
@@ -205,7 +205,7 @@ export function MotionControls({
         <Chip tone={estimate.totalKeyframes > 200 ? "warn" : "neutral"}>
           {estimate.totalKeyframes} keyframes (deduped)
         </Chip>
-        <span className="font-mono text-[9px] text-low">of {estimate.naive} max</span>
+        <span className="font-mono text-nano text-low">of {estimate.naive} max</span>
       </div>
     </div>
   );

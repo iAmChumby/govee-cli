@@ -43,7 +43,7 @@ function Rail({ devices }: { devices: DeviceSummary[] }) {
             href={item.href}
             aria-current={item.active ? "page" : undefined}
             className={cn(
-              "flex items-center gap-2.5 rounded-btn px-2.5 py-2 text-[13px] transition-colors duration-150",
+              "flex items-center gap-2.5 rounded-btn px-2.5 py-2 text-body transition-colors duration-150",
               item.active
                 ? "bg-accent-dim text-hi"
                 : "text-mid hover:bg-accent-dim hover:text-hi",
@@ -56,7 +56,7 @@ function Rail({ devices }: { devices: DeviceSummary[] }) {
       </nav>
 
       <div className="border-t border-hairline px-3 pt-4">
-        <p className="px-2.5 pb-2 text-[11px] uppercase tracking-micro text-low">
+        <p className="px-2.5 pb-2 text-label uppercase tracking-micro text-low">
           devices
         </p>
         <div className="flex flex-col gap-0.5">
@@ -64,14 +64,14 @@ function Rail({ devices }: { devices: DeviceSummary[] }) {
             <Link
               key={d.id}
               href={`/device/${encodeURIComponent(d.ref)}`}
-              className="flex items-center gap-2.5 rounded-btn px-2.5 py-1.5 text-[13px] text-mid transition-colors duration-150 hover:bg-accent-dim hover:text-hi"
+              className="flex items-center gap-2.5 rounded-btn px-2.5 py-1.5 text-body text-mid transition-colors duration-150 hover:bg-accent-dim hover:text-hi"
             >
               <StatusDot
                 tone={d.online === false ? "off" : "ok"}
                 label={d.online === false ? "offline" : "online"}
               />
               <span className="truncate">{d.name ?? d.ref}</span>
-              <span className="ml-auto font-mono text-[10px] text-low">
+              <span className="ml-auto font-mono text-micro text-low">
                 {d.model}
               </span>
             </Link>
@@ -94,7 +94,7 @@ function RailFooter() {
         <GroupRailButton key={name} name={name} />
       ))}
       {names.length === 0 && !groups.isLoading ? (
-        <p className="px-2.5 py-2 font-mono text-[10px] leading-relaxed text-low">
+        <p className="px-2.5 py-2 font-mono text-micro leading-relaxed text-low">
           no groups — create one in settings
         </p>
       ) : null}
@@ -110,10 +110,10 @@ function GroupRailButton({ name }: { name: string }) {
     <button
       type="button"
       title={`${members.length} member${members.length === 1 ? "" : "s"}`}
-      className="flex w-full cursor-pointer items-center gap-2.5 rounded-btn px-2.5 py-2 text-[13px] text-mid transition-colors duration-150 hover:bg-accent-dim hover:text-hi"
+      className="flex w-full cursor-pointer items-center gap-2.5 rounded-btn px-2.5 py-2 text-body text-mid transition-colors duration-150 hover:bg-accent-dim hover:text-hi"
     >
       {name}
-      <span className="ml-auto font-mono text-[10px] text-low">
+      <span className="ml-auto font-mono text-micro text-low">
         {members.length}
       </span>
     </button>
@@ -155,10 +155,10 @@ export default function ConsolePage() {
             <motion.section variants={panelIn} className="flex flex-col gap-3">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
-                  <h1 className="text-xl font-semibold leading-tight tracking-[-0.02em] text-hi">
+                  <h1 className="text-xl font-semibold leading-tight tracking-display text-hi">
                     Console
                   </h1>
-                  <p className="mt-1 font-mono text-[11px] text-low">
+                  <p className="mt-1 font-mono text-label text-low">
                     {devices.isLoading
                       ? "connecting…"
                       : `${list.length} devices · ${health.data?.mock ? "mock sidecar" : "live sidecar"} · v${health.data?.version ?? "?"}`}
@@ -185,7 +185,7 @@ export default function ConsolePage() {
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       placeholder="filter devices…"
-                      className="h-9 w-56 rounded-btn border border-hairline bg-raised pl-8 pr-3 text-[13px] text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong focus-visible:outline-none pointer-coarse:text-base"
+                      className="h-9 w-56 rounded-btn border border-hairline bg-raised pl-8 pr-3 text-body text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong focus-visible:outline-none pointer-coarse:text-base"
                     />
                   </label>
                   <IconButton label="Refresh state" tooltip="Refresh state" onClick={refreshAll}>
@@ -215,7 +215,7 @@ export default function ConsolePage() {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="filter devices…"
-                  className="h-11 w-full rounded-btn border border-hairline bg-raised pl-8 pr-3 text-[13px] text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong focus-visible:outline-none pointer-coarse:text-base"
+                  className="h-11 w-full rounded-btn border border-hairline bg-raised pl-8 pr-3 text-body text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong focus-visible:outline-none pointer-coarse:text-base"
                 />
               </label>
             </motion.section>
@@ -223,8 +223,8 @@ export default function ConsolePage() {
             {/* error state */}
             {devices.isError ? (
               <Panel className="border-ember/40 p-5">
-                <p className="text-[13px] font-medium text-hi">Sidecar unreachable</p>
-                <p className="mt-1 font-mono text-[11px] text-mid">
+                <p className="text-body font-medium text-hi">Sidecar unreachable</p>
+                <p className="mt-1 font-mono text-label text-mid">
                   Is the API running on 127.0.0.1:6057? Start it with GOVEE_WEBUI_MOCK=1 for demo data.
                 </p>
               </Panel>
@@ -245,7 +245,7 @@ export default function ConsolePage() {
                   : filtered.map((d) => <DevicePlate key={d.id} device={d} />)}
               </div>
               {!devices.isLoading && filtered.length === 0 && !devices.isError ? (
-                <p className="mt-3 font-mono text-[11px] text-low">
+                <p className="mt-3 font-mono text-label text-low">
                   no devices match &ldquo;{query}&rdquo;
                 </p>
               ) : null}

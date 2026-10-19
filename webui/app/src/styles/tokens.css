@@ -87,6 +87,22 @@
   --dur-slow: 420ms;
   --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
 
+  /* space scale (#27) — the off-rhythm rungs the tree actually typed. The
+     suffix is the measured pixel value, not a 4px multiplier: #27 renames
+     values, it does not repaint them. Tailwind's 4px rhythm (p-3 = 12px,
+     gap-2.5 = 10px) still comes from the one --spacing base.
+     Bridged into Tailwind's spacing namespace below as p-space-3 etc. */
+  --space-3: 3px;
+  --space-5: 5px;
+  --space-6: 6px;
+  --space-9: 9px;
+  --space-13: 13px;
+  --space-17: 17px;
+  --space-18: 18px;
+  --space-19: 19px;
+  --space-22: 22px;
+  --space-52: 52px;
+
   /* safe-area insets (WebKit env() on notched / home-indicator devices;
      0px fallback on browsers that don't expose them) */
   --safe-top: env(safe-area-inset-top, 0px);
@@ -199,7 +215,38 @@
 
   --shadow-overlay: var(--shadow-overlay-raw);
 
+  /* type scale (#27) — the ten sizes that were typed as text-[Npx]. Each rung
+     is exactly the value it replaces; no line-height is declared, so moving a
+     use onto a rung cannot change leading. */
+  --text-mini: 7px;
+  --text-nano: 9px;
+  --text-micro: 10px;
+  --text-label: 11px;
+  --text-data: 12px;
+  --text-body: 13px;
+  --text-title-sm: 15px;
+  --text-title: 17px;
+  --text-display: 20px;
+  --text-display-lg: 21px;
+
+  --tracking-display: -0.02em;
+  --tracking-data: 0.04em;
+  --tracking-label: 0.06em;
+  --tracking-caps: 0.08em;
   --tracking-micro: 0.14em;
+
+  /* space scale, bridged so p-space-3 / gap-space-* / inset-space-* resolve
+     against the declared :root values above */
+  --spacing-space-3: var(--space-3);
+  --spacing-space-5: var(--space-5);
+  --spacing-space-6: var(--space-6);
+  --spacing-space-9: var(--space-9);
+  --spacing-space-13: var(--space-13);
+  --spacing-space-17: var(--space-17);
+  --spacing-space-18: var(--space-18);
+  --spacing-space-19: var(--space-19);
+  --spacing-space-22: var(--space-22);
+  --spacing-space-52: var(--space-52);
 
   --safe-top: var(--safe-top);
   --safe-right: var(--safe-right);

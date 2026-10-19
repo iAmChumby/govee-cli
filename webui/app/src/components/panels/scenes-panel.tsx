@@ -97,7 +97,7 @@ export function ScenesPanel({ deviceRef }: { deviceRef: string }) {
           aria-label="Filter scenes"
           spellCheck={false}
           autoComplete="off"
-          className="h-9 w-full rounded-btn border border-hairline bg-raised pl-8 pr-3 text-[12px] text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong focus-visible:outline-none pointer-coarse:h-11 pointer-coarse:text-base"
+          className="h-9 w-full rounded-btn border border-hairline bg-raised pl-8 pr-3 text-data text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong focus-visible:outline-none pointer-coarse:h-11 pointer-coarse:text-base"
         />
       </label>
 
@@ -131,7 +131,7 @@ export function ScenesPanel({ deviceRef }: { deviceRef: string }) {
       {/* grid */}
       {scenes.data && !scenes.isError && all.length > 0 ? (
         filtered.length === 0 ? (
-          <p className="mt-3 font-mono text-[11px] text-low">
+          <p className="mt-3 font-mono text-label text-low">
             no scenes match &ldquo;{query}&rdquo;
           </p>
         ) : (
@@ -199,10 +199,10 @@ function SceneCard({ scene, active, pending, onApply }: SceneCardProps) {
       </span>
 
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[12px] leading-tight text-hi">
+        <span className="block truncate text-data leading-tight text-hi">
           {scene.name}
         </span>
-        <span className="mt-1 flex items-center gap-1.5 font-mono text-[9px] uppercase leading-none tracking-[0.08em] text-low">
+        <span className="mt-1 flex items-center gap-1.5 font-mono text-nano uppercase leading-none tracking-caps text-low">
           id {String(scene.scene_id).padStart(2, "0")}
           {active ? <span className="normal-case tracking-normal text-accent">· playing</span> : null}
         </span>

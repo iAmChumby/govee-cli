@@ -52,8 +52,8 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
 // nothing move. `pointer-coarse:px-4` on `sm` keeps a short label
 // (e.g. one glyph) from looking pinched inside its taller box.
 const SIZE_CLASSES: Record<ButtonSize, string> = {
-  sm: "h-7 px-2.5 text-[10px] pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:px-4",
-  md: "h-9 px-4 text-[11px] pointer-coarse:min-h-11 pointer-coarse:min-w-11",
+  sm: "h-7 px-2.5 text-micro pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:px-4",
+  md: "h-9 px-4 text-label pointer-coarse:min-h-11 pointer-coarse:min-w-11",
   lg: "h-10 px-5 text-xs pointer-coarse:min-h-11 pointer-coarse:min-w-11",
 };
 
@@ -91,7 +91,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         transition={springStandard}
         aria-busy={busy || undefined}
         className={cn(
-          "inline-flex cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-btn border font-medium uppercase tracking-[0.08em] transition-colors duration-150 disabled:pointer-events-none disabled:opacity-40",
+          "inline-flex cursor-pointer select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-btn border font-medium uppercase tracking-caps transition-colors duration-150 disabled:pointer-events-none disabled:opacity-40",
           VARIANT_CLASSES[variant],
           SIZE_CLASSES[size],
           className,

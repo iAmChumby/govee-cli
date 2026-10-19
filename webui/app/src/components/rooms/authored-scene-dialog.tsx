@@ -41,9 +41,9 @@ import {
    ================================================================== */
 
 const INPUT_CLASS =
-  "h-9 w-full rounded-btn border border-hairline bg-raised px-3 text-[13px] text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong focus-visible:outline-none pointer-coarse:h-11 pointer-coarse:text-base";
+  "h-9 w-full rounded-btn border border-hairline bg-raised px-3 text-body text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong focus-visible:outline-none pointer-coarse:h-11 pointer-coarse:text-base";
 
-const LABEL_CLASS = "block text-[11px] uppercase leading-none tracking-micro text-mid";
+const LABEL_CLASS = "block text-label uppercase leading-none tracking-micro text-mid";
 
 function errMessage(err: unknown): string {
   return err instanceof ApiError ? err.message : String(err);
@@ -82,7 +82,7 @@ function Segmented({
           >
             <span
               className={cn(
-                "inline-flex h-7 items-center rounded-btn border px-3 text-[11px] transition-colors duration-150",
+                "inline-flex h-7 items-center rounded-btn border px-3 text-label transition-colors duration-150",
                 active
                   ? "border-hairline-strong bg-accent-dim text-hi"
                   : "border-hairline text-mid hover:border-hairline-strong hover:text-hi",
@@ -140,12 +140,12 @@ function DiyPicker({
         </select>
       </label>
       {scenes.isError ? (
-        <p role="alert" className="mt-1.5 font-mono text-[11px] leading-snug text-ember">
+        <p role="alert" className="mt-1.5 font-mono text-label leading-snug text-ember">
           could not load DIY scenes: {errMessage(scenes.error)}
         </p>
       ) : null}
       {!scenes.isLoading && !scenes.isError && list.length === 0 ? (
-        <p className="mt-1.5 font-mono text-[11px] leading-snug text-low">
+        <p className="mt-1.5 font-mono text-label leading-snug text-low">
           this device reports no DIY scenes
         </p>
       ) : null}
@@ -174,17 +174,17 @@ function DeviceRow({
     <li className="rounded-btn border border-hairline p-3">
       <div className="flex min-w-0 items-center gap-3">
         <div className="min-w-0 flex-1">
-          <p className="break-words text-[13px] font-medium leading-snug text-hi">
+          <p className="break-words text-body font-medium leading-snug text-hi">
             {label}
             {offline ? (
-              <span className="ml-2 inline-flex items-center gap-1 align-middle font-mono text-[10px] uppercase tracking-[0.08em] text-ember">
+              <span className="ml-2 inline-flex items-center gap-1 align-middle font-mono text-micro uppercase tracking-caps text-ember">
                 <AlertTriangle size={11} strokeWidth={1.75} aria-hidden />
                 offline
               </span>
             ) : null}
           </p>
           {device.model ? (
-            <p className="font-mono text-[10px] text-low">{device.model}</p>
+            <p className="font-mono text-micro text-low">{device.model}</p>
           ) : null}
         </div>
         <Switch
@@ -196,7 +196,7 @@ function DeviceRow({
       </div>
 
       {offline ? (
-        <p className="mt-2 font-mono text-[10px] leading-snug text-ember">
+        <p className="mt-2 font-mono text-micro leading-snug text-ember">
           the console reports this device offline — it can still be included, but it will
           error at apply time while it stays offline
         </p>
@@ -219,7 +219,7 @@ function DeviceRow({
               <div>
                 <div className="mb-1 flex items-baseline justify-between gap-3">
                   <span className={LABEL_CLASS}>brightness</span>
-                  <span className="font-mono text-[11px] text-mid">{draft.brightness}%</span>
+                  <span className="font-mono text-label text-mid">{draft.brightness}%</span>
                 </div>
                 <Slider
                   value={draft.brightness}
@@ -254,7 +254,7 @@ function DeviceRow({
                       onPick={(color) => onChange({ color: color.toUpperCase() })}
                     />
                     <HexField onCommit={(color) => onChange({ color })} />
-                    <span className="font-mono text-[11px] text-mid">
+                    <span className="font-mono text-label text-mid">
                       {draft.color ?? "none chosen"}
                     </span>
                   </div>
@@ -265,7 +265,7 @@ function DeviceRow({
                 <div>
                   <div className="mb-1 flex items-baseline justify-between gap-3">
                     <span className={LABEL_CLASS}>colour temperature</span>
-                    <span className="font-mono text-[11px] text-mid">{draft.kelvin}K</span>
+                    <span className="font-mono text-label text-mid">{draft.kelvin}K</span>
                   </div>
                   <Slider
                     value={clamp(draft.kelvin, range.min, range.max)}
@@ -275,7 +275,7 @@ function DeviceRow({
                     onValueChange={(kelvin) => onChange({ kelvin })}
                     ariaLabel={`Colour temperature for ${label}`}
                   />
-                  <p className="mt-1 font-mono text-[10px] leading-snug text-low">
+                  <p className="mt-1 font-mono text-micro leading-snug text-low">
                     {range.min}–{range.max}K
                     {range.known
                       ? ""
@@ -289,7 +289,7 @@ function DeviceRow({
               ) : null}
             </>
           ) : (
-            <p className="font-mono text-[10px] leading-snug text-low">
+            <p className="font-mono text-micro leading-snug text-low">
               this device will be switched off when the scene applies
             </p>
           )}
@@ -394,20 +394,20 @@ function EditorBody({
               className={INPUT_CLASS}
             />
           ) : (
-            <p className="break-words font-mono text-[13px] text-hi">{scene.name}</p>
+            <p className="break-words font-mono text-body text-hi">{scene.name}</p>
           )}
         </label>
 
         <div>
           <span className={cn(LABEL_CLASS, "mb-1.5")}>devices</span>
           {devices.isLoading ? (
-            <p className="font-mono text-[11px] text-low">loading devices…</p>
+            <p className="font-mono text-label text-low">loading devices…</p>
           ) : devices.isError ? (
-            <p role="alert" className="font-mono text-[11px] leading-snug text-ember">
+            <p role="alert" className="font-mono text-label leading-snug text-ember">
               could not load devices: {errMessage(devices.error)}
             </p>
           ) : registered.length === 0 ? (
-            <p className="font-mono text-[11px] leading-snug text-low">
+            <p className="font-mono text-label leading-snug text-low">
               no registered devices — run scan-http first
             </p>
           ) : (
@@ -424,7 +424,7 @@ function EditorBody({
             </ul>
           )}
           {dropped.length > 0 ? (
-            <p className="mt-2 font-mono text-[10px] leading-snug text-ember">
+            <p className="mt-2 font-mono text-micro leading-snug text-ember">
               {dropped.length === 1 ? "1 saved device is" : `${dropped.length} saved devices are`}{" "}
               no longer registered and will be dropped when you save
             </p>
@@ -434,12 +434,12 @@ function EditorBody({
 
       <div className="mt-3 shrink-0 space-y-2 border-t border-hairline pt-3">
         {error ? (
-          <p role="alert" className="font-mono text-[11px] leading-snug text-ember">
+          <p role="alert" className="font-mono text-label leading-snug text-ember">
             {error}
           </p>
         ) : null}
         {blocker ? (
-          <p className="font-mono text-[11px] leading-snug text-mid">{blocker}</p>
+          <p className="font-mono text-label leading-snug text-mid">{blocker}</p>
         ) : null}
 
         <div className="flex items-center justify-end gap-2">

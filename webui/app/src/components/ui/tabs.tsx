@@ -131,7 +131,7 @@ export function TabsTrigger({ value, className, children, ...rest }: TabsTrigger
     <TabsPrimitive.Trigger
       value={value}
       className={cn(
-        "relative cursor-pointer pb-2 pt-1 text-[11px] uppercase tracking-micro transition-colors duration-150",
+        "relative cursor-pointer pb-2 pt-1 text-label uppercase tracking-micro transition-colors duration-150",
         // §11.3: every interactive element needs >=44x44 CSS px of hit
         // area under a coarse pointer — today's trigger is ~24px tall
         // (11px label + 12px of padding). `min-h-11` plus centring grows

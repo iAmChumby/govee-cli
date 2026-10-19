@@ -26,15 +26,15 @@ export function SectionLabel({ index, title, className }: SectionLabelProps) {
     <div className={cn("flex select-none items-center gap-2", className)}>
       {index !== undefined ? (
         <>
-          <span className="font-mono text-[10px] leading-none text-low">
+          <span className="font-mono text-micro leading-none text-low">
             {String(index).padStart(2, "0")}
           </span>
-          <span aria-hidden className="text-[10px] leading-none text-low">
+          <span aria-hidden className="text-micro leading-none text-low">
             —
           </span>
         </>
       ) : null}
-      <span className="text-[11px] uppercase leading-none tracking-micro text-mid">
+      <span className="text-label uppercase leading-none tracking-micro text-mid">
         {title}
       </span>
       <span aria-hidden className="h-px flex-1 bg-hairline" />

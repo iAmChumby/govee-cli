@@ -208,7 +208,7 @@ export function DialogTitle({
   return (
     <DialogPrimitive.Title
       className={cn(
-        "font-display text-lg font-medium leading-tight tracking-[-0.02em] text-hi",
+        "font-display text-lg font-medium leading-tight tracking-display text-hi",
         className,
       )}
       {...rest}
@@ -222,7 +222,7 @@ export function DialogDescription({
 }: React.ComponentProps<typeof DialogPrimitive.Description>) {
   return (
     <DialogPrimitive.Description
-      className={cn("mt-1.5 text-[13px] leading-relaxed text-mid", className)}
+      className={cn("mt-1.5 text-body leading-relaxed text-mid", className)}
       {...rest}
     />
   );

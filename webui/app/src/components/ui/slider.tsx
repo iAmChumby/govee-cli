@@ -211,11 +211,11 @@ export function Slider({
             data-tint={tint ? "true" : "false"}
             className="slider-thumb relative block h-5 w-5 rounded-full border border-hairline-strong bg-raised transition-colors duration-150 group-hover:border-accent group-focus-visible:border-accent"
           >
-            <span aria-hidden className="absolute inset-[6px] rounded-full bg-accent" />
+            <span aria-hidden className="absolute inset-space-6 rounded-full bg-accent" />
             {showBubble ? (
               <span
                 className={cn(
-                  "pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 rounded-chip border border-hairline bg-raised px-1.5 py-0.5 font-mono text-[10px] leading-none text-hi transition-opacity duration-150",
+                  "pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 rounded-chip border border-hairline bg-raised px-1.5 py-0.5 font-mono text-micro leading-none text-hi transition-opacity duration-150",
                   dragging ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100",
                 )}
               >

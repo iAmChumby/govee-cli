@@ -210,7 +210,7 @@ function RotateHint() {
   return (
     <div
       aria-hidden
-      className="pointer-events-none absolute bottom-2 right-2 rounded-chip border border-hairline bg-bg/80 px-1.5 py-0.5 font-mono text-[9px] leading-none tracking-micro text-low"
+      className="pointer-events-none absolute bottom-2 right-2 rounded-chip border border-hairline bg-bg/80 px-1.5 py-0.5 font-mono text-nano leading-none tracking-micro text-low"
     >
       drag to rotate
     </div>
@@ -347,7 +347,7 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
               transition={{ duration: 1, ease: "easeInOut" }}
               className={cn(
                 "relative z-20 min-w-0 max-w-[68%] rounded-chip border border-hairline bg-bg/95 px-1.5 py-0.5 font-mono leading-snug tracking-micro text-low pointer-coarse:whitespace-normal pointer-coarse:break-words",
-                mini ? "text-[7px]" : "text-[9px]",
+                mini ? "text-mini" : "text-nano",
               )}
             >
               {resolved.caption}
@@ -356,7 +356,7 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
             <span
               className={cn(
                 "relative z-20 min-w-0 max-w-[68%] rounded-chip border border-hairline bg-bg/95 px-1.5 py-0.5 font-mono leading-snug tracking-micro text-low pointer-coarse:whitespace-normal pointer-coarse:break-words",
-                mini ? "text-[7px]" : "text-[9px]",
+                mini ? "text-mini" : "text-nano",
               )}
             >
               {resolved.caption}

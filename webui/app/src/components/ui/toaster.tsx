@@ -199,8 +199,8 @@ export function Toaster() {
             className="pointer-events-auto relative w-full overflow-hidden rounded-panel border border-hairline bg-raised pointer-coarse:min-h-[52px]"
           >
             <ToastBar variant={item.variant} deviceHsl={item.deviceHsl} />
-            <div className="py-3 pl-4 pr-9 pointer-coarse:pr-[52px]">
-              <p className="text-[13px] font-medium leading-snug text-hi">
+            <div className="py-3 pl-4 pr-9 pointer-coarse:pr-space-52">
+              <p className="text-body font-medium leading-snug text-hi">
                 {item.title}
               </p>
               {item.description ? (

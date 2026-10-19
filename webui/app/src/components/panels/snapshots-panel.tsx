@@ -116,7 +116,7 @@ export function SnapshotsPanel({ deviceRef }: { deviceRef: string }) {
         onSubmit={submitId}
         className="mt-4 flex flex-wrap items-center gap-2.5 border-t border-hairline pt-4"
       >
-        <span className="text-[11px] uppercase leading-none tracking-micro text-mid">
+        <span className="text-label uppercase leading-none tracking-micro text-mid">
           apply by id
         </span>
         <input
@@ -131,7 +131,7 @@ export function SnapshotsPanel({ deviceRef }: { deviceRef: string }) {
           spellCheck={false}
           maxLength={6}
           className={cn(
-            "h-7 w-24 rounded-btn border bg-raised px-2 font-mono text-[11px] tabular-nums text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong focus-visible:outline-none pointer-coarse:h-11 pointer-coarse:text-base",
+            "h-7 w-24 rounded-btn border bg-raised px-2 font-mono text-label tabular-nums text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong focus-visible:outline-none pointer-coarse:h-11 pointer-coarse:text-base",
             idInvalid ? "border-ember" : "border-hairline",
           )}
         />
@@ -145,11 +145,11 @@ export function SnapshotsPanel({ deviceRef }: { deviceRef: string }) {
           apply
         </Button>
         {idInvalid ? (
-          <span className="font-mono text-[10px] text-ember">numeric ids only</span>
+          <span className="font-mono text-micro text-ember">numeric ids only</span>
         ) : null}
       </form>
 
-      <p className="mt-2.5 font-mono text-[10px] leading-relaxed text-low">
+      <p className="mt-2.5 font-mono text-micro leading-relaxed text-low">
         govee has no snapshot listing endpoint — slots saved in the app are
         appliable by id even when unlisted.
       </p>
@@ -181,18 +181,18 @@ function SnapshotRow({ snapshot, active, pending, onApply }: SnapshotRowProps) {
       {/* neutral edge — snapshots are captured state, not authored color */}
       <span aria-hidden className="h-8 w-[3px] shrink-0 rounded-full bg-hairline-strong" />
 
-      <span className="min-w-0 flex-1 truncate text-[12px] leading-tight text-hi">
+      <span className="min-w-0 flex-1 truncate text-data leading-tight text-hi">
         {snapshot.name}
       </span>
 
-      <span className="font-mono text-[10px] tabular-nums text-low">
+      <span className="font-mono text-micro tabular-nums text-low">
         #{snapshot.value}
       </span>
 
       {pending ? (
         <Spinner label={`applying ${snapshot.name}`} />
       ) : active ? (
-        <span className="font-mono text-[9px] uppercase leading-none tracking-[0.08em] text-accent">
+        <span className="font-mono text-nano uppercase leading-none tracking-caps text-accent">
           applied
         </span>
       ) : null}

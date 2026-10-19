@@ -71,7 +71,7 @@ export function PanelFrame({ label, chips, children, className }: PanelFrameProp
   return (
     <Panel className={cn("mt-5 p-5", className)}>
       <header className="flex flex-wrap items-center gap-2.5">
-        <h3 className="text-[11px] uppercase leading-none tracking-micro text-mid">
+        <h3 className="text-label uppercase leading-none tracking-micro text-mid">
           {label}
         </h3>
         <span aria-hidden className="h-px min-w-8 flex-1 bg-hairline" />
@@ -93,9 +93,9 @@ interface EmptyStateProps {
 export function EmptyState({ title, hint }: EmptyStateProps) {
   return (
     <div className="rounded-card border border-dashed border-hairline px-6 py-10 text-center">
-      <p className="text-[12px] leading-snug text-mid">{title}</p>
+      <p className="text-data leading-snug text-mid">{title}</p>
       {hint ? (
-        <p className="mx-auto mt-1.5 max-w-[44ch] font-mono text-[10px] leading-relaxed text-low">
+        <p className="mx-auto mt-1.5 max-w-[44ch] font-mono text-micro leading-relaxed text-low">
           {hint}
         </p>
       ) : null}
@@ -119,7 +119,7 @@ interface QueryErrorLineProps {
 export function QueryErrorLine({ message, onRetry }: QueryErrorLineProps) {
   return (
     <div className="flex items-center gap-3 rounded-card border border-ember/30 px-3 py-2.5">
-      <p className="min-w-0 font-mono text-[11px] leading-relaxed text-ember">
+      <p className="min-w-0 font-mono text-label leading-relaxed text-ember">
         {message}
       </p>
       {onRetry ? (

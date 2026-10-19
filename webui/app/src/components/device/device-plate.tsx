@@ -137,7 +137,7 @@ function FirstLightBurst({ id, reduced }: { id: number; reduced: boolean }) {
       {SPARK_ANGLES.map((angle, i) => (
         <motion.span
           key={i}
-          className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -ml-[3px] -mt-[3px] rounded-full"
+          className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -ml-space-3 -mt-space-3 rounded-full"
           style={{ backgroundColor: "hsl(var(--dev-hue) var(--dev-sat) 85%)" }}
           initial={{ opacity: 1, scale: 1, x: 0, y: 0 }}
           animate={{
@@ -326,7 +326,7 @@ export function DevicePlate({ device }: { device: DeviceSummary }) {
               to hit. */}
           <Link
             href={href}
-            className="truncate text-[15px] font-medium leading-none text-hi hover:underline hover:underline-offset-4 pointer-coarse:min-w-11 pointer-coarse:py-4"
+            className="truncate text-title-sm font-medium leading-none text-hi hover:underline hover:underline-offset-4 pointer-coarse:min-w-11 pointer-coarse:py-4"
           >
             {name}
           </Link>
@@ -373,7 +373,7 @@ export function DevicePlate({ device }: { device: DeviceSummary }) {
         {/* live readouts — instrument-cluster digits, not footnotes (§F) */}
         <div className="mt-2.5 flex items-center justify-between">
           <Odometer value={brightness} pad={3} suffix="%" size="lg" className="text-hi" />
-          <span className="flex items-center gap-2 font-mono text-[20px] leading-none text-mid">
+          <span className="flex items-center gap-2 font-mono text-display leading-none text-mid">
             {device.color_temp_k !== null &&
             prefersColorTemp(device.color?.rgb ?? null, device.color_temp_k) ? (
               // Colour-temperature mode reports a placeholder white in
@@ -460,7 +460,7 @@ export function DevicePlate({ device }: { device: DeviceSummary }) {
                 aria-pressed={active}
                 onClick={() => void controls.temperature({ ref: device.ref, vars: kelvin })}
                 className={cn(
-                  "flex h-11 shrink-0 cursor-pointer items-center justify-center rounded-btn border px-3 font-mono text-[12px] leading-none transition-colors duration-150",
+                  "flex h-11 shrink-0 cursor-pointer items-center justify-center rounded-btn border px-3 font-mono text-data leading-none transition-colors duration-150",
                   active
                     ? "border-hairline-strong bg-accent-dim text-hi"
                     : "border-hairline text-low hover:border-hairline-strong hover:text-hi",
