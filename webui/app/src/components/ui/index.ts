@@ -1,3 +1,4 @@
+export { BackUp, type BackUpProps } from "./back-up";
 export { Panel, type PanelProps } from "./panel";
 export { SectionLabel, type SectionLabelProps } from "./section-label";
 export { Button, type ButtonProps } from "./button";
