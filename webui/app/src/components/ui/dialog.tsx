@@ -80,7 +80,7 @@ export function DialogContent({
   children,
   onOpenAutoFocus,
 }: DialogContentProps) {
-  const { open, setOpen } = useDialogContext();
+  const { open } = useDialogContext();
 
   return (
     <DialogPrimitive.Portal>
