@@ -3,6 +3,10 @@ import type { Transition, Variants } from "motion/react";
 /**
  * App-wide motion vocabulary. Nothing snaps, ever.
  *
+ * GENERATED FILE — do not edit by hand.
+ * Source of truth: src/styles/tokens.tokens.json (the same file that
+ * generates tokens.css). Regenerate with `npm run tokens`.
+ *
  * springStandard  — controls, thumbs, indicators (260/26)
  * springHeavy     — panels, dialogs, sheets (170/22)
  * springSnappy    — press-in physics (500/30)
@@ -14,7 +18,6 @@ export const springStandard: Transition = {
   stiffness: 260,
   damping: 26,
 };
-
 export const springHeavy: Transition = {
   type: "spring",
   stiffness: 170,
