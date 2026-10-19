@@ -70,28 +70,24 @@
         "name": "--z-canvas",
         "syntax": "<integer>",
         "inherits": false,
-        "initial": "10",
         "$type": "integer"
       },
       {
         "name": "--z-base",
         "syntax": "<integer>",
         "inherits": false,
-        "initial": "20",
         "$type": "integer"
       },
       {
         "name": "--z-dialog",
         "syntax": "<integer>",
         "inherits": false,
-        "initial": "50",
         "$type": "integer"
       },
       {
         "name": "--z-toast",
         "syntax": "<integer>",
         "inherits": false,
-        "initial": "100",
         "$type": "integer"
       }
     ],
@@ -116,7 +112,8 @@
         "$type": "integer",
         "$description": "the toast stack (z-[100])"
       }
-    }
+    },
+    "$description": "The stacking scale. Each layer's NUMBER lives once, in z.values.<name>.$value; the @property registration's initial-value is DERIVED from it by the generator, so the registration and the :root declaration cannot disagree. A registration may carry an `initial` field, but it must equal the layer's value or the generator refuses to run."
   },
   "primitive": {
     "radius": {

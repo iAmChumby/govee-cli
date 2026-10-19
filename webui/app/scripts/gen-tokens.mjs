@@ -32,17 +32,68 @@ function valueOf(token) {
   return token.$value;
 }
 
-function renderRegistration(reg) {
+/**
+ * The z-layers' @property `initial-value` is DERIVED from the layer's
+ * declared value, never stated a second time.
+ *
+ * A z-layer is written in two places in the CSS: the `@property`
+ * registration (whose `initial-value` is what a DESCENDANT element
+ * resolves, because the registration is `inherits: false`) and the
+ * `:root` declaration (what `:root` itself resolves). Stating the number
+ * twice let the two copies drift while every gate stayed green — the
+ * copy nothing reads is the one that governs a nested consumer.
+ *
+ * So the JSON keeps ONE number per layer (`z.values.<name>.$value`) and
+ * the generator writes it to both places. A registration whose `initial`
+ * disagrees with its layer's value is a JSON error, not a silent
+ * divergence: `checkZRegistrations` throws.
+ */
+function checkZRegistrations(t) {
+  const problems = [];
+  const seen = new Set();
+  for (const reg of t.z.registrations) {
+    // "--z-canvas" names the layer "canvas".
+    const name = reg.name.replace(/^--z-/, "");
+    const value = t.z.values[name];
+    if (!value) {
+      problems.push(`@property ${reg.name} has no z.values.${name}`);
+      continue;
+    }
+    seen.add(name);
+    // `initial` is optional: the layer's value is the single source. If the
+    // registration does carry one, it must agree — otherwise the JSON is
+    // asking for two different numbers for the same layer.
+    if (reg.initial !== undefined && String(reg.initial) !== String(value.$value)) {
+      problems.push(
+        `@property ${reg.name} initial-value ${reg.initial} != z.values.${name}.$value ${value.$value}`,
+      );
+    }
+  }
+  for (const name of Object.keys(t.z.values)) {
+    if (!seen.has(name)) {
+      problems.push(`z.values.${name} has no @property registration`);
+    }
+  }
+  if (problems.length) {
+    throw new Error(`tokens: z registrations disagree with z values:\n  ${problems.join("\n  ")}`);
+  }
+}
+
+function renderRegistration(reg, initialValue) {
   const lines = [];
   if (reg.$comment) lines.push(reg.$comment);
-  const initial = reg.inlineComment
-    ? `  initial-value: ${reg.initial}; /* ${reg.inlineComment} */`
-    : `  initial-value: ${reg.initial};`;
+  const initial =
+    initialValue === undefined
+      ? reg.initial
+      : String(initialValue);
+  const rendered = reg.inlineComment
+    ? `  initial-value: ${initial}; /* ${reg.inlineComment} */`
+    : `  initial-value: ${initial};`;
   lines.push(
     `@property ${reg.name} {`,
     `  syntax: "${reg.syntax}";`,
     `  inherits: ${reg.inherits};`,
-    initial,
+    rendered,
     `}`,
   );
   return lines.join("\n");
@@ -64,14 +115,19 @@ function renderCss(t) {
 
   out.push("");
   out.push("/* ---- Stacking order (M1) ----------------------------------");
-  out.push("   Registered as <integer> so a typo fails loudly instead of");
-  out.push("   silently dropping the layer, and so the four names below are");
-  out.push("   the whole vocabulary. Values are today's measured layers:");
-  out.push("   canvas 10 (lib/lamp3d/renderer.ts), stage overlay 20, Radix");
-  out.push("   dialog/popover 50, toast 100. No consumer reads them yet —");
-  out.push("   this slice declares the scale; the migration is #27's.");
+  out.push("   Registered as <integer> so a mistyped VALUE falls back to");
+  out.push("   this layer's own initial instead of becoming invalid — the");
+  out.push("   fallback is silent, not loud. Values are today's measured");
+  out.push("   layers: canvas 10 (lib/lamp3d/renderer.ts), stage overlay 20,");
+  out.push("   Radix dialog/popover 50, toast 100. No consumer reads them");
+  out.push("   yet — this slice declares the scale; the migration is #27's.");
+  out.push("   The @property initial-value is derived from z.values, so the");
+  out.push("   registration and the :root declaration cannot disagree.");
   out.push("   ------------------------------------------------------------- */");
-  for (const reg of t.z.registrations) out.push(renderRegistration(reg));
+  for (const reg of t.z.registrations) {
+    const name = reg.name.replace(/^--z-/, "");
+    out.push(renderRegistration(reg, t.z.values[name]?.$value));
+  }
 
   out.push("");
   out.push("/* ---- Primitives (theme-invariant) -------------------------- */");
@@ -120,7 +176,7 @@ function renderCss(t) {
   out.push("");
   out.push("  /* motion vocabulary (M1) — CSS half. lib/motion.ts is generated");
   out.push("     from the same JSON, so a spring cannot drift between the two");
-  out.push("     vocabularies the way 62 `duration-150` utilities drifted from");
+  out.push("     vocabularies the way the `duration-150` utilities drifted from");
   out.push("     a duration scale that held 140/240/420. */");
   const fade = t.motion.fadeFast.$value;
   out.push(`  --motion-ease-out: ${bezier(t.motion.easeOut)};`);
@@ -255,6 +311,10 @@ function renderJs(t) {
 
 function main() {
   const check = process.argv.includes("--check");
+  // A z-layer's number lives in ONE place in the JSON. If the @property
+  // registrations disagree with it, the JSON is wrong — fail before writing
+  // or checking anything, so a divergence can never reach the CSS.
+  checkZRegistrations(tokens);
   const rendered = [
     { path: CSS_OUT, label: "src/styles/tokens.css", text: renderCss(tokens) },
     { path: JS_OUT, label: "src/lib/motion.ts", text: renderJs(tokens) },

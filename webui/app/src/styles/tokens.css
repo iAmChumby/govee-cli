@@ -74,12 +74,14 @@
 }
 
 /* ---- Stacking order (M1) ----------------------------------
-   Registered as <integer> so a typo fails loudly instead of
-   silently dropping the layer, and so the four names below are
-   the whole vocabulary. Values are today's measured layers:
-   canvas 10 (lib/lamp3d/renderer.ts), stage overlay 20, Radix
-   dialog/popover 50, toast 100. No consumer reads them yet —
-   this slice declares the scale; the migration is #27's.
+   Registered as <integer> so a mistyped VALUE falls back to
+   this layer's own initial instead of becoming invalid — the
+   fallback is silent, not loud. Values are today's measured
+   layers: canvas 10 (lib/lamp3d/renderer.ts), stage overlay 20,
+   Radix dialog/popover 50, toast 100. No consumer reads them
+   yet — this slice declares the scale; the migration is #27's.
+   The @property initial-value is derived from z.values, so the
+   registration and the :root declaration cannot disagree.
    ------------------------------------------------------------- */
 @property --z-canvas {
   syntax: "<integer>";
@@ -156,7 +158,7 @@
 
   /* motion vocabulary (M1) — CSS half. lib/motion.ts is generated
      from the same JSON, so a spring cannot drift between the two
-     vocabularies the way 62 `duration-150` utilities drifted from
+     vocabularies the way the `duration-150` utilities drifted from
      a duration scale that held 140/240/420. */
   --motion-ease-out: cubic-bezier(0, 0, 0.58, 1);
   --motion-fade-fast: 150ms var(--motion-ease-out);
