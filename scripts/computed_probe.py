@@ -41,7 +41,9 @@ VIEWPORTS = [
 READY_TEXT = {
     "/": "Shelf Lamp",
     "/device/Shelf%20Lamp": "Shelf Lamp",
-    "/settings": "Settings",
+    # "Settings" is in the top bar before the panels mount; the version row
+    # only exists once the health/config queries have answered.
+    "/settings": "sidecar version",
     "/schedules": "schedule owner",
 }
 
