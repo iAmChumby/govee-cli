@@ -418,7 +418,10 @@ export function useGroupRun() {
         toast({
           variant: "ok",
           title: `Group "${vars.command}" sent`,
-          description: `${data.results.length} device${data.results.length === 1 ? "" : "s"} acknowledged`,
+          // "acknowledged" claimed the lamps had confirmed the command, but
+          // the cloud read lags 2–6 s and the only confirmed signal is the
+          // switch's pending halo clearing. Say exactly what is known.
+          description: `${data.results.length} device${data.results.length === 1 ? "" : "s"} sent — confirmation pending`,
         });
       } else {
         toast({
