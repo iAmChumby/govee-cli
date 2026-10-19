@@ -197,8 +197,14 @@ def _convert_device(
     if kelvin is not None and explicit_mode not in ("white", "basic"):
         if explicit_mode is None:
             return ("temperature taken from state with no explicit mode; "
-                    "not authored as white")
+                    "not authored as white (add mode: white to keep this row)")
         return (f"mode {explicit_mode!r} does not match a white temperature")
+
+    if colour is not None and explicit_mode not in ("colour", "color", "basic"):
+        if explicit_mode is None:
+            return ("colour taken from state with no explicit mode; "
+                    "not authored as colour (add mode: basic to keep this row)")
+        return (f"mode {explicit_mode!r} does not match a colour")
 
     base: dict[str, Any] = {"device_id": mac, "power": True, "brightness": brightness}
     if kelvin is not None:

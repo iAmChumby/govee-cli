@@ -393,6 +393,16 @@ an `unknown` is what makes a capture worth taking. That route writes the ledger
 and **sends nothing to the device**; the UI copy has to keep saying so, because a
 user who thinks it commands the light will mis-set the ledger.
 
+**Scenes captured before 2026-10-19 may hold stale state-derived colour/temperature.**
+`/device/state` always reports a stale `colorTemperatureK` (and often a stale
+`colorRgb`) for a lamp running a DIY/scene/music/segment/effect, and both
+`capture_room` and `govee-cli room import-profiles` now drop those values unless
+the device's mode is known to be `basic`. Scenes captured or imported before that
+fix can still contain a `color`/`color_temp_k` on a row whose `mode` is not
+`basic`; those rows are not trustworthy. Re-capture or hand-edit any such scene
+(set the field to `null`, or set the correct mode/label/payload) before relying
+on it, especially `sleep mode`, `day`, `Day Time` and `relax`.
+
 **`resolve_ref` falls back to treating any MAC-shaped string as an ad-hoc BLE
 address, and mock mode does not cover BLE** — it fakes only the HTTP client. Any
 code path that resolves a stored device id must check `target.device_cfg is not
