@@ -104,7 +104,10 @@ export function EffectsPanel({ deviceRef }: { deviceRef: string }) {
       {/* now playing banner */}
       {mine ? (
         <div className="mb-3 flex items-center gap-2.5 rounded-card border border-hairline-strong bg-accent-dim px-3 py-2.5">
-          <StatusDot tone="ok" />
+          {/* #15: the second channel beside the colour. The banner is
+              only rendered when the sidecar reports an effect playing, so
+              "playing" is exactly what the app knows. */}
+          <StatusDot tone="ok" label="playing" />
           <span className="min-w-0 truncate font-mono text-[11px] text-hi">
             {mine.file}
           </span>

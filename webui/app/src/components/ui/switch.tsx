@@ -99,6 +99,7 @@ export function Switch({
         aria-checked={checked}
         aria-label={ariaLabel}
         disabled={disabled}
+        aria-busy={pending || undefined}
         onClick={() => onCheckedChange(!checked)}
         className="group relative inline-flex shrink-0 cursor-pointer items-center justify-center disabled:pointer-events-none disabled:opacity-40 pointer-coarse:min-h-11"
       >

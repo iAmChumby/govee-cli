@@ -190,7 +190,7 @@ function SnapshotRow({ snapshot, active, pending, onApply }: SnapshotRowProps) {
       </span>
 
       {pending ? (
-        <Spinner />
+        <Spinner label={`applying ${snapshot.name}`} />
       ) : active ? (
         <span className="font-mono text-[9px] uppercase leading-none tracking-[0.08em] text-accent">
           applied

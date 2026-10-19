@@ -118,7 +118,19 @@ function WakeRampRow({ entry, crontab }: { entry: ExternalScheduleEntry; crontab
         <p className="text-[13px] font-medium leading-tight text-hi">wake-ramp</p>
         {entry.device_hint ? <Chip>{entry.device_hint}</Chip> : null}
         <span className="flex items-center gap-1.5 font-mono text-[11px] text-mid">
-          <StatusDot tone={armedDate ? "ok" : "off"} />
+          {/* #15: the second channel beside the colour — and the same
+              honesty the visible text keeps: an unreadable script is
+              "status unknown", never "not armed". */}
+          <StatusDot
+            tone={armedDate ? "ok" : "off"}
+            label={
+              status === null
+                ? "armed status unknown"
+                : armedDate
+                  ? "armed"
+                  : "not armed"
+            }
+          />
           {status === null
             ? "status unknown"
             : armedDate

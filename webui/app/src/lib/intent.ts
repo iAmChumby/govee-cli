@@ -28,7 +28,12 @@ const HOLD_MS = 12_000;
  *  `active`, an object) — recording one lets a scene/DIY button show
  *  "applying: sleep…" the instant it's clicked, before the sidecar's ledger
  *  write lands and a poll confirms it. `reconcile` special-cases it below. */
-type IntentField = "power" | "brightness" | "color" | "color_temp_k" | "active_mode";
+export type IntentField =
+  | "power"
+  | "brightness"
+  | "color"
+  | "color_temp_k"
+  | "active_mode";
 
 /** The subset of `ActiveMode` a client can actually assert about its own
  *  just-issued command — never a confidence/source/timestamp, since those
@@ -94,6 +99,22 @@ export function recordIntent(ref: string, patch: IntentPatch): void {
   // if no poll lands around then.
   setTimeout(notify, HOLD_MS + 50);
   notify();
+}
+
+/** #18 rollback: drop pending intent fields for a device. Called when the
+ *  command that recorded them failed — a dead intent must stop outranking
+ *  honest reads, or the plate keeps asserting a value nobody commanded
+ *  successfully. Only the named fields go: an earlier *successful* command
+ *  for a different field on the same device must keep its hold. */
+export function clearIntents(ref: string, fields: IntentField[]): void {
+  const entry = ledger.get(ref);
+  if (!entry) return;
+  let removed = false;
+  for (const field of fields) {
+    if (entry.delete(field)) removed = true;
+  }
+  if (entry.size === 0) ledger.delete(ref);
+  if (removed) notify();
 }
 
 function isLightColor(v: unknown): v is LightColor {

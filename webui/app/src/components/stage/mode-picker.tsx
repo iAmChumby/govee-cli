@@ -358,7 +358,9 @@ function OptionRow({
     >
       <span className="truncate text-[12px] text-hi">{optionName(opt)}</span>
       <span className="flex shrink-0 items-center gap-1.5 font-mono text-[9px] uppercase leading-none tracking-[0.08em] text-low">
-        {pending ? <Spinner /> : null}
+        {pending ? (
+          <Spinner label={`loading ${optionName(opt)}`} />
+        ) : null}
         {opt.hint}
       </span>
     </motion.button>

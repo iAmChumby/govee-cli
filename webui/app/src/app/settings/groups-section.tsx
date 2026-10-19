@@ -227,6 +227,11 @@ export function GroupsSection() {
                 key={name}
                 className="flex items-center gap-3 py-3 first:pt-0 last:pb-0"
               >
+                {/* #15: the second channel beside the colour. It says
+                    what the dot means for *this* row — a group is not
+                    itself online, so the honest claim is about its
+                    members: one member reports online, or none of them
+                    do. */}
                 <StatusDot
                   tone={
                     memberIds.some((id) =>
@@ -234,6 +239,13 @@ export function GroupsSection() {
                     )
                       ? "ok"
                       : "off"
+                  }
+                  label={
+                    memberIds.some((id) =>
+                      deviceList.some((d) => d.id === id && d.online !== false),
+                    )
+                      ? "a member is online"
+                      : "no member is online"
                   }
                 />
                 <div className="min-w-0 flex-1">

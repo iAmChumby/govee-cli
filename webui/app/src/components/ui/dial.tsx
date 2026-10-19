@@ -342,7 +342,16 @@ export function Dial({
           : "cursor-grab active:cursor-grabbing",
         className,
       )}
-      style={{ width: size, height: size }}
+      // The box follows `--dial-size` when a consumer sets it, so a
+      // viewport-specific size can be applied in CSS (`pointer-coarse:
+      // landscape:` on the device page's dial) instead of in JavaScript —
+      // the app's rule is that a mobile/landscape change is a media
+      // query, never a runtime branch. The `size` prop stays the
+      // fallback, so every other consumer is byte-identical.
+      style={{
+        width: `var(--dial-size, ${size}px)`,
+        height: `var(--dial-size, ${size}px)`,
+      }}
     >
       {/* tick ring + progress arc + knob face */}
       <svg

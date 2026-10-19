@@ -205,7 +205,20 @@ function WakeRampPopover({
           2000K over ~30 min (fixed to this one automation)
         </p>
         <div className="mt-3 flex items-center gap-2">
-          <StatusDot tone={armedDate ? "ok" : "off"} />
+          {/* #15: the second channel beside the colour. When the status
+              could not be read the dot is "off" and the row says so —
+              the label must not claim "not armed" for a script the app
+              could not reach. */}
+          <StatusDot
+            tone={armedDate ? "ok" : "off"}
+            label={
+              status === null
+                ? "armed status unknown"
+                : armedDate
+                  ? "armed"
+                  : "not armed"
+            }
+          />
           <span className="font-mono text-[11px] text-mid">
             {status === null
               ? "status unknown — script unreachable"
