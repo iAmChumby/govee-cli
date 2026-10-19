@@ -133,7 +133,7 @@ export function DialogContent({
                    * currently tall enough to hit it there. */}
                   <div
                     className={cn(
-                      "pointer-events-auto w-[min(92vw,480px)] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-stage border border-hairline bg-panel p-6 shadow-overlay pointer-coarse:pt-[var(--safe-top)] pointer-coarse:pb-[var(--safe-bottom)]",
+                      "relative pointer-events-auto w-[min(92vw,480px)] max-h-[calc(100dvh-2rem)] overflow-y-auto rounded-stage border border-hairline bg-panel p-6 shadow-overlay pointer-coarse:pt-[var(--safe-top)] pointer-coarse:pb-[var(--safe-bottom)]",
                       className,
                     )}
                   >
@@ -172,7 +172,7 @@ export function DialogContent({
                    * shorter than `dvh`'s vh-based cousin would report. */}
                   <div
                     className={cn(
-                      "pointer-events-auto h-full max-h-[100dvh] w-[min(92vw,420px)] overflow-y-auto rounded-l-stage border border-hairline border-r-0 bg-panel p-6 shadow-overlay pointer-coarse:pt-[var(--safe-top)] pointer-coarse:pb-[var(--safe-bottom)]",
+                      "relative pointer-events-auto h-full max-h-[100dvh] w-[min(92vw,420px)] overflow-y-auto rounded-l-stage border border-hairline border-r-0 bg-panel p-6 shadow-overlay pointer-coarse:pt-[var(--safe-top)] pointer-coarse:pb-[var(--safe-bottom)]",
                       className,
                     )}
                   >
