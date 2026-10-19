@@ -227,6 +227,30 @@ class ScheduleLocationOut(BaseModel):
     longitude: float | None
     timezone: str
     timezone_source: Literal["config", "host"]
+    # "Rochester, New York, United States" when the location was picked by city.
+    name: str | None = None
+
+
+class CityMatchOut(BaseModel):
+    """One candidate from ``GET /config/cities``."""
+
+    name: str  # "Rochester"
+    region: str | None  # "New York"
+    country: str | None  # "United States"
+    label: str  # "Rochester, New York, United States"
+    latitude: float
+    longitude: float
+    timezone: str | None  # IANA zone, e.g. "America/New_York"
+    population: int | None
+
+
+class CitySearchOut(BaseModel):
+    query: str
+    matches: list[CityMatchOut]
+    # "open-meteo" (online geocoder) or "offline" (astral's bundled list,
+    # used when the online lookup fails). Shown to the user as the source.
+    source: Literal["open-meteo", "offline"]
+    error: str | None  # why the online lookup failed, when source is offline
 
 
 class ScheduleLastFireOut(BaseModel):
@@ -265,6 +289,8 @@ class ConfigPatchRequest(BaseModel):
     longitude: float | None = Field(default=None, ge=-180, le=180)
     timezone: str | None = None
     clear_location: bool = False
+    # Label stored with the coordinates when they were picked by city search.
+    location_name: str | None = None
 
     @field_validator("timezone")
     @classmethod

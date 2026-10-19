@@ -249,6 +249,28 @@ export interface ScheduleLocation {
   longitude: number | null;
   timezone: string;
   timezone_source: "config" | "host";
+  /** "Rochester, New York, United States" when picked by city; null for raw coordinates. */
+  name?: string | null;
+}
+
+/** `GET /config/cities?q=` (city search for Settings > Location). */
+export interface CityMatch {
+  name: string;
+  region: string | null;
+  country: string | null;
+  label: string;
+  latitude: number;
+  longitude: number;
+  timezone: string | null;
+  population: number | null;
+}
+
+export interface CitySearch {
+  query: string;
+  matches: CityMatch[];
+  /** "offline" means the online geocoder failed and astral's bundled list answered. */
+  source: "open-meteo" | "offline";
+  error: string | null;
 }
 
 export interface ScheduleList {
@@ -672,6 +694,9 @@ export const api = {
 
   updateSchedule: (id: string, body: ScheduleWrite) =>
     put<ScheduleRule>(`/schedules/${encodeURIComponent(id)}`, body),
+
+  searchCities: (q: string) =>
+    request<CitySearch>(`/config/cities?q=${encodeURIComponent(q)}`),
 
   previewSchedule: (body: { time: string; days: string[] }) =>
     post<SchedulePreview>("/schedules/preview", body),

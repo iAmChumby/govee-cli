@@ -122,6 +122,9 @@ class GoveeConfig:
     latitude: float | None = None
     longitude: float | None = None
     timezone: str | None = None
+    # Human label for where latitude/longitude came from when picked by city,
+    # e.g. "Rochester, New York, United States". None when entered as coordinates.
+    location_name: str | None = None
 
 
 _CONFIG_PATH = pathlib.Path.home() / ".config" / "govee-cli" / "config.json"
@@ -299,6 +302,7 @@ def load_config() -> GoveeConfig:
         latitude=raw.get("latitude"),
         longitude=raw.get("longitude"),
         timezone=raw.get("timezone"),
+        location_name=raw.get("location_name"),
             groups=raw.get("groups", {}),
             devices={
                 mac.upper(): DeviceConfig(
@@ -339,6 +343,7 @@ def load_config() -> GoveeConfig:
         latitude=raw.get("latitude"),
         longitude=raw.get("longitude"),
         timezone=raw.get("timezone"),
+        location_name=raw.get("location_name"),
         groups=raw.get("groups", {}),
         devices=devices,
     )
@@ -379,6 +384,7 @@ def save_config(config: GoveeConfig) -> None:
         "latitude": config.latitude,
         "longitude": config.longitude,
         "timezone": config.timezone,
+        "location_name": config.location_name,
         "groups": config.groups,
         "devices": devices_data,
     }
