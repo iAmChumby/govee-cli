@@ -29,7 +29,8 @@ import { useDeleteActiveMode } from "@/lib/queries";
 import { UnknownModeChooser } from "@/components/stage/mode-picker";
 import { brightnessGlow, type ResolvedLampState } from "./active-mode";
 import { type PointerInputKind, shouldClaimGesture } from "./controls";
-import { useLampStage } from "./use-lamp-stage";
+import { findScrollAncestor, useLampStage } from "./use-lamp-stage";
+import { intersectBox, maskClipPath, type Box } from "./stage-corner-mask";
 
 export interface LampStageProps {
   state: DeviceState | DeviceSummary;
@@ -253,10 +254,18 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
   // hairline survived), and at `lg` the sticky `<section>` ancestor creates
   // a stacking context that keeps any `z-20` child below the canvas. So the
   // same paint-only mask is mounted on `document.body` as a fixed overlay:
-  // it inherits nothing, so the surface colour is copied from the stage; the
-  // bottom-half `clip-path` keeps only the two bottom corner wedges, never
-  // the stage or the TopBar. It paints nothing but those wedges and never
-  // touches the viewport, scissor rects, or camera.
+  // it inherits nothing, so the surface colour is copied from the stage.
+  //
+  // The overlay is a body-level painter exactly like the canvas is, so it
+  // inherits the canvas's one hard rule: a view clips to its scrolling
+  // ancestor, or it paints over the TopBar (CLAUDE.md, "The 3D stage"). The
+  // mask is therefore clipped to the *same* rect the canvas scissors this
+  // view to — `findScrollAncestor` is the function the canvas's own
+  // registration uses, and `maskClipPath` intersects the mount point's box
+  // with that ancestor's box exactly as `views.ts`'s `readBoxes` does. A
+  // stage scrolled under the TopBar has its wedge stopped at the
+  // scroller's edge, like the paint it is covering. It paints nothing but
+  // those wedges and never touches the viewport, scissor rects, or camera.
   React.useEffect(() => {
     const stage = stageRef.current;
     if (!stage) return;
@@ -264,7 +273,6 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
     const mask = document.createElement("div");
     mask.setAttribute("aria-hidden", "true");
     mask.className = "pointer-events-none fixed z-30 rounded-stage";
-    mask.style.clipPath = "inset(50% 0 0 0)";
     document.body.appendChild(mask);
 
     const bleed = stage.closest(".dev-bleed");
@@ -284,15 +292,33 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
       return "var(--panel)";
     };
 
-    const scroller = stage.closest("main");
+    const toBox = (r: DOMRect): Box => ({
+      left: r.left,
+      top: r.top,
+      width: r.width,
+      height: r.height,
+    });
+
+    // The same scrolling ancestor the canvas scissors this view to.
+    const scroller = findScrollAncestor(stage);
     const update = (): void => {
       const rect = stage.getBoundingClientRect();
-      const view = scroller?.getBoundingClientRect();
+      const maskBox = toBox(rect);
+      // The canvas's scissor rect: the mount point's box intersected with
+      // the scrolling ancestor's box (`views.ts`'s `readBoxes`). The mask
+      // clips to the same rect, so the two always stop at the same edge.
+      const mount = containerRef.current;
+      const viewBox = toBox(mount ? mount.getBoundingClientRect() : rect);
+      const scrollerRect = scroller?.getBoundingClientRect();
+      const clipBox = scrollerRect
+        ? intersectBox(viewBox, toBox(scrollerRect))
+        : viewBox;
       const visible =
-        rect.width > 0 &&
-        rect.height > 0 &&
-        rect.bottom > (view?.top ?? 0) &&
-        rect.top < (view?.bottom ?? window.innerHeight);
+        maskBox.width > 0 &&
+        maskBox.height > 0 &&
+        clipBox !== null &&
+        clipBox.width > 0 &&
+        clipBox.height > 0;
       mask.style.display = visible ? "block" : "none";
       if (!visible) return;
       const cs = window.getComputedStyle(stage);
@@ -301,6 +327,7 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
       mask.style.width = `${rect.width}px`;
       mask.style.height = `${rect.height}px`;
       mask.style.borderRadius = cs.borderRadius;
+      mask.style.clipPath = maskClipPath(maskBox, clipBox);
       mask.style.boxShadow = `0 0 0 100px ${surfaceOf()}`;
     };
 

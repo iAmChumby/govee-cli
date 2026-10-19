@@ -35,8 +35,12 @@ import { resolveLampState, type ResolvedLampState } from "./active-mode";
  * `ViewRegistration.clipTo` (`views.ts`): a plate scrolled up under the
  * fixed `TopBar` must stop scissoring at this element's edge rather than
  * paint through it (decision 2).
+ *
+ * Exported because the stage's corner mask (`stage-corner-mask.ts`) is a
+ * second body-level painter and has to clip to the *same* ancestor the
+ * canvas scissors to — one rule, one function, so the two cannot drift.
  */
-function findScrollAncestor(el: HTMLElement): HTMLElement | undefined {
+export function findScrollAncestor(el: HTMLElement): HTMLElement | undefined {
   if (typeof window === "undefined") return undefined;
   let node = el.parentElement;
   while (node) {
