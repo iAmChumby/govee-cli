@@ -347,7 +347,7 @@ export function DevicePlate({ device }: { device: DeviceSummary }) {
           href={href}
           onClick={onOpen}
           aria-label={`Open ${name} console`}
-          className="group/stage relative mt-3 block aspect-[4/3] rounded-stage focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:aspect-[16/10]"
+          className="group/stage relative mt-3 block aspect-[4/3] rounded-stage focus-visible:outline-none focus-visible:ring-(length:--focus-ring-width) focus-visible:ring-(--focus-ring) sm:aspect-[16/10]"
         >
           <LampStage
             state={device}

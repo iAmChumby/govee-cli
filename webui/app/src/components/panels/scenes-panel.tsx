@@ -97,7 +97,7 @@ export function ScenesPanel({ deviceRef }: { deviceRef: string }) {
           aria-label="Filter scenes"
           spellCheck={false}
           autoComplete="off"
-          className="h-9 w-full rounded-btn border border-hairline bg-raised pl-8 pr-3 text-data text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong focus-visible:outline-none pointer-coarse:h-11 pointer-coarse:text-base"
+          className="h-9 w-full rounded-btn border border-hairline bg-raised pl-8 pr-3 text-data text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong pointer-coarse:h-11 pointer-coarse:text-base"
         />
       </label>
 

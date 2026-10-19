@@ -197,7 +197,7 @@ export function UnknownModeChooser({ deviceRef }: UnknownModeChooserProps) {
         // overlay) is safe here because the chip is absolutely positioned
         // over the stage canvas, with no flex siblings a taller box could
         // shove — and a fine-pointer desktop never evaluates the rule.
-        className="group pointer-events-auto flex shrink-0 cursor-pointer items-center outline-none pointer-coarse:h-11"
+        className="group pointer-events-auto flex shrink-0 cursor-pointer items-center pointer-coarse:h-11"
       >
         <span className="flex h-6 items-center gap-1 rounded-chip border border-dashed border-hairline bg-bg/80 px-2 font-mono text-nano uppercase leading-none tracking-micro text-low transition-colors duration-150 group-hover:border-hairline-strong">
           <HelpCircle aria-hidden className="h-3 w-3 shrink-0" />

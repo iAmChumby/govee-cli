@@ -131,7 +131,7 @@ export function SnapshotsPanel({ deviceRef }: { deviceRef: string }) {
           spellCheck={false}
           maxLength={6}
           className={cn(
-            "h-7 w-24 rounded-btn border bg-raised px-2 font-mono text-label tabular-nums text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong focus-visible:outline-none pointer-coarse:h-11 pointer-coarse:text-base",
+            "h-7 w-24 rounded-btn border bg-raised px-2 font-mono text-label tabular-nums text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong pointer-coarse:h-11 pointer-coarse:text-base",
             idInvalid ? "border-ember" : "border-hairline",
           )}
         />

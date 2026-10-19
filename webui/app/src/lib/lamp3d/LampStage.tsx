@@ -100,7 +100,7 @@ function ActiveModeReset({ deviceRef }: { deviceRef: string }) {
       title="Not what I see — reset"
       onClick={handleReset}
       disabled={busy}
-      className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-low outline-none transition-colors duration-150 hover:text-hi active:scale-95 disabled:opacity-40"
+      className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-low transition-colors duration-150 hover:text-hi active:scale-95 disabled:opacity-40"
     >
       <RotateCcw aria-hidden className="h-3.5 w-3.5" />
     </button>
@@ -313,7 +313,7 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
           "absolute inset-0",
           mini
             ? "pointer-events-none"
-            : "pointer-events-auto touch-pan-y outline-none focus-visible:ring-2 focus-visible:ring-accent",
+            : "pointer-events-auto touch-pan-y focus-visible:outline-none focus-visible:ring-(length:--focus-ring-width) focus-visible:ring-(--focus-ring)",
         )}
       />
 

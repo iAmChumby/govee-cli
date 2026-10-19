@@ -165,7 +165,7 @@ export function ExportDialog({
               onChange={(e) => setName(e.target.value)}
               placeholder="shelf-drum-spiral"
               autoComplete="off"
-              className="h-9 w-full rounded-btn border border-hairline bg-raised px-3 text-body text-hi outline-none transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong pointer-coarse:h-11 pointer-coarse:text-base"
+              className="h-9 w-full rounded-btn border border-hairline bg-raised px-3 text-body text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong pointer-coarse:h-11 pointer-coarse:text-base"
             />
           </div>
 

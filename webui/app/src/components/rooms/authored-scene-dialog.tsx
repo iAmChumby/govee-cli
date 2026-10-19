@@ -41,7 +41,7 @@ import {
    ================================================================== */
 
 const INPUT_CLASS =
-  "h-9 w-full rounded-btn border border-hairline bg-raised px-3 text-body text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong focus-visible:outline-none pointer-coarse:h-11 pointer-coarse:text-base";
+  "h-9 w-full rounded-btn border border-hairline bg-raised px-3 text-body text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong pointer-coarse:h-11 pointer-coarse:text-base";
 
 const LABEL_CLASS = "block text-label uppercase leading-none tracking-micro text-mid";
 

@@ -193,7 +193,7 @@ export function Slider({
       <SliderPrimitive.Thumb
         aria-label={ariaLabel}
         asChild
-        className="cursor-grab outline-none active:cursor-grabbing"
+        className="cursor-grab active:cursor-grabbing"
       >
         <motion.span
           whileTap={reduced ? undefined : { scale: 1.12, transition: springSnappy }}

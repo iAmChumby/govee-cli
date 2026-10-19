@@ -103,6 +103,15 @@
   --space-22: 22px;
   --space-52: 52px;
 
+  /* one focus ring (#12). --accent is the app's own ring colour; it clears
+     3:1 against every surface the ring is drawn on in both themes (#111214
+     on #f7f7f8 = 17.9:1; #ffffff on #0b0c0e = 19.4:1). The two sites that
+     cannot use an outline (a rounded Link and the orbit surface) consume the
+     same token, so there is one ring, not two vocabularies. */
+  --focus-ring: var(--accent);
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+
   /* safe-area insets (WebKit env() on notched / home-indicator devices;
      0px fallback on browsers that don't expose them) */
   --safe-top: env(safe-area-inset-top, 0px);
