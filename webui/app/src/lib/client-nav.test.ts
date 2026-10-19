@@ -1,100 +1,51 @@
 import assert from "node:assert/strict";
-import { describe, it, beforeEach, afterEach } from "vitest";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { beforeEach, describe, it } from "vitest";
 
 import { hasInAppNav, markInAppNav, resetInAppNav } from "./client-nav";
 
-const STORAGE_KEY = "filament:has-in-app-nav";
+beforeEach(() => {
+  resetInAppNav();
+});
 
-// Mock sessionStorage for Node environment
-const mockSessionStorage = {
-  store: new Map<string, string>(),
-  getItem(key: string) {
-    return this.store.get(key) ?? null;
-  },
-  setItem(key: string, value: string) {
-    this.store.set(key, value);
-  },
-  removeItem(key: string) {
-    this.store.delete(key);
-  },
-  clear() {
-    this.store.clear();
-  },
-};
-
-// Mock window for the client-nav module
-const mockWindow = {
-  sessionStorage: mockSessionStorage,
-};
-
-// @ts-expect-error - mocking global for tests
-global.window = mockWindow;
-// @ts-expect-error - mocking global for tests
-global.sessionStorage = mockSessionStorage;
-
-describe("client-nav pure helpers", () => {
-  beforeEach(() => {
-    mockSessionStorage.clear();
+describe("client-nav flag", () => {
+  it("starts false on a fresh document", () => {
+    assert.equal(hasInAppNav(), false);
   });
 
-  afterEach(() => {
-    mockSessionStorage.clear();
+  it("becomes true after an in-app navigation", () => {
+    markInAppNav();
+    assert.equal(hasInAppNav(), true);
   });
 
-  describe("hasInAppNav", () => {
-    it("returns false when no flag is set", () => {
-      assert.equal(hasInAppNav(), false);
-    });
-
-    it("returns true when flag is set to 'true'", () => {
-      mockSessionStorage.setItem(STORAGE_KEY, "true");
-      assert.equal(hasInAppNav(), true);
-    });
-
-    it("returns false when flag is set to 'false'", () => {
-      mockSessionStorage.setItem(STORAGE_KEY, "false");
-      assert.equal(hasInAppNav(), false);
-    });
-
-    it("returns false when flag is set to empty string", () => {
-      mockSessionStorage.setItem(STORAGE_KEY, "");
-      assert.equal(hasInAppNav(), false);
-    });
+  it("resets to false", () => {
+    markInAppNav();
+    resetInAppNav();
+    assert.equal(hasInAppNav(), false);
   });
 
-  describe("markInAppNav", () => {
-    it("sets the flag in sessionStorage", () => {
-      markInAppNav();
-      assert.equal(mockSessionStorage.getItem(STORAGE_KEY), "true");
-    });
-
-    it("makes hasInAppNav return true", () => {
-      markInAppNav();
-      assert.equal(hasInAppNav(), true);
-    });
+  it("full cycle: false -> mark -> true -> reset -> false", () => {
+    assert.equal(hasInAppNav(), false);
+    markInAppNav();
+    assert.equal(hasInAppNav(), true);
+    resetInAppNav();
+    assert.equal(hasInAppNav(), false);
   });
 
-  describe("resetInAppNav", () => {
-    it("removes the flag from sessionStorage", () => {
-      mockSessionStorage.setItem(STORAGE_KEY, "true");
-      resetInAppNav();
-      assert.equal(mockSessionStorage.getItem(STORAGE_KEY), null);
-    });
-
-    it("makes hasInAppNav return false", () => {
-      mockSessionStorage.setItem(STORAGE_KEY, "true");
-      resetInAppNav();
-      assert.equal(hasInAppNav(), false);
-    });
-  });
-
-  describe("integration", () => {
-    it("full cycle: false -> mark -> true -> reset -> false", () => {
-      assert.equal(hasInAppNav(), false);
-      markInAppNav();
-      assert.equal(hasInAppNav(), true);
-      resetInAppNav();
-      assert.equal(hasInAppNav(), false);
-    });
+  // D1: sessionStorage is cloned into window.open()'d tabs; module state is
+  // not. A source guard is the only way to keep a future edit from quietly
+  // restoring the copied-storage behaviour.
+  it("does not use sessionStorage or window", () => {
+    const source = readFileSync(
+      fileURLToPath(new URL("./client-nav.ts", import.meta.url)),
+      "utf8",
+    );
+    // Comments are allowed to name the mechanism; code is not.
+    const code = source
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\/\/.*$/gm, "");
+    assert.equal(code.includes("sessionStorage"), false);
+    assert.equal(code.includes("window"), false);
   });
 });

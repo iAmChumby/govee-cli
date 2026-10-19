@@ -1,70 +1,32 @@
 "use client";
 
 /**
- * Client-side navigation tracker for in-app history awareness.
+ * Per-tab (per-document) in-app navigation flag.
  *
- * Records whether the app itself has performed a client navigation in this tab.
- * Used by BackUp to decide between router.back() and router.replace("/").
+ * BackUp uses this to choose between router.back() and router.replace("/"):
+ * after an in-app navigation there is somewhere to go back to; on a cold
+ * deep-link there is not.
  *
- * - Mounted once in the root layout (Providers or a dedicated client component)
- * - Listens to Next.js router events via usePathname/useSearchParams changes
- * - Stores a boolean flag in sessionStorage (survives bfcache, PWA standalone)
- * - Exported pure functions for unit testing
+ * Deliberately a module-level binding, not sessionStorage (D1). Chrome copies
+ * sessionStorage into a tab opened with window.open(), so a cold-opened tab
+ * would inherit "true" from the tab that opened it and BackUp would call
+ * router.back() with nowhere to go. A module binding lives in one JS realm:
+ * a new tab, a new window, or a fresh document starts at false.
  */
 
-const STORAGE_KEY = "filament:has-in-app-nav";
+let hasNavigated = false;
 
-/**
- * Check if the app has recorded in-app navigation in this session.
- * Pure — no side effects, safe for unit tests.
- */
+/** True once this document has performed a client-side navigation. */
 export function hasInAppNav(): boolean {
-  if (typeof window === "undefined") return false;
-  try {
-    return sessionStorage.getItem(STORAGE_KEY) === "true";
-  } catch {
-    return false;
-  }
+  return hasNavigated;
 }
 
-/**
- * Mark that the app has performed a client navigation.
- * Called once on the first client-side route change.
- */
+/** Mark that this document has performed a client-side navigation. */
 export function markInAppNav(): void {
-  if (typeof window === "undefined") return;
-  try {
-    sessionStorage.setItem(STORAGE_KEY, "true");
-  } catch {
-    // Ignore storage errors (private browsing, quota, etc.)
-  }
+  hasNavigated = true;
 }
 
-/**
- * Reset the in-app navigation flag.
- * Used for testing and when the app is fully unloaded.
- */
+/** Clear the flag. Used by tests and by a full unload of the document. */
 export function resetInAppNav(): void {
-  if (typeof window === "undefined") return;
-  try {
-    sessionStorage.removeItem(STORAGE_KEY);
-  } catch {
-    // Ignore storage errors
-  }
-}
-
-/**
- * React hook to initialize the tracker.
- * Mounts once and marks in-app navigation on the first route change
- * after the initial page load.
- */
-export function useClientNavTracker(): void {
-  // This runs on the client only
-  if (typeof window === "undefined") return;
-
-  // Use a simple effect to mark on first navigation
-  // We rely on the fact that this hook runs on mount, and any subsequent
-  // route change will re-render the component tree where this is used
-  // For a more robust approach, we'd use Next.js router events, but
-  // the sessionStorage flag persists across navigations anyway
+  hasNavigated = false;
 }
