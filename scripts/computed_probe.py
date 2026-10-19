@@ -8,8 +8,8 @@ properties the brief names -- font-size, letter-spacing, padding, gap, margin --
 plus line-height (a font-size utility that quietly adds one is also a repaint)
 for every element with a box on the page.
 
-    python tools/computed_probe.py capture --base http://127.0.0.1:6456 --out before.json
-    python tools/computed_probe.py diff before.json after.json
+    python scripts/computed_probe.py capture --base http://127.0.0.1:6456 --out before.json
+    python scripts/computed_probe.py diff before.json after.json
 
 Routes and viewports are fixed by the brief: /, /device/Shelf%20Lamp, /settings,
 /schedules at 1440x900 and 390x844. The 390 context is a real touch context
