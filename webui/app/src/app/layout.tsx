@@ -7,6 +7,7 @@ import { Providers } from "@/components/providers";
 import { TopBar } from "@/components/shell/top-bar";
 import { StatusStrip } from "@/components/shell/status-strip";
 import { ClientNavTracker } from "@/components/ClientNavTracker";
+import { SWRegister } from "@/components/SWRegister";
 
 // UI + display — Archivo carries everything (display = weight 500–600,
 // tracking −0.02em; no separate display face per spec §5.2)
@@ -29,6 +30,11 @@ export const metadata: Metadata = {
   title: "filament — govee control console",
   description:
     "Self-hosted control console for Govee smart lights. Precision instruments for warm light.",
+  /* #6: apple-touch-icon 180 from the Filament mark (the other icons ride
+     the manifest at /manifest.webmanifest). */
+  icons: {
+    apple: "/icons/apple-touch-icon.png",
+  },
 };
 
 /* #7 Safe-area insets: let the body lay out edge-to-edge so the --safe-*
@@ -37,6 +43,10 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f7f7f8" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b0c0e" },
+  ],
 };
 
 export default function RootLayout({
@@ -47,6 +57,7 @@ export default function RootLayout({
       <body className={`${ui.variable} ${mono.variable} font-ui`}>
         <Providers>
           <ClientNavTracker />
+          <SWRegister />
           {/* Persistent app frame: chrome mounts once and survives every
               route change — no header replays, no status-strip resets. */}
           <div className="flex h-dvh flex-col overflow-hidden bg-bg">

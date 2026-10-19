@@ -18,7 +18,7 @@ const eslintConfig = [
     // naming one anything else made `npm run lint` report hundreds of errors in
     // generated bundles. Matching the whole family means the next person to
     // build into a scratch dir does not have to discover that.
-    ignores: ["node_modules/**", ".next*/**", "out/**", "next-env.d.ts"],
+    ignores: ["node_modules/**", ".next*/**", "out/**", "next-env.d.ts", "public/sw.js"],
   },
 ];
 
