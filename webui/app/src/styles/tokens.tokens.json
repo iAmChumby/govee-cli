@@ -1,0 +1,881 @@
+{
+  "$description": "Filament design + motion tokens. The single declared source for src/styles/tokens.css and src/lib/motion.ts. Values are DTCG-shaped ($value/$type); the generator validates nothing else, so keep $type honest. Edit here, then run `npm run tokens` in webui/app.",
+  "$cssHeader": "/* ============================================================\n   filament — design tokens  (\"optical\" v2)\n   GENERATED FILE — do not edit by hand.\n   Source of truth: src/styles/tokens.tokens.json\n   Regenerate: `npm run tokens` (from webui/app).\n   Neutral optical bench. Chrome is monochrome graphite; every\n   drop of color on screen is light CONTENT (device glow,\n   swatches, segment paints, scene gradients). Zero warm tints.\n   ============================================================ */",
+  "registrations": [
+    {
+      "name": "--glow-alpha",
+      "syntax": "<number>",
+      "inherits": true,
+      "initial": "0",
+      "$type": "number"
+    },
+    {
+      "name": "--glow-scale",
+      "syntax": "<number>",
+      "inherits": true,
+      "initial": "1",
+      "$type": "number"
+    },
+    {
+      "name": "--glow-hue",
+      "syntax": "<number>",
+      "inherits": true,
+      "initial": "220",
+      "$type": "number"
+    },
+    {
+      "$comment": "/* --glow-radius: originally scoped to a single instrument's own halo blur.\n   Repurposed (V3_VISUAL_DIRECTION.md §C) as the shared ambient-shadow blur\n   channel for `.dev-bleed` card spill too — \"how far this glow reaches\" is\n   the same meaning either way, so no rename. --glow-hue/--glow-scale stay\n   untouched and unused, reserved for a future per-instrument use that\n   shouldn't collide with the new card-level --dev-* system below. */",
+      "name": "--glow-radius",
+      "syntax": "<length>",
+      "inherits": true,
+      "initial": "140px",
+      "$type": "dimension"
+    },
+    {
+      "$comment": "/* ---- Chassis/Signal card bleed (V3_VISUAL_DIRECTION.md §C) --\n   Each device card writes its own --dev-* quartet on its own root\n   element; `inherits: true` means every descendant (slider thumb,\n   switch track, quick-swatch ring) resolves `var(--dev-hue)` etc.\n   to its own nearest ancestor's value, so N differently-colored\n   cards compose on one page with zero cross-card coordination.\n   Registered (not plain custom properties) so hue/sat/light can\n   ride a CSS `transition` and alpha can be driven by a JS spring —\n   neither works on an unregistered custom property. Initial values\n   are the off/unknown chassis state: warm hue at zero saturation,\n   zero alpha, so an element that never opts into `.dev-bleed`\n   resolves these to \"no bleed\" if it ever references them.\n   ------------------------------------------------------------- */",
+      "name": "--dev-hue",
+      "syntax": "<number>",
+      "inherits": true,
+      "initial": "36",
+      "$type": "number",
+      "inlineComment": "WARM_HSL's hue (stage/color.ts) — the off/unknown fallback",
+      "blankBefore": true
+    },
+    {
+      "name": "--dev-sat",
+      "syntax": "<percentage>",
+      "inherits": true,
+      "initial": "0%",
+      "$type": "percentage"
+    },
+    {
+      "name": "--dev-light",
+      "syntax": "<percentage>",
+      "inherits": true,
+      "initial": "50%",
+      "$type": "percentage"
+    },
+    {
+      "name": "--dev-alpha",
+      "syntax": "<number>",
+      "inherits": true,
+      "initial": "0",
+      "$type": "number",
+      "inlineComment": "off/unknown = zero bleed, always"
+    }
+  ],
+  "z": {
+    "registrations": [
+      {
+        "name": "--z-canvas",
+        "syntax": "<integer>",
+        "inherits": false,
+        "initial": "10",
+        "$type": "integer"
+      },
+      {
+        "name": "--z-base",
+        "syntax": "<integer>",
+        "inherits": false,
+        "initial": "20",
+        "$type": "integer"
+      },
+      {
+        "name": "--z-dialog",
+        "syntax": "<integer>",
+        "inherits": false,
+        "initial": "50",
+        "$type": "integer"
+      },
+      {
+        "name": "--z-toast",
+        "syntax": "<integer>",
+        "inherits": false,
+        "initial": "100",
+        "$type": "integer"
+      }
+    ],
+    "values": {
+      "canvas": {
+        "$value": "10",
+        "$type": "integer",
+        "$description": "the one WebGL canvas, set imperatively at lib/lamp3d/renderer.ts:324"
+      },
+      "base": {
+        "$value": "20",
+        "$type": "integer",
+        "$description": "in-stage content above the canvas (LampStage.tsx:552,561 caption chips). The #13 corner mask is z-30, outside this four-name slice"
+      },
+      "dialog": {
+        "$value": "50",
+        "$type": "integer",
+        "$description": "Radix dialog + popover (z-50 at dialog.tsx:97,114,162 and popover.tsx:94; the in-dialog close control is z-10)"
+      },
+      "toast": {
+        "$value": "100",
+        "$type": "integer",
+        "$description": "the toast stack (z-[100])"
+      }
+    }
+  },
+  "primitive": {
+    "radius": {
+      "chip": {
+        "$value": "6px",
+        "$type": "dimension",
+        "$description": "chips, thumbs"
+      },
+      "btn": {
+        "$value": "10px",
+        "$type": "dimension",
+        "$description": "buttons, inputs"
+      },
+      "card": {
+        "$value": "14px",
+        "$type": "dimension",
+        "$description": "small panels, wells"
+      },
+      "panel": {
+        "$value": "20px",
+        "$type": "dimension",
+        "$description": "panels"
+      },
+      "stage": {
+        "$value": "28px",
+        "$type": "dimension",
+        "$description": "stage, overlays"
+      },
+      "overlay": {
+        "$value": "28px",
+        "$type": "dimension",
+        "$description": "dialogs, sheets"
+      }
+    },
+    "duration": {
+      "fast": {
+        "$value": "140ms",
+        "$type": "duration"
+      },
+      "base": {
+        "$value": "240ms",
+        "$type": "duration"
+      },
+      "slow": {
+        "$value": "420ms",
+        "$type": "duration"
+      }
+    },
+    "ease": {
+      "out-soft": {
+        "$value": [
+          0.22,
+          1,
+          0.36,
+          1
+        ],
+        "$type": "cubicBezier"
+      }
+    },
+    "space": {
+      "3": {
+        "$value": "3px",
+        "$type": "dimension"
+      },
+      "5": {
+        "$value": "5px",
+        "$type": "dimension"
+      },
+      "6": {
+        "$value": "6px",
+        "$type": "dimension"
+      },
+      "9": {
+        "$value": "9px",
+        "$type": "dimension"
+      },
+      "13": {
+        "$value": "13px",
+        "$type": "dimension"
+      },
+      "17": {
+        "$value": "17px",
+        "$type": "dimension"
+      },
+      "18": {
+        "$value": "18px",
+        "$type": "dimension"
+      },
+      "19": {
+        "$value": "19px",
+        "$type": "dimension"
+      },
+      "22": {
+        "$value": "22px",
+        "$type": "dimension"
+      },
+      "52": {
+        "$value": "52px",
+        "$type": "dimension"
+      }
+    },
+    "focus": {
+      "ring": {
+        "$value": "var(--accent)",
+        "$type": "color",
+        "$description": "the one ring colour"
+      },
+      "ring-width": {
+        "$value": "2px",
+        "$type": "dimension"
+      },
+      "ring-offset": {
+        "$value": "2px",
+        "$type": "dimension"
+      }
+    },
+    "safe": {
+      "top": {
+        "$value": "env(safe-area-inset-top, 0px)",
+        "$type": "dimension"
+      },
+      "right": {
+        "$value": "env(safe-area-inset-right, 0px)",
+        "$type": "dimension"
+      },
+      "bottom": {
+        "$value": "env(safe-area-inset-bottom, 0px)",
+        "$type": "dimension"
+      },
+      "left": {
+        "$value": "env(safe-area-inset-left, 0px)",
+        "$type": "dimension"
+      }
+    },
+    "landscape": {
+      "$value": "min(380px, 52dvh)",
+      "$type": "dimension",
+      "$description": "stage height on coarse-pointer short viewports (#10)"
+    }
+  },
+  "motion": {
+    "$description": "The Motion (motion/react) vocabulary. Springs are stiffness/damping pairs; fadeFast is seconds+ease, value-identical to the transition it replaces. These are the CSS `--motion-*` values and the generated lib/motion.ts in one place.",
+    "easeOut": [
+      0,
+      0,
+      0.58,
+      1
+    ],
+    "springs": {
+      "standard": {
+        "$value": {
+          "stiffness": 260,
+          "damping": 26
+        },
+        "$type": "spring",
+        "$description": "controls, thumbs, indicators"
+      },
+      "heavy": {
+        "$value": {
+          "stiffness": 170,
+          "damping": 22
+        },
+        "$type": "spring",
+        "$description": "panels, dialogs, sheets"
+      },
+      "snappy": {
+        "$value": {
+          "stiffness": 500,
+          "damping": 30
+        },
+        "$type": "spring",
+        "$description": "press-in physics",
+        "$comment": [
+          "Press-in physics: buttons, switch thumb, slider thumb, dial knob on",
+          "touch-down. Crisper than springStandard — a press should feel like it",
+          "has more resistance than a value settling. Release still eases out on",
+          "springStandard so it doesn't feel twitchy (V3_VISUAL_DIRECTION.md §E)."
+        ]
+      },
+      "celebrate": {
+        "$value": {
+          "stiffness": 260,
+          "damping": 12
+        },
+        "$type": "spring",
+        "$description": "the two named celebration moments only",
+        "$comment": [
+          "The two celebration moments only (\"first light\", \"scene confirmed\") —",
+          "visibly overshoots once before settling, like a VU needle kicking.",
+          "Never used for routine state changes (V3_VISUAL_DIRECTION.md §E/§G)."
+        ]
+      }
+    },
+    "fadeFast": {
+      "$value": {
+        "duration": 0.15,
+        "ease": "easeOut"
+      },
+      "$type": "transition",
+      "$description": "exits and reduced-motion fallbacks (≤180ms)"
+    },
+    "variants": {
+      "fadeUp": {
+        "$description": "Small rise-and-settle for list items, labels, inline reveals.",
+        "states": {
+          "hidden": {
+            "opacity": 0,
+            "y": 12
+          },
+          "show": {
+            "opacity": 1,
+            "y": 0,
+            "transition": "springStandard"
+          }
+        }
+      },
+      "panelIn": {
+        "$description": "Signature entrance for major panels — heavy, weighted settle.",
+        "states": {
+          "hidden": {
+            "opacity": 0,
+            "y": 18,
+            "scale": 0.99
+          },
+          "show": {
+            "opacity": 1,
+            "y": 0,
+            "scale": 1,
+            "transition": "springHeavy"
+          }
+        }
+      },
+      "staggerParent": {
+        "$description": "Parent orchestrator: stagger children that use fadeUp/panelIn.",
+        "states": {
+          "hidden": {},
+          "show": {
+            "transition": {
+              "staggerChildren": 0.07,
+              "delayChildren": 0.04
+            }
+          }
+        }
+      }
+    }
+  },
+  "themes": {
+    "light": {
+      "$comment": "/* ---- Light theme ------------------------------------------- */",
+      "selector": ":root",
+      "colorScheme": "light",
+      "groups": [
+        {
+          "tokens": [
+            "bg",
+            "panel",
+            "raised"
+          ]
+        },
+        {
+          "tokens": [
+            "hairline",
+            "hairline-strong"
+          ]
+        },
+        {
+          "tokens": [
+            "text-hi",
+            "text-mid",
+            "text-low"
+          ]
+        },
+        {
+          "tokens": [
+            "accent",
+            "accent-press",
+            "accent-contrast",
+            "accent-dim"
+          ]
+        },
+        {
+          "tokens": [
+            "ember",
+            "ember-press",
+            "ember-contrast",
+            "sage"
+          ]
+        },
+        {
+          "$comment": "/* overlay scrim + the single allowed ambient shadow */",
+          "tokens": [
+            "scrim",
+            "shadow-overlay-raw"
+          ]
+        }
+      ],
+      "tokens": {
+        "bg": {
+          "$value": "#f7f7f8",
+          "$type": "color"
+        },
+        "panel": {
+          "$value": "#ffffff",
+          "$type": "color"
+        },
+        "raised": {
+          "$value": "#ffffff",
+          "$type": "color"
+        },
+        "hairline": {
+          "$value": "rgb(0 0 0 / 10%)",
+          "$type": "color"
+        },
+        "hairline-strong": {
+          "$value": "rgb(0 0 0 / 20%)",
+          "$type": "color"
+        },
+        "text-hi": {
+          "$value": "#131417",
+          "$type": "color"
+        },
+        "text-mid": {
+          "$value": "#55595f",
+          "$type": "color"
+        },
+        "text-low": {
+          "$value": "#6d7279",
+          "$type": "color"
+        },
+        "accent": {
+          "$value": "#111214",
+          "$type": "color"
+        },
+        "accent-press": {
+          "$value": "#26282c",
+          "$type": "color"
+        },
+        "accent-contrast": {
+          "$value": "#ffffff",
+          "$type": "color"
+        },
+        "accent-dim": {
+          "$value": "rgb(17 18 20 / 6%)",
+          "$type": "color"
+        },
+        "ember": {
+          "$value": "#d93a3f",
+          "$type": "color"
+        },
+        "ember-press": {
+          "$value": "#b92f34",
+          "$type": "color"
+        },
+        "ember-contrast": {
+          "$value": "#ffffff",
+          "$type": "color"
+        },
+        "sage": {
+          "$value": "#2f9e44",
+          "$type": "color"
+        },
+        "scrim": {
+          "$value": "rgb(0 0 0 / 35%)",
+          "$type": "color"
+        },
+        "shadow-overlay-raw": {
+          "$value": "0 32px 80px -24px rgb(0 0 0 / 28%),\n    0 8px 24px -12px rgb(0 0 0 / 14%)",
+          "$type": "shadow"
+        }
+      }
+    },
+    "dark": {
+      "$comment": "/* ---- Dark theme (default) ---------------------------------- */",
+      "selector": ".dark",
+      "colorScheme": "dark",
+      "groups": [
+        {
+          "tokens": [
+            "bg",
+            "panel",
+            "raised"
+          ]
+        },
+        {
+          "tokens": [
+            "hairline",
+            "hairline-strong"
+          ]
+        },
+        {
+          "tokens": [
+            "text-hi",
+            "text-mid",
+            "text-low"
+          ]
+        },
+        {
+          "tokens": [
+            "accent",
+            "accent-press",
+            "accent-contrast",
+            "accent-dim"
+          ]
+        },
+        {
+          "tokens": [
+            "ember",
+            "ember-press",
+            "ember-contrast",
+            "sage"
+          ]
+        },
+        {
+          "$comment": "/* overlay scrim + the single allowed ambient shadow */",
+          "tokens": [
+            "scrim",
+            "shadow-overlay-raw"
+          ]
+        }
+      ],
+      "tokens": {
+        "bg": {
+          "$value": "#0b0c0e",
+          "$type": "color"
+        },
+        "panel": {
+          "$value": "#121316",
+          "$type": "color"
+        },
+        "raised": {
+          "$value": "#17181c",
+          "$type": "color"
+        },
+        "hairline": {
+          "$value": "rgb(255 255 255 / 8%)",
+          "$type": "color"
+        },
+        "hairline-strong": {
+          "$value": "rgb(255 255 255 / 16%)",
+          "$type": "color"
+        },
+        "text-hi": {
+          "$value": "#f2f3f5",
+          "$type": "color"
+        },
+        "text-mid": {
+          "$value": "#9ba0a8",
+          "$type": "color"
+        },
+        "text-low": {
+          "$value": "#7d828a",
+          "$type": "color"
+        },
+        "accent": {
+          "$value": "#ffffff",
+          "$type": "color"
+        },
+        "accent-press": {
+          "$value": "#e2e4e7",
+          "$type": "color"
+        },
+        "accent-contrast": {
+          "$value": "#111214",
+          "$type": "color"
+        },
+        "accent-dim": {
+          "$value": "rgb(255 255 255 / 8%)",
+          "$type": "color"
+        },
+        "ember": {
+          "$value": "#e5484d",
+          "$type": "color"
+        },
+        "ember-press": {
+          "$value": "#c93a3f",
+          "$type": "color"
+        },
+        "ember-contrast": {
+          "$value": "#ffffff",
+          "$type": "color"
+        },
+        "sage": {
+          "$value": "#46a758",
+          "$type": "color"
+        },
+        "scrim": {
+          "$value": "rgb(0 0 0 / 60%)",
+          "$type": "color"
+        },
+        "shadow-overlay-raw": {
+          "$value": "0 32px 90px -20px rgb(0 0 0 / 65%),\n    0 8px 28px -12px rgb(0 0 0 / 45%)",
+          "$type": "shadow"
+        }
+      }
+    }
+  },
+  "bridge": {
+    "$description": "The @theme inline block: Tailwind utility names that point at the tokens above. `inline` keeps utilities resolving the live custom property, so the theme swap needs no re-emit.",
+    "sections": [
+      {
+        "$comment": "/* Archivo carries UI *and* display duty (display = weight 500–600,\n     tracking −0.02em). IBM Plex Mono stays for data. Two families. */",
+        "tokens": {
+          "--font-display": {
+            "$value": "var(--font-ui-src), \"Archivo\", \"Helvetica Neue\", sans-serif",
+            "$type": "fontFamily"
+          },
+          "--font-ui": {
+            "$value": "var(--font-ui-src), \"Archivo\", \"Helvetica Neue\", sans-serif",
+            "$type": "fontFamily"
+          },
+          "--font-mono": {
+            "$value": "var(--font-mono-src), \"IBM Plex Mono\", ui-monospace,\n    \"Cascadia Mono\", monospace",
+            "$type": "fontFamily"
+          }
+        }
+      },
+      {
+        "tokens": {
+          "--color-bg": {
+            "$value": "var(--bg)"
+          },
+          "--color-panel": {
+            "$value": "var(--panel)"
+          },
+          "--color-raised": {
+            "$value": "var(--raised)"
+          },
+          "--color-hairline": {
+            "$value": "var(--hairline)"
+          },
+          "--color-hairline-strong": {
+            "$value": "var(--hairline-strong)"
+          },
+          "--color-hi": {
+            "$value": "var(--text-hi)"
+          },
+          "--color-mid": {
+            "$value": "var(--text-mid)"
+          },
+          "--color-low": {
+            "$value": "var(--text-low)"
+          },
+          "--color-accent": {
+            "$value": "var(--accent)"
+          },
+          "--color-accent-press": {
+            "$value": "var(--accent-press)"
+          },
+          "--color-accent-contrast": {
+            "$value": "var(--accent-contrast)"
+          },
+          "--color-accent-dim": {
+            "$value": "var(--accent-dim)"
+          },
+          "--color-ember": {
+            "$value": "var(--ember)"
+          },
+          "--color-ember-press": {
+            "$value": "var(--ember-press)"
+          },
+          "--color-ember-contrast": {
+            "$value": "var(--ember-contrast)"
+          },
+          "--color-sage": {
+            "$value": "var(--sage)"
+          }
+        }
+      },
+      {
+        "tokens": {
+          "--radius-chip": {
+            "$value": "var(--radius-raw-chip)"
+          },
+          "--radius-btn": {
+            "$value": "var(--radius-raw-btn)"
+          },
+          "--radius-card": {
+            "$value": "var(--radius-raw-card)"
+          },
+          "--radius-panel": {
+            "$value": "var(--radius-raw-panel)"
+          },
+          "--radius-stage": {
+            "$value": "var(--radius-raw-stage)"
+          },
+          "--radius-overlay": {
+            "$value": "var(--radius-raw-overlay)"
+          }
+        }
+      },
+      {
+        "tokens": {
+          "--shadow-overlay": {
+            "$value": "var(--shadow-overlay-raw)"
+          }
+        }
+      },
+      {
+        "$comment": "/* type scale (#27) — the ten sizes that were typed as text-[Npx]. Each rung\n     is exactly the value it replaces; no line-height is declared, so moving a\n     use onto a rung cannot change leading. */",
+        "tokens": {
+          "--text-mini": {
+            "$value": "7px",
+            "$type": "dimension"
+          },
+          "--text-nano": {
+            "$value": "9px",
+            "$type": "dimension"
+          },
+          "--text-micro": {
+            "$value": "10px",
+            "$type": "dimension"
+          },
+          "--text-label": {
+            "$value": "11px",
+            "$type": "dimension"
+          },
+          "--text-data": {
+            "$value": "12px",
+            "$type": "dimension"
+          },
+          "--text-body": {
+            "$value": "13px",
+            "$type": "dimension"
+          },
+          "--text-title-sm": {
+            "$value": "15px",
+            "$type": "dimension"
+          },
+          "--text-title": {
+            "$value": "17px",
+            "$type": "dimension"
+          },
+          "--text-display": {
+            "$value": "20px",
+            "$type": "dimension"
+          },
+          "--text-display-lg": {
+            "$value": "21px",
+            "$type": "dimension"
+          }
+        }
+      },
+      {
+        "tokens": {
+          "--tracking-display": {
+            "$value": "-0.02em"
+          },
+          "--tracking-data": {
+            "$value": "0.04em"
+          },
+          "--tracking-label": {
+            "$value": "0.06em"
+          },
+          "--tracking-caps": {
+            "$value": "0.08em"
+          },
+          "--tracking-micro": {
+            "$value": "0.14em"
+          }
+        }
+      },
+      {
+        "$comment": "/* space scale, bridged so p-space-3 / gap-space-* / inset-space-* resolve\n     against the declared :root values above */",
+        "tokens": {
+          "--spacing-space-3": {
+            "$value": "var(--space-3)"
+          },
+          "--spacing-space-5": {
+            "$value": "var(--space-5)"
+          },
+          "--spacing-space-6": {
+            "$value": "var(--space-6)"
+          },
+          "--spacing-space-9": {
+            "$value": "var(--space-9)"
+          },
+          "--spacing-space-13": {
+            "$value": "var(--space-13)"
+          },
+          "--spacing-space-17": {
+            "$value": "var(--space-17)"
+          },
+          "--spacing-space-18": {
+            "$value": "var(--space-18)"
+          },
+          "--spacing-space-19": {
+            "$value": "var(--space-19)"
+          },
+          "--spacing-space-22": {
+            "$value": "var(--space-22)"
+          },
+          "--spacing-space-52": {
+            "$value": "var(--space-52)"
+          }
+        }
+      },
+      {
+        "tokens": {
+          "--safe-top": {
+            "$value": "var(--safe-top)"
+          },
+          "--safe-right": {
+            "$value": "var(--safe-right)"
+          },
+          "--safe-bottom": {
+            "$value": "var(--safe-bottom)"
+          },
+          "--safe-left": {
+            "$value": "var(--safe-left)"
+          }
+        }
+      },
+      {
+        "tokens": {
+          "--stage-height-landscape": {
+            "$value": "var(--stage-height-landscape)"
+          }
+        }
+      },
+      {
+        "tokens": {
+          "--animate-skeleton-breathe": {
+            "$value": "skeleton-breathe 2.8s var(--ease-out-soft)\n    infinite"
+          },
+          "--animate-dot-breathe": {
+            "$value": "dot-breathe 3.4s ease-in-out infinite"
+          }
+        }
+      }
+    ],
+    "keyframes": {
+      "skeleton-breathe": [
+        {
+          "selectors": "0%,\n    100%",
+          "declarations": {
+            "opacity": "0.38"
+          }
+        },
+        {
+          "selectors": "50%",
+          "declarations": {
+            "opacity": "0.85"
+          }
+        }
+      ],
+      "dot-breathe": [
+        {
+          "selectors": "0%,\n    100%",
+          "declarations": {
+            "opacity": "0.5"
+          }
+        },
+        {
+          "selectors": "50%",
+          "declarations": {
+            "opacity": "1"
+          }
+        }
+      ]
+    }
+  }
+}

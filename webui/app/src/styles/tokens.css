@@ -1,6 +1,8 @@
 /* ============================================================
    filament — design tokens  ("optical" v2)
-   Source of truth: WEBUI_SPEC.md §5.2
+   GENERATED FILE — do not edit by hand.
+   Source of truth: src/styles/tokens.tokens.json
+   Regenerate: `npm run tokens` (from webui/app).
    Neutral optical bench. Chrome is monochrome graphite; every
    drop of color on screen is light CONTENT (device glow,
    swatches, segment paints, scene gradients). Zero warm tints.
@@ -71,6 +73,35 @@
   initial-value: 0; /* off/unknown = zero bleed, always */
 }
 
+/* ---- Stacking order (M1) ----------------------------------
+   Registered as <integer> so a typo fails loudly instead of
+   silently dropping the layer, and so the four names below are
+   the whole vocabulary. Values are today's measured layers:
+   canvas 10 (lib/lamp3d/renderer.ts), stage overlay 20, Radix
+   dialog/popover 50, toast 100. No consumer reads them yet —
+   this slice declares the scale; the migration is #27's.
+   ------------------------------------------------------------- */
+@property --z-canvas {
+  syntax: "<integer>";
+  inherits: false;
+  initial-value: 10;
+}
+@property --z-base {
+  syntax: "<integer>";
+  inherits: false;
+  initial-value: 20;
+}
+@property --z-dialog {
+  syntax: "<integer>";
+  inherits: false;
+  initial-value: 50;
+}
+@property --z-toast {
+  syntax: "<integer>";
+  inherits: false;
+  initial-value: 100;
+}
+
 /* ---- Primitives (theme-invariant) -------------------------- */
 :root {
   /* radius scale (raw) — generous, smooth */
@@ -79,7 +110,7 @@
   --radius-raw-card: 14px; /* small panels, wells    */
   --radius-raw-panel: 20px; /* panels                 */
   --radius-raw-stage: 28px; /* stage, overlays        */
-  --radius-raw-overlay: 28px; /* dialogs, sheets       */
+  --radius-raw-overlay: 28px; /* dialogs, sheets        */
 
   /* motion */
   --dur-fast: 140ms;
@@ -122,6 +153,27 @@
   /* #10 Landscape console: stage height formula for coarse-pointer short viewports.
      min(380px, 52dvh) keeps the dial above the fold on landscape phones. */
   --stage-height-landscape: min(380px, 52dvh);
+
+  /* motion vocabulary (M1) — CSS half. lib/motion.ts is generated
+     from the same JSON, so a spring cannot drift between the two
+     vocabularies the way 62 `duration-150` utilities drifted from
+     a duration scale that held 140/240/420. */
+  --motion-ease-out: cubic-bezier(0, 0, 0.58, 1);
+  --motion-fade-fast: 150ms var(--motion-ease-out);
+  --motion-spring-standard-stiffness: 260;
+  --motion-spring-standard-damping: 26;
+  --motion-spring-heavy-stiffness: 170;
+  --motion-spring-heavy-damping: 22;
+  --motion-spring-snappy-stiffness: 500;
+  --motion-spring-snappy-damping: 30;
+  --motion-spring-celebrate-stiffness: 260;
+  --motion-spring-celebrate-damping: 12;
+
+  /* stacking order (M1) — values documented above the @property set */
+  --z-canvas: 10;
+  --z-base: 20;
+  --z-dialog: 50;
+  --z-toast: 100;
 }
 
 /* ---- Light theme ------------------------------------------- */
