@@ -1,0 +1,21 @@
+# Line endings for the files M1 generates.
+#
+# The generator ALWAYS writes LF (`writeFileSync` with the template's own
+# "\n"). The committed blob is LF too. But a Windows checkout with
+# core.autocrlf=true hands back CRLF, so the working copy of a GENERATED file
+# differs byte-for-byte from what `npm run tokens` produces — and a reviewer
+# diffing the working tree sees four "changed" declarations that are only
+# line endings (multi-line values such as --font-mono and
+# --shadow-overlay-raw). The gates are already line-ending-insensitive (the
+# #34 identity freeze hashes CRLF-normalised content, and the M1 sync check
+# normalises before comparing), so nothing BREAKS without this file; what this
+# file removes is the false alarm.
+#
+# SCOPED, not repo-wide, on purpose. `* text=auto` would rewrite the 342
+# CRLF lines already committed in govee-bulb-issues.md — a change to a file
+# this wave does not touch, and a large one. This attribute covers only the
+# two generated files, so no committed blob changes: the blob is already LF
+# and `text` normalises to LF in the repository. Only the working copy's
+# ending changes, and only for these two paths.
+webui/app/src/styles/tokens.css text eol=lf
+webui/app/src/lib/motion.ts text eol=lf
