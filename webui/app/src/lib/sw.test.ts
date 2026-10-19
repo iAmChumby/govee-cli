@@ -42,6 +42,14 @@ interface WorkerOptions {
   cacheKeys?: string[];
   /** body of the fresh `/` document the activate handler fetches */
   shellHtml?: string;
+  /**
+   * URLs the current build still serves. A HEAD for any of these answers
+   * 200; every other URL answers 404 ("the last deploy's file"). Unset
+   * means the server serves everything.
+   */
+  servedUrls?: string[];
+  /** every network request fails — an activate while the device is offline */
+  offline?: boolean;
 }
 
 interface Worker {
@@ -83,10 +91,25 @@ function loadWorker(options: WorkerOptions = {}): Worker {
         return true;
       },
     },
-    fetch: async () => ({
-      ok: true,
-      text: async () => options.shellHtml ?? "",
-    }),
+    fetch: async (url: string, init?: { method?: string }) => {
+      if (options.offline) throw new Error("offline");
+      const target = String(url);
+      // A HEAD is how the activate handler asks the server whether a
+      // cached build asset is still part of the current build.
+      if (init && init.method === "HEAD") {
+        const served = !options.servedUrls || options.servedUrls.includes(target);
+        return {
+          ok: served,
+          status: served ? 200 : 404,
+          text: async () => "",
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        text: async () => options.shellHtml ?? "",
+      };
+    },
     URL,
     console,
   };
@@ -102,12 +125,6 @@ function loadShouldCache(): (request: CacheRequest) => boolean {
 }
 
 const shouldCache = loadShouldCache();
-
-function referencedStaticPaths(html: string): Set<string> {
-  const fn = loadWorker().context.referencedStaticPaths;
-  assert.equal(typeof fn, "function", "public/sw.js must define referencedStaticPaths()");
-  return (fn as (html: string) => Set<string>)(html);
-}
 
 /**
  * Every pathname src/lib/api.ts can request. Comments are stripped first:
@@ -266,23 +283,25 @@ describe("Service Worker cache contract (#6)", () => {
     );
   });
 
-  it("reads the current build's static references from the shell HTML", () => {
-    const refs = referencedStaticPaths(
-      '<link href="/_next/static/css/a.css"><script src="/_next/static/chunks/b.js"></script>',
-    );
-    assert.deepEqual([...refs].sort(), [
-      "/_next/static/chunks/b.js",
-      "/_next/static/css/a.css",
-    ]);
-  });
+  it("keeps the current build's chunks and fonts, and drops the last build's", async () => {
+    // A route chunk the shell document never names: only that route's own
+    // document names it, and the old rule read one document.
+    const settingsChunk = `${ORIGIN}/_next/static/chunks/app/settings/page-abc123.js`;
+    // The fonts are named by the CSS, not by any document.
+    const font = `${ORIGIN}/_next/static/media/9f8e7d6c.woff2`;
+    // The previous deploy's chunk: the server no longer has it.
+    const previousBuild = `${ORIGIN}/_next/static/chunks/old-9f8e7d.js`;
 
-  it("evicts build chunks the current shell does not reference (LOW-3)", async () => {
-    const keep = `${ORIGIN}/_next/static/chunks/keep.js`;
-    const old = `${ORIGIN}/_next/static/chunks/old.js`;
     const worker = loadWorker({
-      cacheUrls: [keep, old, `${ORIGIN}/`, `${ORIGIN}/icons/icon-192.png`],
+      cacheUrls: [
+        settingsChunk,
+        font,
+        previousBuild,
+        `${ORIGIN}/`,
+        `${ORIGIN}/icons/icon-192.png`,
+      ],
       cacheKeys: [CACHE_NAME, "filament-shell-v2"],
-      shellHtml: `<script src="${new URL(keep).pathname}"></script>`,
+      servedUrls: [settingsChunk, font],
     });
     const handler = worker.listeners.activate?.[0];
     assert.ok(handler, "public/sw.js must register an activate handler");
@@ -291,8 +310,20 @@ describe("Service Worker cache contract (#6)", () => {
     await Promise.all(waits);
 
     assert.deepEqual(worker.deletedCacheNames, ["filament-shell-v2"]);
-    assert.deepEqual(worker.deletedUrls, [old]);
-    // The shell and icons are not build output and are never evicted.
+    // The current build's own assets survive, whatever route they belong to.
+    assert.equal(
+      worker.deletedUrls.includes(settingsChunk),
+      false,
+      "the current build's /settings chunk must survive activation",
+    );
+    assert.equal(
+      worker.deletedUrls.includes(font),
+      false,
+      "the current build's font must survive activation",
+    );
+    // The previous deploy's chunk is gone.
+    assert.deepEqual(worker.deletedUrls, [previousBuild]);
+    // The shell and the icons are not build output and are never evicted.
     assert.equal(worker.deletedUrls.includes(`${ORIGIN}/`), false);
     assert.equal(
       worker.deletedUrls.includes(`${ORIGIN}/icons/icon-192.png`),
@@ -300,12 +331,11 @@ describe("Service Worker cache contract (#6)", () => {
     );
   });
 
-  it("drops every cached build chunk when the shell cannot be read", async () => {
-    const keep = `${ORIGIN}/_next/static/chunks/keep.js`;
-    const old = `${ORIGIN}/_next/static/chunks/old.js`;
+  it("keeps every cached build chunk when the server cannot be reached", async () => {
+    const chunk = `${ORIGIN}/_next/static/chunks/keep.js`;
     const worker = loadWorker({
-      cacheUrls: [keep, old],
-      shellHtml: "",
+      cacheUrls: [chunk],
+      offline: true,
     });
     const handler = worker.listeners.activate?.[0];
     assert.ok(handler, "public/sw.js must register an activate handler");
@@ -313,7 +343,11 @@ describe("Service Worker cache contract (#6)", () => {
     handler({ waitUntil: (promise) => waits.push(promise) });
     await Promise.all(waits);
 
-    assert.deepEqual(worker.deletedUrls.sort(), [keep, old].sort());
+    assert.deepEqual(
+      worker.deletedUrls,
+      [],
+      "an asset we cannot prove is gone must be kept, not deleted",
+    );
   });
 
   it("bumps CACHE_NAME so the previous shell cache is purged", () => {

@@ -83,52 +83,52 @@ self.addEventListener("install", (event) => {
 });
 
 /**
- * Every `/_next/static/...` URL the current shell document references.
- * Next's build output is content-hashed, so a chunk that is not named by
- * today's HTML is from a previous deploy and can never be requested again
- * by this build.
+ * Is a cached build asset still part of the current build?
+ *
+ * The server's build output IS the manifest: a chunk or a font from a
+ * previous deploy is no longer served (404), and one from the current
+ * deploy is (200). Asking the server answers for EVERY route's chunk and
+ * for the fonts.
+ *
+ * Reading a document cannot: a document only ever names its own scripts,
+ * so the shell document never names another route's chunk, and the fonts
+ * are named by the CSS. An earlier version of this file kept only what
+ * the `/` document named and therefore deleted the current build's
+ * /settings chunk and its fonts (PR #12 review).
+ *
+ * `null` means "could not verify" — offline, a 5xx, a HEAD the server
+ * refuses. The safe answer is to KEEP: deleting an asset we cannot prove
+ * is gone breaks the app, while keeping one we cannot prove is stale
+ * costs a few kilobytes until the next activation.
  */
-function referencedStaticPaths(html) {
-  const paths = new Set();
-  const matches = String(html || "").match(/\/_next\/static\/[^"'\s<>\\]+/g) || [];
-  for (const match of matches) paths.add(match);
-  return paths;
+async function assetStillServed(url) {
+  try {
+    const response = await fetch(url, { method: "HEAD", cache: "no-store" });
+    if (response.status === 404 || response.status === 410) return false;
+    if (response.status < 400) return true;
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 /**
- * Cached URLs that are build output but not referenced by the current
- * shell. Pure so the eviction rule is testable without a CacheStorage.
- */
-function staleStaticEntries(cachedUrls, referenced) {
-  return cachedUrls.filter((url) => {
-    const pathname = new URL(url).pathname;
-    return pathname.startsWith("/_next/static/") && !referenced.has(pathname);
-  });
-}
-
-/**
- * LOW-3: a fixed CACHE_NAME only ever purged a hypothetical v1, so every
- * deploy's content-hashed chunks accumulated forever. Fetch the fresh shell
- * (never from the cache), learn which chunks this build actually names, and
- * delete the rest. A failed shell fetch means "could not verify", so the
- * safe move is to drop every cached build chunk — they are immutable and
- * re-fetched on demand; keeping a chunk we cannot prove is current is the
- * thing this exists to prevent.
+ * Drop the build assets the current build no longer has, and keep every
+ * asset it still has — whatever route the asset belongs to.
+ *
+ * The old rule ("keep what today's document names") was the wrong question:
+ * it could not tell a previous deploy's chunk from the current build's
+ * chunk for a route the document did not name.
  */
 async function evictStaleStatic(cache) {
-  let html = "";
-  try {
-    const response = await fetch("/", { cache: "no-store" });
-    if (response && response.ok) html = await response.text();
-  } catch {
-    // Offline activate: fall through with an empty reference set.
-  }
-  const referenced = referencedStaticPaths(html);
   const requests = await cache.keys();
-  const stale = staleStaticEntries(
-    requests.map((request) => request.url),
-    referenced,
+  const buildAssets = requests
+    .map((request) => request.url)
+    .filter((url) => new URL(url).pathname.startsWith("/_next/static/"));
+  const verdicts = await Promise.all(
+    buildAssets.map(async (url) => [(await assetStillServed(url)) === false, url]),
   );
+  const stale = verdicts.filter(([gone]) => gone).map(([, url]) => url);
   await Promise.all(stale.map((url) => cache.delete(url)));
   return stale;
 }
