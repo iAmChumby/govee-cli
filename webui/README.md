@@ -40,7 +40,11 @@ python -m webui.api.main          # serves 127.0.0.1:6057
 ```
 
 The sidecar embeds the schedule engine (`GOVEE_WEBUI_SCHEDULER=1`, default on).
-Run **either** this unit **or** `govee-cli daemon` as a service — not both.
+Only one scheduler can own the schedule: the sidecar and `govee-cli daemon`
+share a lock, a second one waits (sidecar) or exits naming the owner (daemon),
+and the Schedules page shows who owns it. Sun-relative rules (`sunset-1h`) need
+a location, set under Settings > Location or with
+`govee-cli config location LAT LON [--timezone ZONE]`.
 
 ### 2. Frontend
 

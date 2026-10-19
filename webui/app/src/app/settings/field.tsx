@@ -54,12 +54,21 @@ export function Field({ label, error, hint, className, children }: FieldProps) {
 export function ConfigRow({
   label,
   children,
+  stack = false,
 }: {
   label: string;
   children: React.ReactNode;
+  /** Phone only (max-sm): label above value, value full width and wrapping.
+   *  For rows whose value is a sentence; desktop layout is unchanged. */
+  stack?: boolean;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-2.5 first:pt-0 last:pb-0 pointer-coarse:items-start">
+    <div
+      className={cn(
+        "flex items-center justify-between gap-4 py-2.5 first:pt-0 last:pb-0 pointer-coarse:items-start",
+        stack && "max-sm:flex-col max-sm:items-start max-sm:gap-1.5",
+      )}
+    >
       <span className="text-[11px] uppercase leading-none tracking-micro text-mid pointer-coarse:shrink-0">
         {label}
       </span>
@@ -72,7 +81,12 @@ export function ConfigRow({
           so it isn't squeezed once the value grows to more than one line —
           gated the same way, since at fine-pointer/desktop widths this row
           already fits on one line and shrinking never triggers regardless. */}
-      <span className="min-w-0 truncate font-mono text-[12px] tabular-nums text-mid pointer-coarse:whitespace-normal pointer-coarse:break-words">
+      <span
+        className={cn(
+          "min-w-0 truncate font-mono text-[12px] tabular-nums text-mid pointer-coarse:whitespace-normal pointer-coarse:break-words",
+          stack && "max-sm:block max-sm:w-full max-sm:overflow-visible max-sm:whitespace-normal max-sm:break-words",
+        )}
+      >
         {children}
       </span>
     </div>

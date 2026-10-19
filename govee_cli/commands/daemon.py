@@ -5,16 +5,26 @@ from __future__ import annotations
 import asyncio
 import datetime
 import signal
+import threading
+from collections.abc import Callable
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 import click
 import structlog
 
 from govee_cli.commands.group import _parse_inline_command
+from govee_cli.schedule import engine, owner
+from govee_cli.schedule.owner import SchedulerLock
 from govee_cli.schedule.scheduler import (
+    RuleResult,
+    RuleState,
     ScheduleRule,
     list_rules,
+    read_state,
+    write_state,
 )
+from govee_cli.schedule.timespec import Location, resolve_location
 
 if TYPE_CHECKING:
     from govee_cli.http_v2 import GoveeHTTPv2
@@ -38,8 +48,9 @@ def _record_schedule_ledger(
     ``_apply_v2_command``/``_apply_http_command``/BLE ``client.execute`` has
     already succeeded.
 
-    ``SchedulerRunner._execute`` (webui/api/scheduler_runner.py) delegates
-    straight to ``SchedulerDaemon()._execute_rule``, which is the sole caller of
+    ``fire_rule`` (below) is the one firing path for both the standalone
+    ``govee-cli daemon`` and the sidecar's runner; it delegates device rules to
+    ``SchedulerDaemon()._execute_rule_detail``, which is the sole caller of
     this function — so this one hook covers both the standalone ``govee-cli
     daemon`` process and the sidecar's embedded scheduler without duplicating
     the mode-selection logic in two places.
@@ -173,121 +184,280 @@ def _record_schedule_ledger_unsafe(
         return
 
 
+DAEMON_POLL_SECONDS = 30.0
+
+
+def _utc_iso(moment: datetime.datetime) -> str:
+    """UTC ISO of the minute containing ``moment`` (state files store UTC)."""
+    return moment.astimezone(datetime.timezone.utc).replace(second=0, microsecond=0).isoformat()
+
+
+def _now_in_zone() -> tuple[datetime.datetime, Location]:
+    """Aware 'now' in the schedule zone, plus the Location it was computed for."""
+    from zoneinfo import ZoneInfo
+
+    from govee_cli.config import load_config
+
+    loc = resolve_location(load_config())
+    return datetime.datetime.now(ZoneInfo(loc.timezone)), loc
+
+
+def fire_rule(rule: ScheduleRule, *, dry_run: bool) -> tuple[RuleResult, str]:
+    """The one firing path, used by the CLI daemon and the sidecar.
+
+    ``dry_run`` short-circuits BEFORE any client is built or config read for
+    sending: mock mode must never reach a device.
+    """
+    if dry_run:
+        return "would_fire", "dry run: nothing sent"
+
+    if rule.room_scene:
+        return _fire_room_scene(rule.room_scene)
+
+    try:
+        ok, detail = asyncio.run(SchedulerDaemon()._execute_rule_detail(rule))
+    except Exception as e:
+        logger.error("rule_execution_failed", id=rule.id, name=rule.name, error=str(e))
+        return "error", str(e)
+    return ("ok" if ok else "error"), detail
+
+
+def _fire_room_scene(name: str) -> tuple[RuleResult, str]:
+    from govee_cli import room_restore, room_scenes
+    from govee_cli.config import load_config
+
+    scene = room_scenes.read_scene(name)
+    if scene is None:
+        return "error", f"room scene '{name}' missing: rule will not fire"
+    try:
+        from govee_cli.http_v2 import GoveeHTTPv2
+
+        result = room_restore.restore_scene(
+            name, scene, cfg=load_config(),
+            clients=room_restore.RestoreClients(v2=GoveeHTTPv2()),
+            source="schedule",
+        )
+    except Exception as e:
+        logger.error("room_scene_rule_failed", scene=name, error=str(e))
+        return "error", str(e)
+    counted = [r for r in result.results if r.skipped_reason is None]
+    skipped = [r for r in result.results if r.skipped_reason is not None]
+    if result.ok:
+        if not counted:
+            reasons = "; ".join(f"{r.ref}: {r.skipped_reason}" for r in skipped)
+            return "skipped", (
+                f"room scene '{name}': nothing applied ({len(skipped)} skipped: {reasons})")
+        if skipped:
+            return "ok", (f"room scene '{name}' applied to {len(counted)} of "
+                          f"{len(result.results)} devices ({len(skipped)} skipped)")
+        return "ok", f"room scene '{name}' applied"
+    failed = [r for r in counted if not r.ok]
+    detail = "; ".join(f"{r.ref}: {r.error or 'failed'}" for r in failed)
+    return "error", f"{len(failed)} of {len(counted)} devices failed: {detail}"
+
+
+def _read_state_or_empty() -> dict[str, RuleState]:
+    try:
+        return read_state()
+    except Exception as e:  # corrupt file: log, treat as empty, never crash
+        logger.error("schedule_state_unreadable", error=str(e))
+        return {}
+
+
+# Per-process memory of the last minute fired for each rule. The state file is
+# the durable record, but if its write fails the next poll in the same minute
+# must still not fire the rule a second time (F7).
+_FIRED_THIS_PROCESS: dict[str, str] = {}
+# Start of the previous cycle in this process, the lower bound for post-cycle
+# missed detection (F8).
+_last_cycle_start: datetime.datetime | None = None
+
+
+def _record_missed(state: dict[str, RuleState], missed: dict[str, datetime.datetime],
+                   now: datetime.datetime) -> bool:
+    """Mark rules as missed (never caught up). Returns whether anything changed."""
+    changed = False
+    at = _utc_iso(now)
+    for rule_id, minute in missed.items():
+        prior = state.get(rule_id, RuleState())
+        minute_iso = _utc_iso(minute)
+        if prior.last_result == "missed" and prior.missed_minute == minute_iso:
+            continue
+        state[rule_id] = replace(
+            prior, last_result="missed", missed_minute=minute_iso,
+            last_detail="no scheduler was running at the scheduled time", last_at=at,
+        )
+        changed = True
+    return changed
+
+
+def acquire_and_record_missed(lock: SchedulerLock, now: datetime.datetime,
+                              loc: Location) -> bool:
+    """Take the lock; on success record fires missed while nobody owned it.
+
+    The previous owner's last cycle is read BEFORE ``try_acquire`` overwrites
+    it. Missed minutes are recorded, never caught up.
+    """
+    previous = owner.previous_last_cycle()
+    if not lock.try_acquire():
+        return False
+    try:
+        rules = list_rules()
+        state = _read_state_or_empty()
+        missed = engine.detect_missed(rules, now, loc, state, previous)
+        if missed and _record_missed(state, missed, now):
+            write_state(state)
+    except Exception as e:
+        logger.error("missed_detection_failed", error=str(e))
+    return True
+
+
+def run_cycle(
+    lock: SchedulerLock,
+    *,
+    dry_run: bool,
+    fire: Callable[..., tuple[RuleResult, str]] | None = None,
+    on_fire: Callable[[ScheduleRule, RuleResult, str, str], None] | None = None,
+) -> int:
+    """One scheduler cycle for the lock holder. Returns how many rules fired.
+
+    Rules and state are re-read every cycle. ``engine.due_rules`` is the only
+    code that matches a rule to a clock. ``on_fire(rule, result, detail, at)``
+    lets the sidecar keep its health snapshot.
+    """
+    fire_fn = fire or fire_rule
+    now, loc = _now_in_zone()
+    rules = list_rules()
+    state = _read_state_or_empty()
+    global _last_cycle_start
+    previous_start = _last_cycle_start
+    _last_cycle_start = now
+    due = [
+        (r, m) for r, m in engine.due_rules(rules, now, loc, state)
+        if _FIRED_THIS_PROCESS.get(r.id) != _utc_iso(m)
+    ]
+    for rule, minute in due:
+        logger.info("rule_firing", id=rule.id, name=rule.name, command=rule.command,
+                    room_scene=rule.room_scene)
+        try:
+            result, detail = fire_fn(rule, dry_run=dry_run)
+        except Exception as e:  # one bad rule never stops the others
+            result, detail = "error", str(e)
+        at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        _FIRED_THIS_PROCESS[rule.id] = _utc_iso(minute)
+        # Copy forward everything else (baseline_at in particular).
+        state[rule.id] = replace(
+            state.get(rule.id, RuleState()),
+            last_fired_minute=_utc_iso(minute), last_result=result,
+            last_detail=detail, last_at=at, missed_minute=None, rule_name=rule.name,
+        )
+        if on_fire is not None:
+            on_fire(rule, result, detail, at)
+    # A cycle that outran a minute (slow room scene) skipped rules whose minute
+    # fell inside it. Record those as missed; never fire them late (F8).
+    changed = bool(due)
+    try:
+        after, _ = _now_in_zone()
+        missed = engine.detect_missed(rules, after, loc, state, previous_start)
+        changed = _record_missed(state, missed, after) or changed
+    except Exception as e:
+        logger.error("missed_detection_failed", error=str(e))
+    if changed:
+        try:
+            write_state(state)
+        except Exception as e:
+            logger.error("schedule_state_write_failed", error=str(e))
+    lock.heartbeat(now)
+    return len(due)
+
+
 @click.command()
 @click.option(
     "--once",
     is_flag=True,
-    help="Run pending schedules once and exit (don't loop)",
+    help="Run one scheduler cycle (fire what is due now) and exit",
 )
 @click.pass_context
 def command(ctx: click.Context, once: bool) -> None:
     """Run the scheduler daemon.
 
-    Executes scheduled commands at their configured times.
-    Schedules are managed via 'govee-cli schedule add/remove'.
+    Executes scheduled commands at their configured times (clock or
+    sunrise/sunset). Exits 1 if another scheduler already owns the schedule.
     """
+    lock = SchedulerLock("daemon", DAEMON_POLL_SECONDS)
+    now, loc = _now_in_zone()
+    if not acquire_and_record_missed(lock, now, loc):
+        click.echo(owner.describe_holder(owner.read_owner(now)), err=True)
+        ctx.exit(1)
+
+    stop = threading.Event()
+
+    def _handle(_signum: int, _frame: object) -> None:
+        stop.set()
+
+    signal.signal(signal.SIGINT, _handle)
+    signal.signal(signal.SIGTERM, _handle)
+
     click.echo("govee-cli scheduler daemon starting...")
     click.echo("Press Ctrl+C to stop.")
-
-    rules = list_rules()
-    if not rules:
-        click.echo("No schedules defined. Add one with: govee-cli schedule add")
-        return
-
-    for r in rules:
-        status = "✓" if r.enabled else "✗ (disabled)"
-        click.echo(f"  [{status}] {r.time} {','.join(r.days)} — {r.name}: {r.command}")
-
-    daemon = SchedulerDaemon(once=once)
-    asyncio.run(daemon.run())
+    try:
+        while not stop.is_set():
+            try:
+                run_cycle(lock, dry_run=False)
+            except Exception as e:
+                logger.error("daemon_cycle_failed", error=str(e))
+                click.echo(f"cycle failed: {e}", err=True)
+            if once:
+                break
+            stop.wait(DAEMON_POLL_SECONDS)
+    finally:
+        lock.release()
 
 
 class SchedulerDaemon:
-    """Long-lived scheduler daemon that executes rules at their scheduled times."""
+    """Executes one rule's device command. Timing lives in ``schedule.engine``."""
 
-    def __init__(self, once: bool = False):
-        self._running = False
+    def __init__(self, once: bool = False) -> None:
+        # Kept for API compatibility; the loop lives in ``command`` now.
         self._once = once
-        # Map (HH:MM, day) -> list of rules
-        self._rule_map: dict[tuple[str, str], list[ScheduleRule]] = {}
-        self._load_rules()
-
-    def _load_rules(self) -> None:
-        """Build the time->rules lookup map."""
-        self._rule_map.clear()
-        for rule in list_rules():
-            if not rule.enabled:
-                continue
-            for day in rule.days:
-                key = (rule.time, day.lower()[:3])
-                self._rule_map.setdefault(key, []).append(rule)
-
-    def stop(self) -> None:
-        """Request daemon shutdown."""
-        self._running = False
-
-    async def run(self) -> None:
-        """Run the daemon loop."""
-        loop = asyncio.get_event_loop()
-        for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.add_signal_handler(sig, self.stop)
-
-        self._running = True
-        last_minute = ""
-
-        while self._running:
-            await asyncio.sleep(30)
-
-            if not self._running:
-                break
-
-            now_dt = datetime.datetime.now()
-            current_minute = now_dt.strftime("%H:%M")
-            current_day = now_dt.strftime("%a").lower()[:3]
-
-            if current_minute == last_minute:
-                continue
-            last_minute = current_minute
-
-            key = (current_minute, current_day)
-            rules = self._rule_map.get(key, [])
-
-            for rule in rules:
-                click.echo(f"\n[Firing] {rule.name}: {rule.command}")
-                await self._execute_rule(rule)
-
-            if self._once and rules:
-                break
 
     async def _execute_rule(self, rule: ScheduleRule) -> bool:
-        """Execute a single scheduled rule against its target device.
+        ok, _detail = await self._execute_rule_detail(rule)
+        return ok
+
+    async def _execute_rule_detail(self, rule: ScheduleRule) -> tuple[bool, str]:
+        """Execute a single device rule; returns (device obeyed, detail).
 
         Routes by transport like every other command, so a rule can target a
-        cloud-only device. Previously this went straight to BLE against the
-        single configured default_mac, which meant cloud-only models (the H6022
-        has no BLE path at all) could never be scheduled.
-
-        Returns whether the device actually obeyed. Every failure here is
-        reachable and already handled — an unresolvable device ref, a cloud
-        error, an unparseable command, a BLE failure — and each one used to
-        ``click.echo`` a message and return the same ``None`` a success
-        returned. That made the sidecar's ``last_fire.ok`` health field
-        structurally incapable of ever being False: it reported that the
-        scheduler had *attempted* a rule, while the console presented it as
-        proof the rule worked. The boolean is what makes that field honest.
+        cloud-only device. Every failure here is reachable and handled: an
+        unresolvable device ref, a cloud error, an unparseable command, a BLE
+        failure. The boolean is what keeps ``last_result`` honest.
         """
         from govee_cli.commands.group import _apply_http_command, _apply_v2_command
-        from govee_cli.config import load_config
+        from govee_cli.config import load_config, resolve_device_ref
         from govee_cli.exceptions import GoveeError
         from govee_cli.transport import CLOUD_V1, CLOUD_V2, resolve_target
 
         cfg = load_config()
 
+        # A stored id must resolve to a registered device. resolve_target would
+        # fall back to an ad-hoc BLE address for an unregistered MAC and send
+        # real GATT packets to whatever answers; a schedule never does that.
+        ref = rule.device or cfg.default_mac
+        if ref:
+            try:
+                resolve_device_ref(cfg, ref)
+            except Exception:
+                msg = f"device '{ref}' is not registered: rule will not fire"
+                click.echo(f"  ⚠ {msg}")
+                return False, msg
+
         try:
             device_id, model, transport = resolve_target(cfg, rule.device)
         except click.ClickException as e:
-            click.echo(f"  ⚠ {e.format_message()}")
-            return False
+            msg = e.format_message()
+            click.echo(f"  ⚠ {msg}")
+            return False, msg
 
         try:
             if transport == CLOUD_V2:
@@ -297,7 +467,7 @@ class SchedulerDaemon:
                 _apply_v2_command(v2, device_id, model or "", rule.command)
                 _record_schedule_ledger(rule.command, device_id, model, v2_client=v2)
                 click.echo("  ✅ Done")
-                return True
+                return True, "ok"
 
             if transport == CLOUD_V1:
                 from govee_cli.http import GoveeHTTP
@@ -305,10 +475,10 @@ class SchedulerDaemon:
                 _apply_http_command(GoveeHTTP(), device_id, model or "", rule.command)
                 _record_schedule_ledger(rule.command, device_id, model)
                 click.echo("  ✅ Done")
-                return True
+                return True, "ok"
         except Exception as e:
             click.echo(f"  ❌ Error: {e}")
-            return False
+            return False, str(e)
 
         from govee_cli.ble import GoveeBLE
         from govee_cli.commands._common import Target
@@ -319,14 +489,14 @@ class SchedulerDaemon:
         cmd = _parse_inline_command(rule.command, device_model=model)
         if cmd is None:
             click.echo(f"  ⚠ Could not parse command: {rule.command}")
-            return False
+            return False, f"could not parse command: {rule.command}"
 
         try:
             async with GoveeBLE(ble_mac, adapter=cfg.default_adapter) as client:
                 await client.execute(cmd)
                 _record_schedule_ledger(rule.command, device_id, model)
                 click.echo("  ✅ Done")
-                return True
+                return True, "ok"
         except GoveeError as e:
             click.echo(f"  ❌ Error: {e}")
-            return False
+            return False, str(e)

@@ -5,6 +5,7 @@ import { motion } from "motion/react";
 import { Plus } from "lucide-react";
 
 import { Button, Panel, SectionLabel, Skeleton } from "@/components/ui";
+import { AuthoredSceneDialog } from "@/components/rooms/authored-scene-dialog";
 import { CaptureRoomDialog } from "@/components/rooms/capture-room-dialog";
 import { RoomSceneCard } from "@/components/rooms/room-scene-card";
 import { useRooms } from "@/lib/queries";
@@ -18,6 +19,7 @@ import { panelIn, staggerParent } from "@/lib/motion";
 export default function RoomsPage() {
   const rooms = useRooms();
   const [captureOpen, setCaptureOpen] = React.useState(false);
+  const [newOpen, setNewOpen] = React.useState(false);
 
   const scenes = rooms.data ?? [];
 
@@ -41,10 +43,16 @@ export default function RoomsPage() {
                 : `${scenes.length} saved ${scenes.length === 1 ? "scene" : "scenes"}`}
             </p>
           </div>
-          <Button variant="solid" onClick={() => setCaptureOpen(true)}>
-            <Plus size={14} strokeWidth={1.75} aria-hidden />
-            capture scene
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="ghost" onClick={() => setNewOpen(true)}>
+              <Plus size={14} strokeWidth={1.75} aria-hidden />
+              new scene
+            </Button>
+            <Button variant="solid" onClick={() => setCaptureOpen(true)}>
+              <Plus size={14} strokeWidth={1.75} aria-hidden />
+              capture scene
+            </Button>
+          </div>
         </motion.section>
 
         {/* error state */}
@@ -77,7 +85,8 @@ export default function RoomsPage() {
             <p className="mt-3 font-mono text-[11px] leading-relaxed text-low">
               no room scenes yet — press{" "}
               <span className="text-mid">capture scene</span> above to save every device&rsquo;s
-              current mode under one name
+              current mode under one name, or <span className="text-mid">new scene</span> to
+              write one by hand
             </p>
           ) : (
             <div className="mt-3 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -89,6 +98,7 @@ export default function RoomsPage() {
         </motion.section>
       </motion.div>
 
+      <AuthoredSceneDialog open={newOpen} onOpenChange={setNewOpen} scene={null} />
       <CaptureRoomDialog
         open={captureOpen}
         onOpenChange={setCaptureOpen}

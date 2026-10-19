@@ -77,6 +77,7 @@ from govee_cli.commands.music import command as music_cmd
 from govee_cli.commands.power import command as power_cmd
 from govee_cli.commands.record import command as record_cmd
 from govee_cli.commands.replay import command as replay_cmd
+from govee_cli.commands.room import room as room_cmd
 from govee_cli.commands.scan import command as scan_cmd
 from govee_cli.commands.scan_http import command as scan_http_cmd
 from govee_cli.commands.scene import command as scene_cmd
@@ -102,6 +103,7 @@ main.add_command(effect_cmd, name="effect")
 main.add_command(music_cmd, name="music")
 main.add_command(schedule_cmd, name="schedule")
 main.add_command(group_cmd, name="group")
+main.add_command(room_cmd, name="room")
 main.add_command(scan_cmd, name="scan")
 main.add_command(scan_http_cmd, name="scan-http")
 main.add_command(state_cmd, name="state")

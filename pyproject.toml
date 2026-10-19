@@ -19,6 +19,8 @@ dependencies = [
     # venv, absent on a clean CI runner, which is why `import govee_cli` failed
     # there for months while the CLI worked fine locally.
     "requests>=2.31.0",
+    # Sunrise/sunset for schedule rules (issue #2), computed from lat/long.
+    "astral>=3.2",
 ]
 
 [project.optional-dependencies]

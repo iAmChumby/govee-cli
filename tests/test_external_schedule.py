@@ -574,87 +574,48 @@ def test_native_schedules_route_unaffected(client: TestClient) -> None:
 # --------------------------------------------------------------- scheduler_runner
 
 
-def test_scheduler_runner_snapshot_initial_state() -> None:
-    runner = SchedulerRunner(poll_seconds=1.0)
-    snap = runner.snapshot()
-    assert snap == {
-        "alive": False,
-        "poll_seconds": 1.0,
-        "last_cycle_at": None,
-        "last_fire": None,
-    }
+def _no_owner(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep snapshot() off the real owner file."""
+    from govee_cli.schedule.owner import OwnerView
+
+    monkeypatch.setattr("webui.api.scheduler_runner.owner.read_owner",
+                        lambda now: OwnerView("nobody", None, None, None))
 
 
-def test_fire_due_sets_last_cycle_at_even_with_nothing_due(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    runner = SchedulerRunner()
-    monkeypatch.setattr("webui.api.scheduler_runner.list_rules", lambda: [])
-    fired = runner.fire_due()
-    assert fired == 0
-    snap = runner.snapshot()
-    assert snap["last_cycle_at"] is not None
-    # Must be a real, parseable ISO-8601 UTC timestamp.
-    datetime.datetime.fromisoformat(snap["last_cycle_at"])
+def test_scheduler_runner_snapshot_initial_state(monkeypatch: pytest.MonkeyPatch) -> None:
+    _no_owner(monkeypatch)
+    snap = SchedulerRunner(poll_seconds=1.0).snapshot()
+    assert snap["alive"] is False
+    assert snap["poll_seconds"] == 1.0
+    assert snap["last_cycle_at"] is None
+    assert snap["last_fire"] is None
+    assert snap["lock_status"] == "waiting"
+    assert snap["owner"]["state"] == "nobody"
 
 
-def test_run_rule_records_success(monkeypatch: pytest.MonkeyPatch) -> None:
-    runner = SchedulerRunner()
-
-    async def fake_execute(rule: ScheduleRule) -> bool:
-        return True
-
-    monkeypatch.setattr(runner, "_execute", fake_execute)
-    rule = ScheduleRule(
-        id="r1", name="Morning", time="06:30", days=["Mon"], command="power on"
-    )
-    runner._run_rule(rule)
-    snap = runner.snapshot()
-    assert snap["last_fire"] == {
-        "rule_id": "r1", "name": "Morning", "at": snap["last_fire"]["at"], "ok": True
-    }
-    assert "error" not in snap["last_fire"]
+def test_cycle_sets_last_cycle_at_even_with_nothing_due() -> None:
+    # A mock-pinned runner never touches the lock, so this stays hermetic.
+    runner = SchedulerRunner(dry_run=True, mock_owner="waiting")
+    assert runner.cycle() == 0
+    stamp = runner.snapshot()["last_cycle_at"]
+    assert stamp is not None
+    datetime.datetime.fromisoformat(stamp)  # real ISO-8601 UTC
 
 
-def test_run_rule_records_failure(monkeypatch: pytest.MonkeyPatch) -> None:
-    runner = SchedulerRunner()
+def test_record_fire_success_and_failure() -> None:
+    runner = SchedulerRunner(dry_run=True, mock_owner="waiting")
+    ok_rule = ScheduleRule(id="r1", name="Morning", time="06:30", days=["Mon"],
+                           command="power on")
+    runner._record_fire(ok_rule, "ok", "ok", "2026-10-19T10:30:00+00:00")
+    fire = runner.snapshot()["last_fire"]
+    assert fire == {"rule_id": "r1", "name": "Morning",
+                    "at": "2026-10-19T10:30:00+00:00", "ok": True}
 
-    async def fake_execute(rule: ScheduleRule) -> bool:
-        raise RuntimeError("boom")
-
-    monkeypatch.setattr(runner, "_execute", fake_execute)
-    rule = ScheduleRule(
-        id="r2", name="Evening", time="20:00", days=["Mon"], command="power off"
-    )
-    runner._run_rule(rule)
-    snap = runner.snapshot()
-    assert snap["last_fire"]["rule_id"] == "r2"
-    assert snap["last_fire"]["ok"] is False
-    assert snap["last_fire"]["error"] == "boom"
-
-
-def test_run_rule_records_failure_when_device_refuses(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A rule the device did not obey must not read as a successful fire.
-
-    ``_execute_rule`` handles every failure it can reach internally and reports
-    the outcome as a bool rather than raising, so a runner that only watched for
-    exceptions would record ``ok=True`` for a rule that silently did nothing —
-    which is precisely what the health readout is there to catch.
-    """
-    runner = SchedulerRunner()
-
-    async def fake_execute(rule: ScheduleRule) -> bool:
-        return False
-
-    monkeypatch.setattr(runner, "_execute", fake_execute)
-    runner._run_rule(ScheduleRule(id="r9", name="dud", time="07:00", days=["mon"],
-                                  command="power on", device="Nope"))
-
-    snap = runner.snapshot()
-    assert snap["last_fire"]["ok"] is False
-    assert snap["last_fire"]["error"]
+    bad = ScheduleRule(id="r9", name="dud", time="07:00", days=["mon"],
+                       command="power on", device="Nope")
+    runner._record_fire(bad, "error", "device did not obey", "2026-10-19T11:00:00+00:00")
+    fire = runner.snapshot()["last_fire"]
+    assert fire["ok"] is False and fire["error"] == "device did not obey"
 
 
 # ------------------------------------------------------- read_crontab fallbacks

@@ -93,17 +93,20 @@ class Settings:
     mock: bool
     scheduler_enabled: bool
     port: int
+    # Mock mode only: nobody | stale | daemon | waiting pins the owner state a
+    # fixture displays (the runner then never touches the lock).
+    mock_owner: str | None = None
 
     @classmethod
     def from_env(cls) -> "Settings":
         mock = os.environ.get("GOVEE_WEBUI_MOCK") == "1"
-        # Default on, but never in mock mode: the embedded scheduler would fire
-        # real commands at real devices while someone thinks they are demoing.
-        scheduler_enabled = (
-            os.environ.get("GOVEE_WEBUI_SCHEDULER", "1") != "0" and not mock
-        )
+        # Default on. In mock mode the runner still runs, but dry-run only
+        # (see SchedulerRunner): it records "would fire" and sends nothing.
+        scheduler_enabled = os.environ.get("GOVEE_WEBUI_SCHEDULER", "1") != "0"
         port = int(os.environ.get("GOVEE_WEBUI_PORT", "6057"))
-        return cls(mock=mock, scheduler_enabled=scheduler_enabled, port=port)
+        mock_owner = (os.environ.get("GOVEE_WEBUI_MOCK_OWNER") or None) if mock else None
+        return cls(mock=mock, scheduler_enabled=scheduler_enabled, port=port,
+                   mock_owner=mock_owner)
 
 
 class TTLCache:

@@ -1,45 +1,81 @@
 "use client";
 
 import { motion } from "motion/react";
+import { TriangleAlert } from "lucide-react";
 
 import { Chip, Panel, SectionLabel, Skeleton, StatusDot } from "@/components/ui";
-import { useHealth } from "@/lib/queries";
+import { useHealth, useSchedules } from "@/lib/queries";
 import { panelIn } from "@/lib/motion";
+import type { OwnerDisplay } from "@/lib/schedule-format";
 
+import { connectionScheduleRows } from "./connection-owner";
 import { ConfigRow } from "./field";
 
-function formatAgo(iso: string | null): string {
-  if (!iso) return "never";
-  const seconds = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (seconds < 0) return "just now";
-  if (seconds < 60) return `${Math.round(seconds)}s ago`;
-  if (seconds < 3600) return `${Math.round(seconds / 60)}m ago`;
-  return `${Math.round(seconds / 3600)}h ago`;
+/**
+ * The owner record as a stacked row. ConfigRow truncates its value on
+ * desktop, and the owner headline is a full sentence that must not be cut
+ * off, so this row wraps at every width.
+ */
+function OwnerRow({ owner }: { owner: OwnerDisplay }) {
+  const warn = owner.tone === "warn";
+  return (
+    <div className="py-2.5">
+      <div className="flex items-center justify-between gap-4">
+        <span className="text-[11px] uppercase leading-none tracking-micro text-mid">
+          schedule owner
+        </span>
+        <Chip tone={warn ? "warn" : "neutral"}>
+          {warn ? <TriangleAlert size={11} strokeWidth={1.5} aria-hidden /> : null}
+          {owner.chip}
+        </Chip>
+      </div>
+      <p
+        className={
+          warn
+            ? "mt-2 flex items-start gap-1.5 break-words font-mono text-[12px] leading-relaxed text-ember"
+            : "mt-2 break-words font-mono text-[12px] leading-relaxed text-hi"
+        }
+      >
+        {warn ? (
+          <TriangleAlert size={13} strokeWidth={1.5} aria-hidden className="mt-0.5 shrink-0" />
+        ) : null}
+        <span>{owner.headline}</span>
+      </p>
+      {owner.detail ? (
+        <p
+          data-volatile="true"
+          className="mt-1.5 break-words font-mono text-[11px] leading-relaxed text-low"
+        >
+          {owner.detail}
+        </p>
+      ) : null}
+    </div>
+  );
 }
 
 /**
- * Connection health: sidecar version, mock badge, the full scheduler
- * breakdown (WEBUI_V3_SPEC.md §6.5 — this is the "detail view" the status
- * strip's one compact dot points at) and the polling cadence the UI runs
- * at. Read-only.
+ * Connection health: sidecar version, mode, the schedule owner, and the
+ * crontab-driven automation the scheduler can see. Read-only.
  *
- * `Health.scheduler` is `{native, external}`, not the flat boolean this
- * page used to render — `native` is the sidecar's own embedded poll
- * runner (fires `ScheduleRule`s), `external` is what it knows about
- * crontab-driven automation it has no control over (wake-ramp, etc.).
- * Both get an honest tri-state where the data itself is tri-state —
- * `wake_ramp_armed` is `boolean | null`, and `null` is rendered literally
- * as "unknown," never folded into "not armed."
+ * The owner, poll interval and last fire come from the schedule list, and
+ * every owner string goes through `formatOwner` (grill G4). Nothing here
+ * reads `scheduler.native.alive`: a stale heartbeat is "stale since HH:MM",
+ * never "running".
+ *
+ * `health.scheduler.external` keeps its honest tri-state. `wake_ramp_armed`
+ * is `boolean | null`, and `null` is rendered literally as "unknown."
  */
 export function ConnectionSection() {
   const health = useHealth();
+  const schedules = useSchedules();
   const scheduler = health.data?.scheduler;
+  const rows = connectionScheduleRows(schedules.data);
 
   return (
     <motion.section variants={panelIn}>
       <SectionLabel index={1} title="connection" />
       <Panel className="mt-3 p-5">
-        {health.isLoading ? (
+        {health.isLoading || schedules.isLoading ? (
           <div className="space-y-3">
             <Skeleton className="h-5 w-48" />
             <Skeleton className="h-5 w-64" />
@@ -57,30 +93,10 @@ export function ConnectionSection() {
               <Chip>{health.data.mock ? "mock" : "live"}</Chip>
             </ConfigRow>
 
-            {/* native — the sidecar's own embedded rule runner */}
-            <ConfigRow label="native scheduler">
-              <span className="inline-flex items-center gap-2">
-                <StatusDot tone={scheduler.native.alive ? "ok" : "warn"} />
-                {scheduler.native.alive ? "running" : "stopped"}
-              </span>
-            </ConfigRow>
-            <ConfigRow label="poll interval">
-              {scheduler.native.poll_seconds !== null ? `${scheduler.native.poll_seconds}s` : "—"}
-            </ConfigRow>
-            <ConfigRow label="last cycle">{formatAgo(scheduler.native.last_cycle_at)}</ConfigRow>
-            <ConfigRow label="last fire">
-              {scheduler.native.last_fire ? (
-                <span
-                  className="inline-flex items-center gap-1.5"
-                  title={scheduler.native.last_fire.error ?? undefined}
-                >
-                  <StatusDot tone={scheduler.native.last_fire.ok ? "ok" : "warn"} />
-                  {scheduler.native.last_fire.name} · {formatAgo(scheduler.native.last_fire.at)}
-                </span>
-              ) : (
-                "no rule has fired yet"
-              )}
-            </ConfigRow>
+            {/* the schedule owner — one formatter, shared with the Schedules strip */}
+            <OwnerRow owner={rows.owner} />
+            <ConfigRow label="poll interval">{rows.pollLabel}</ConfigRow>
+            <ConfigRow label="last fire">{rows.lastFire}</ConfigRow>
 
             {/* external — crontab-discovered automation the native runner
                 can't see; §6.6 — an unreadable crontab is shown as such,
@@ -92,7 +108,7 @@ export function ConnectionSection() {
               </span>
             </ConfigRow>
             {!scheduler.external.crontab_readable && scheduler.external.error ? (
-              <ConfigRow label="crontab error">{scheduler.external.error}</ConfigRow>
+              <ConfigRow label="crontab error" stack>{scheduler.external.error}</ConfigRow>
             ) : null}
             <ConfigRow label="wake-ramp armed">
               {scheduler.external.wake_ramp_armed === null

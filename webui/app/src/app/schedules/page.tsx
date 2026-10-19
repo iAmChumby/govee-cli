@@ -3,97 +3,55 @@
 import * as React from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
-import { Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, TriangleAlert } from "lucide-react";
 
-import { Button, Chip, Panel, SectionLabel, Skeleton, Switch } from "@/components/ui";
+import { Button, Panel, SectionLabel, Skeleton, Switch } from "@/components/ui";
 import { useToast } from "@/components/ui/toaster";
-import { ApiError, api, type DeviceSummary, type ScheduleRule } from "@/lib/api";
+import { ApiError, api, type DeviceSummary, type ScheduleList, type ScheduleRule } from "@/lib/api";
 import { useDevices, useExternalSchedules, useSchedules } from "@/lib/queries";
 import { cn } from "@/lib/cn";
 import { panelIn, staggerParent } from "@/lib/motion";
+import { formatNextRun, wallHM } from "@/lib/schedule-format";
 
-import { AddRuleDialog } from "./add-rule-dialog";
 import { ExternalAutomationPanel } from "./external-panel";
-import { formatNextFire, nextFireDateTime } from "./next-fire";
+import { OwnerStrip } from "./owner-strip";
+import { DAYS, RuleDialog } from "./rule-dialog";
 import { ScheduleTimeline } from "./timeline";
 
 /* ==================================================================
-   Schedules — rule list with enable toggles, add-rule sheet and
-   next-fire hints. The embedded sidecar scheduler does the firing;
-   this page only edits the rules.
+   Schedules: owner strip, today's timeline, rule list. Rules are added
+   and edited in one dialog; next-run times come from the server.
    ================================================================== */
-
-/** Ticking clock; null until mounted so SSR output stays stable. */
-function useNow(intervalMs = 30_000): Date | null {
-  const [now, setNow] = React.useState<Date | null>(null);
-  React.useEffect(() => {
-    setNow(new Date());
-    const id = window.setInterval(() => setNow(new Date()), intervalMs);
-    return () => window.clearInterval(id);
-  }, [intervalMs]);
-  return now;
-}
 
 function errMessage(err: unknown): string {
   return err instanceof ApiError ? err.message : String(err);
 }
 
-/* ------------------------------------------------------- delete button */
-
-/**
- * Two-step delete: trash click arms a danger "confirm?" state that
- * disarms itself after 3s (or on blur). One DOM node throughout, so
- * keyboard focus survives the morph. No window.confirm anywhere.
- */
-function DeleteRuleButton({ onConfirm, label }: { onConfirm: () => void; label: string }) {
-  const [armed, setArmed] = React.useState(false);
-
-  React.useEffect(() => {
-    if (!armed) return;
-    const id = window.setTimeout(() => setArmed(false), 3000);
-    return () => window.clearTimeout(id);
-  }, [armed]);
-
-  return (
-    <Button
-      size="sm"
-      variant={armed ? "danger" : "ghost"}
-      aria-label={armed ? `Confirm delete ${label}` : label}
-      title={armed ? undefined : label}
-      onBlur={() => setArmed(false)}
-      onClick={() => {
-        if (!armed) {
-          setArmed(true);
-          return;
-        }
-        setArmed(false);
-        onConfirm();
-      }}
-      className={cn("justify-center", armed ? "px-2.5" : "w-7 px-0")}
-    >
-      {armed ? (
-        "confirm?"
-      ) : (
-        <Trash2 size={13} strokeWidth={1.5} aria-hidden />
-      )}
-    </Button>
-  );
+function targetLine(rule: ScheduleRule, devices: DeviceSummary[]): string {
+  if (rule.room_scene) return `room scene ${rule.room_scene}`;
+  const name = rule.device
+    ? (devices.find((d) => d.id === rule.device || d.ref === rule.device)?.name ?? rule.device)
+    : "default device";
+  return `${name} · ${rule.command}`;
 }
 
 /* ------------------------------------------------------------------ row */
 
 function RuleRow({
   rule,
+  list,
   devices,
   highlighted,
+  onEdit,
 }: {
   rule: ScheduleRule;
+  list: ScheduleList;
   devices: DeviceSummary[];
   highlighted?: boolean;
+  onEdit: () => void;
 }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const now = useNow();
 
   // Optimistic toggle: flip the cached rule immediately, roll back on refusal.
   const setEnabled = useMutation({
@@ -101,107 +59,109 @@ function RuleRow({
       api.setScheduleEnabled(id, enabled),
     onMutate: async ({ id, enabled }) => {
       await queryClient.cancelQueries({ queryKey: ["schedules"] });
-      const previous = queryClient.getQueryData<ScheduleRule[]>(["schedules"]);
-      queryClient.setQueryData<ScheduleRule[]>(["schedules"], (old) =>
-        old?.map((r) => (r.id === id ? { ...r, enabled } : r)),
+      const previous = queryClient.getQueryData<ScheduleList>(["schedules"]);
+      queryClient.setQueryData<ScheduleList>(["schedules"], (old) =>
+        old
+          ? { ...old, schedules: old.schedules.map((r) => (r.id === id ? { ...r, enabled } : r)) }
+          : old,
       );
       return { previous };
     },
     onError: (err, _vars, context) => {
       if (context?.previous) queryClient.setQueryData(["schedules"], context.previous);
-      toast({
-        variant: "error",
-        title: "Could not update rule",
-        description: errMessage(err),
-      });
+      toast({ variant: "error", title: "Could not update rule", description: errMessage(err) });
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: ["schedules"] });
     },
   });
 
-  const remove = useMutation({
-    mutationFn: (id: string) => api.deleteSchedule(id),
-    onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: ["schedules"] });
-      const previous = queryClient.getQueryData<ScheduleRule[]>(["schedules"]);
-      queryClient.setQueryData<ScheduleRule[]>(["schedules"], (old) =>
-        old?.filter((r) => r.id !== id),
-      );
-      return { previous };
-    },
-    onError: (err, _id, context) => {
-      if (context?.previous) queryClient.setQueryData(["schedules"], context.previous);
-      toast({ variant: "error", title: "Delete failed", description: errMessage(err) });
-    },
-    onSuccess: () => {
-      toast({ variant: "ok", title: "Rule deleted", description: rule.name });
-    },
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: ["schedules"] });
-    },
-  });
-
-  const targetName = rule.device
-    ? (devices.find((d) => d.id === rule.device || d.ref === rule.device)?.name ?? rule.device)
-    : "default device";
-
-  const nextLabel = !rule.enabled
-    ? "paused"
-    : now
-      ? formatNextFire(nextFireDateTime(rule.time, rule.days, now))
-      : "—";
+  const next = formatNextRun(rule.next_run, rule.next_run_reason, list.now);
+  const lastError = rule.last_result === "error";
 
   return (
     <li
       id={`rule-${rule.id}`}
       className={cn(
-        "flex flex-wrap items-center gap-x-3 gap-y-2 rounded-card py-3 px-2 -mx-2 transition-colors duration-500 first:pt-0 last:pb-0",
-        !rule.enabled && "opacity-55",
+        "-mx-2 rounded-card px-2 py-3 transition-colors duration-500 first:pt-0 last:pb-0",
         highlighted && "bg-accent-dim",
       )}
     >
-      <Switch
-        checked={rule.enabled}
-        onCheckedChange={(enabled) => setEnabled.mutate({ id: rule.id, enabled })}
-        ariaLabel={`${rule.enabled ? "Disable" : "Enable"} ${rule.name}`}
-      />
+      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-2">
+        <Switch
+          checked={rule.enabled}
+          onCheckedChange={(enabled) => setEnabled.mutate({ id: rule.id, enabled })}
+          ariaLabel={`${rule.enabled ? "Disable" : "Enable"} ${rule.name}`}
+        />
 
-      <div className="min-w-[120px] max-w-full">
-        <p className="truncate text-[13px] font-medium leading-tight text-hi">{rule.name}</p>
-        <p className="mt-0.5 truncate font-mono text-[10px] text-low">{targetName}</p>
+        <div className={cn("min-w-0", !rule.enabled && "opacity-55")}>
+          <p className="break-words text-[13px] font-medium leading-tight text-hi">{rule.name}</p>
+          <p className="mt-0.5 break-words font-mono text-[11px] leading-snug text-mid">
+            {targetLine(rule, devices)}
+          </p>
+        </div>
+
+        {/* The hit area grows on coarse pointers; the bordered ink stays 28px. */}
+        <button
+          type="button"
+          aria-label={`Edit rule ${rule.name}`}
+          onClick={onEdit}
+          className="group inline-flex h-7 w-7 cursor-pointer items-center justify-center pointer-coarse:-m-2 pointer-coarse:h-11 pointer-coarse:w-11"
+        >
+          <span className="inline-flex h-7 w-7 items-center justify-center rounded-btn border border-hairline text-mid transition-colors duration-150 group-hover:border-hairline-strong group-hover:bg-accent-dim group-hover:text-hi">
+            <Pencil size={13} strokeWidth={1.5} aria-hidden />
+          </span>
+        </button>
+
+        <div className={cn("col-span-3 space-y-1.5", !rule.enabled && "opacity-55")}>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <span className="font-mono text-[12px] tabular-nums text-hi">{rule.time}</span>
+            <span className="flex gap-1" role="group" aria-label="Days">
+              {DAYS.map((day) => {
+                const on = rule.days.includes(day);
+                return (
+                  <span
+                    key={day}
+                    aria-label={`${day} ${on ? "on" : "off"}`}
+                    className={cn(
+                      "rounded-chip border px-1.5 py-[3px] font-mono text-[10px] uppercase leading-none tracking-[0.04em]",
+                      on
+                        ? "border-hairline-strong bg-accent-dim text-hi"
+                        : "border-transparent text-low opacity-40",
+                    )}
+                  >
+                    {day}
+                  </span>
+                );
+              })}
+            </span>
+          </div>
+
+          <p data-volatile="true" className="font-mono text-[11px] tabular-nums text-mid">
+            next: {next}
+          </p>
+        </div>
+
+        {rule.target_problem || rule.missed_minute || lastError ? (
+          <div className="col-span-3 space-y-1 font-mono text-[11px] leading-snug">
+            {rule.target_problem ? (
+              <p className="flex items-start gap-1.5 text-ember">
+                <TriangleAlert size={12} strokeWidth={1.75} aria-hidden className="mt-px shrink-0" />
+                {rule.target_problem}
+              </p>
+            ) : null}
+            {rule.missed_minute ? (
+              <p className="text-mid">missed {wallHM(rule.missed_minute)}</p>
+            ) : null}
+            {lastError ? (
+              <p className="text-mid">
+                last: error{rule.last_detail ? ` ${rule.last_detail}` : ""}
+                {rule.last_at ? ` · ${wallHM(rule.last_at)}` : ""}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
       </div>
-
-      <span className="font-mono text-[12px] tabular-nums text-mid">{rule.time}</span>
-
-      <span className="flex flex-wrap gap-1">
-        {rule.days.map((day) => (
-          <Chip key={day}>{day}</Chip>
-        ))}
-      </span>
-
-      {/* §11.2(6): the command a rule will actually run, clipped to a
-          fragment on the exact screen where someone decides whether to
-          trust or delete it. `max-w-[220px]` existed to keep desktop rows
-          on one line; under pointer:coarse it's lifted so the full string
-          gets the row's whole width to wrap into instead of staying capped
-          at a desktop column width it was never sized against. `title`
-          keeps serving desktop hover. */}
-      <span
-        className="max-w-[220px] truncate font-mono text-[11px] text-mid pointer-coarse:max-w-none pointer-coarse:whitespace-normal pointer-coarse:break-words"
-        title={rule.command}
-      >
-        {rule.command}
-      </span>
-
-      <span data-volatile="true" className="ml-auto shrink-0 font-mono text-[11px] tabular-nums text-low" title="next fire">
-        {nextLabel}
-      </span>
-
-      <DeleteRuleButton
-        label={`Delete rule ${rule.name}`}
-        onConfirm={() => remove.mutate(rule.id)}
-      />
     </li>
   );
 }
@@ -212,16 +172,24 @@ export default function SchedulesPage() {
   const schedules = useSchedules();
   const devices = useDevices();
   const external = useExternalSchedules();
-  const [addOpen, setAddOpen] = React.useState(false);
+  const [dialogOpen, setDialogOpen] = React.useState(false);
+  const [editing, setEditing] = React.useState<ScheduleRule | null>(null);
   const [highlightId, setHighlightId] = React.useState<string | null>(null);
 
-  const rules = schedules.data ?? [];
+  const list = schedules.data;
+  const rules = React.useMemo(() => list?.schedules ?? [], [list]);
   const enabledCount = rules.filter((r) => r.enabled).length;
 
-  // Timeline markers are the only "edit a rule" entry point that isn't the
-  // list itself — this codebase has no rule-editor dialog (only create),
-  // so "select" scrolls to and briefly highlights the matching row in the
-  // Native Rules panel below rather than opening a modal that doesn't exist.
+  const openNew = () => {
+    setEditing(null);
+    setDialogOpen(true);
+  };
+  const openEdit = (rule: ScheduleRule) => {
+    setEditing(rule);
+    setDialogOpen(true);
+  };
+
+  // Timeline dots scroll to and briefly highlight the matching row.
   const handleSelectRule = React.useCallback((ruleId: string) => {
     setHighlightId(ruleId);
     document
@@ -233,97 +201,112 @@ export default function SchedulesPage() {
   return (
     <>
       <main className="min-h-0 min-w-0 flex-1 overflow-y-auto">
-          <motion.div
-            variants={staggerParent}
-            initial="hidden"
-            animate="show"
-            className="mx-auto max-w-[1080px] space-y-5 px-6 pb-16 pt-6"
-          >
-            {/* head */}
-            <motion.section variants={panelIn} className="flex flex-wrap items-end justify-between gap-4">
-              <div>
-                <h1 className="text-xl font-semibold leading-tight tracking-[-0.02em] text-hi">
-                  Schedules
-                </h1>
-                <p className="mt-1 font-mono text-[11px] text-low">
-                  {schedules.isLoading
-                    ? "loading rules…"
-                    : `${rules.length} ${rules.length === 1 ? "rule" : "rules"} · ${enabledCount} enabled`}
+        <motion.div
+          variants={staggerParent}
+          initial="hidden"
+          animate="show"
+          className="mx-auto max-w-[1080px] space-y-5 px-6 pb-16 pt-6"
+        >
+          {/* head */}
+          <motion.section variants={panelIn} className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h1 className="text-xl font-semibold leading-tight tracking-[-0.02em] text-hi">
+                Schedules
+              </h1>
+              <p className="mt-1 font-mono text-[11px] text-low">
+                {schedules.isLoading
+                  ? "loading rules…"
+                  : `${rules.length} ${rules.length === 1 ? "rule" : "rules"} · ${enabledCount} enabled`}
+              </p>
+            </div>
+            <Button variant="solid" onClick={openNew}>
+              <Plus size={14} strokeWidth={1.75} aria-hidden />
+              new rule
+            </Button>
+          </motion.section>
+
+          {/* error state */}
+          {schedules.isError ? (
+            <motion.section variants={panelIn}>
+              <Panel className="border-ember/40 p-5">
+                <p className="text-[13px] font-medium text-hi">Rules unavailable</p>
+                <p className="mt-1 font-mono text-[11px] text-mid">
+                  {errMessage(schedules.error)} — is the sidecar running on 127.0.0.1:6057?
                 </p>
-              </div>
-              <Button variant="solid" onClick={() => setAddOpen(true)}>
-                <Plus size={14} strokeWidth={1.75} aria-hidden />
-                new rule
-              </Button>
-            </motion.section>
-
-            {/* error state */}
-            {schedules.isError ? (
-              <motion.section variants={panelIn}>
-                <Panel className="border-ember/40 p-5">
-                  <p className="text-[13px] font-medium text-hi">Rules unavailable</p>
-                  <p className="mt-1 font-mono text-[11px] text-mid">
-                    {errMessage(schedules.error)} — is the sidecar running on 127.0.0.1:6057?
-                  </p>
-                </Panel>
-              </motion.section>
-            ) : null}
-
-            {/* 24h timeline — native rules + external automation, §6.4 */}
-            <motion.section variants={panelIn}>
-              <SectionLabel index={1} title="today" />
-              <Panel className="mt-3 p-5">
-                <ScheduleTimeline
-                  rules={rules}
-                  external={external.data}
-                  externalLoading={external.isLoading}
-                  devices={devices.data ?? []}
-                  onSelectRule={handleSelectRule}
-                />
               </Panel>
             </motion.section>
+          ) : null}
 
-            {/* rule list */}
+          {/* who owns the schedule */}
+          {list ? (
             <motion.section variants={panelIn}>
-              <SectionLabel index={2} title="native rules" />
-              <Panel className="mt-3 p-5">
-                {schedules.isLoading ? (
-                  <div className="space-y-3">
-                    {Array.from({ length: 3 }, (_, i) => (
-                      <div key={i} className="flex items-center gap-3 py-1">
-                        <Skeleton className="h-6 w-11 rounded-full" />
-                        <Skeleton className="h-5 w-36" />
-                        <Skeleton className="h-5 w-14" />
-                        <Skeleton className="ml-auto h-5 w-20" />
-                      </div>
-                    ))}
-                  </div>
-                ) : rules.length === 0 && !schedules.isError ? (
-                  <p className="py-2 font-mono text-[11px] leading-relaxed text-low">
-                    no rules yet — press{" "}
-                    <span className="text-mid">new rule</span> above to schedule your first command
-                  </p>
-                ) : (
-                  <ul className="divide-y divide-hairline">
-                    {rules.map((rule) => (
-                      <RuleRow
-                        key={rule.id}
-                        rule={rule}
-                        devices={devices.data ?? []}
-                        highlighted={highlightId === rule.id}
-                      />
-                    ))}
-                  </ul>
-                )}
-              </Panel>
+              <OwnerStrip list={list} />
             </motion.section>
+          ) : null}
 
-            {/* external automation — crontab-discovered, read-only, §6.3 */}
-            <ExternalAutomationPanel />
-          </motion.div>
-        </main>
+          {/* 24h timeline: native rules + external automation */}
+          <motion.section variants={panelIn}>
+            <SectionLabel index={1} title="today" />
+            <Panel className="mt-3 p-5">
+              <ScheduleTimeline
+                rules={rules}
+                nowIso={list?.now ?? null}
+                external={external.data}
+                externalLoading={external.isLoading}
+                devices={devices.data ?? []}
+                onSelectRule={handleSelectRule}
+              />
+            </Panel>
+          </motion.section>
 
-      <AddRuleDialog open={addOpen} onOpenChange={setAddOpen} />
+          {/* rule list */}
+          <motion.section variants={panelIn}>
+            <SectionLabel index={2} title="native rules" />
+            <Panel className="mt-3 p-5">
+              {schedules.isLoading ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 3 }, (_, i) => (
+                    <div key={i} className="flex items-center gap-3 py-1">
+                      <Skeleton className="h-6 w-11 rounded-full" />
+                      <Skeleton className="h-5 w-36" />
+                      <Skeleton className="h-5 w-14" />
+                      <Skeleton className="ml-auto h-5 w-20" />
+                    </div>
+                  ))}
+                </div>
+              ) : rules.length === 0 && !schedules.isError ? (
+                <p className="py-2 font-mono text-[11px] leading-relaxed text-low">
+                  no rules yet — press <span className="text-mid">new rule</span> above to schedule
+                  your first command
+                </p>
+              ) : list ? (
+                <ul className="divide-y divide-hairline">
+                  {rules.map((rule) => (
+                    <RuleRow
+                      key={rule.id}
+                      rule={rule}
+                      list={list}
+                      devices={devices.data ?? []}
+                      highlighted={highlightId === rule.id}
+                      onEdit={() => openEdit(rule)}
+                    />
+                  ))}
+                </ul>
+              ) : null}
+            </Panel>
+          </motion.section>
+
+          {/* external automation: crontab-discovered, read-only */}
+          <ExternalAutomationPanel />
+        </motion.div>
+      </main>
+
+      <RuleDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        rule={editing}
+        now={list?.now ?? ""}
+      />
     </>
   );
 }

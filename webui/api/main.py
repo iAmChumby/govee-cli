@@ -71,7 +71,8 @@ async def _scheduler_health(app: FastAPI) -> dict[str, Any]:
     runner: SchedulerRunner | None = app.state.scheduler_runner
     native: dict[str, Any] = (
         runner.snapshot() if runner is not None
-        else {"alive": False, "poll_seconds": None, "last_cycle_at": None, "last_fire": None}
+        else {"alive": False, "poll_seconds": None, "last_cycle_at": None,
+              "last_fire": None, "lock_status": "disabled", "owner": None}
     )
 
     if app.state.settings.mock:
@@ -149,10 +150,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.playback = PlaybackManager()
     app.state.mock_client = MockV2() if resolved.mock else None
     app.state.v2_client = None
-    # The embedded scheduler never runs in mock mode: firing real commands while
-    # someone believes they are watching fixtures would be a nasty surprise.
+    # In mock mode the runner is dry-run: it owns the lock as "sidecar (mock)"
+    # and records would_fire, sending nothing. GOVEE_WEBUI_SCHEDULER=0 -> no
+    # runner at all, and the lock is never touched.
     app.state.scheduler_runner = (
-        SchedulerRunner() if resolved.scheduler_enabled else None
+        SchedulerRunner(dry_run=resolved.mock, mock_owner=resolved.mock_owner)
+        if resolved.scheduler_enabled else None
     )
 
     for router in (

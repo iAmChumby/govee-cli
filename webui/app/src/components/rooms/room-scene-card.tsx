@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { AlertTriangle, CheckCircle2, MinusCircle, RotateCcw, Trash2, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, MinusCircle, Pencil, RotateCcw, Trash2, XCircle } from "lucide-react";
 
 import { Button, Chip, Panel } from "@/components/ui";
 import {
@@ -10,7 +10,9 @@ import {
   type RoomSceneRestoreResult,
   type RoomSceneSummary,
 } from "@/lib/api";
-import { useDeleteRoom, useDevices, useRestoreRoom } from "@/lib/queries";
+import { useDeleteRoom, useDevices, useRestoreRoom, useRoomReferences } from "@/lib/queries";
+import { AuthoredSceneDialog } from "@/components/rooms/authored-scene-dialog";
+import { referenceWarning } from "@/components/rooms/authored-scene";
 import { useDeviceBleed } from "@/lib/device-bleed";
 import { rgbToHsl, kelvinToRgb, prefersColorTemp, WARM_HSL, type Hsl } from "@/components/stage/color";
 import { cn } from "@/lib/cn";
@@ -106,6 +108,12 @@ export function RoomSceneCard({
   const [restoring, setRestoring] = React.useState(false);
   const [deleting, setDeleting] = React.useState(false);
   const [armDelete, setArmDelete] = React.useState(false);
+  const [editOpen, setEditOpen] = React.useState(false);
+  // Arming delete fetches which schedule rules point at this scene, so the
+  // confirm step can name what will stop firing.
+  const references = useRoomReferences(armDelete ? scene.name : null);
+  const warning = armDelete && references.data ? referenceWarning(references.data.rules) : null;
+  const checkingRefs = armDelete && references.isFetching;
   const [lastRestore, setLastRestore] = React.useState<RoomSceneRestoreResult | null>(null);
 
   const { hsl, on, brightness } = React.useMemo(() => aggregateBleed(detail ?? []), [detail]);
@@ -113,7 +121,7 @@ export function RoomSceneCard({
 
   React.useEffect(() => {
     if (!armDelete) return;
-    const id = window.setTimeout(() => setArmDelete(false), 3000);
+    const id = window.setTimeout(() => setArmDelete(false), 10_000);
     return () => window.clearTimeout(id);
   }, [armDelete]);
 
@@ -138,6 +146,7 @@ export function RoomSceneCard({
       setArmDelete(true);
       return;
     }
+    if (checkingRefs) return;
     setArmDelete(false);
     setDeleting(true);
     try {
@@ -154,13 +163,22 @@ export function RoomSceneCard({
       <Panel bleed className="relative flex h-full min-w-0 flex-col p-4">
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[15px] font-medium leading-tight text-hi">{scene.name}</p>
+            <p className="break-words text-[15px] font-medium leading-tight text-hi">{scene.name}</p>
             <p className="mt-0.5 font-mono text-[10px] text-low">{formatCapturedAt(scene.created_at)}</p>
           </div>
-          <Chip className="shrink-0">
-            {scene.device_count} {scene.device_count === 1 ? "device" : "devices"}
-          </Chip>
+          <div className="flex shrink-0 flex-wrap justify-end gap-1">
+            <Chip>{scene.source === "authored" ? "authored" : "captured"}</Chip>
+            <Chip>
+              {scene.device_count} {scene.device_count === 1 ? "device" : "devices"}
+            </Chip>
+          </div>
         </div>
+
+        {scene.note ? (
+          <p className="mt-2 whitespace-normal break-words font-mono text-[10px] leading-snug text-low">
+            {scene.note}
+          </p>
+        ) : null}
 
         {scene.unknown_count > 0 ? (
           <p className="mt-2 flex items-start gap-1.5 font-mono text-[10px] leading-snug text-ember">
@@ -181,19 +199,38 @@ export function RoomSceneCard({
             <RotateCcw size={13} strokeWidth={1.75} aria-hidden />
             restore
           </Button>
+          {scene.source === "authored" ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              aria-label={`Edit ${scene.name}`}
+              onClick={() => setEditOpen(true)}
+              className="shrink-0"
+            >
+              <Pencil size={13} strokeWidth={1.5} aria-hidden />
+              edit
+            </Button>
+          ) : null}
           <Button
             size="sm"
             variant={armDelete ? "danger" : "ghost"}
-            busy={deleting}
+            busy={deleting || checkingRefs}
             aria-label={armDelete ? `Confirm delete ${scene.name}` : `Delete ${scene.name}`}
-            title={armDelete ? undefined : "delete"}
-            onBlur={() => setArmDelete(false)}
             onClick={() => void handleDelete()}
             className={cn("shrink-0 justify-center", armDelete ? "px-2.5" : "w-8 px-0")}
           >
             {armDelete ? "confirm?" : <Trash2 size={13} strokeWidth={1.5} aria-hidden />}
           </Button>
         </div>
+
+        {armDelete && !checkingRefs ? (
+          <p role="alert" className="mt-2 flex items-start gap-1.5 font-mono text-[10px] leading-snug text-ember">
+            <AlertTriangle size={12} strokeWidth={1.75} aria-hidden className="mt-px shrink-0" />
+            {references.isError
+              ? "could not check which schedule rules use this scene — deleting may stop them firing"
+              : (warning ?? "no schedule rules use this scene")}
+          </p>
+        ) : null}
 
         {/* restore results — per device, including skipped_reason. Surfaced
             here rather than left to the mutation's toast alone, which can
@@ -205,7 +242,7 @@ export function RoomSceneCard({
             className="mt-3 space-y-1 overflow-hidden border-t border-hairline pt-2.5"
           >
             {lastRestore.results.map((step) => (
-              <li key={step.ref} className="flex items-start gap-1.5 font-mono text-[10px] leading-snug">
+              <li key={step.ref} className="flex flex-wrap items-start gap-1.5 font-mono text-[10px] leading-snug">
                 {/* A skip gets its own mark. The route reports it as ok:true —
                     correctly, since nothing failed — but a green tick beside
                     the word "skipped" tells the eye the device was restored
@@ -218,30 +255,35 @@ export function RoomSceneCard({
                 ) : (
                   <XCircle size={11} strokeWidth={2} aria-hidden className="mt-px shrink-0 text-ember" />
                 )}
-                {/* The name never truncates and the reason always may: on a
+                {/* Neither the name nor the reason truncates: on a
                     phone the reason is long enough to squeeze every name down
                     to one letter ("B… — skipped: mode was unknown when…"),
                     which loses the only part identifying which light it is. */}
                 <span className="shrink-0 text-mid">{nameOf(step.ref)}</span>
                 {/* §11.2(6): this is the entire reason room scenes exist —
                     a device that got skipped rather than guessed, and why.
-                    `title` alone made that sentence hover-only, i.e. absent
-                    on a phone. Under pointer:coarse the string wraps onto
-                    its own line(s) instead of clipping; `title` stays for
-                    desktop's cheaper hover path. */}
+                    The sentence wraps at every width and is never hidden behind
+                    a tooltip or an ellipsis. */}
                 {step.skipped_reason ? (
                   <span
-                    className="min-w-0 truncate text-low pointer-coarse:whitespace-normal pointer-coarse:break-words"
-                    title={step.skipped_reason}
+                    className="min-w-0 flex-1 basis-40 whitespace-normal break-words text-low"
                   >
                     — skipped: {step.skipped_reason}
                   </span>
                 ) : step.error ? (
                   <span
-                    className="min-w-0 truncate text-ember pointer-coarse:whitespace-normal pointer-coarse:break-words"
-                    title={step.error}
+                    className="min-w-0 flex-1 basis-40 whitespace-normal break-words text-ember"
                   >
                     — {step.error}
+                  </span>
+                ) : null}
+                {step.notes && step.notes.length > 0 ? (
+                  <span className="block min-w-0 basis-full break-words pl-[17px] text-low">
+                    {step.notes.map((note, i) => (
+                      <span key={i} className="block">
+                        {note}
+                      </span>
+                    ))}
                   </span>
                 ) : null}
               </li>
@@ -249,6 +291,9 @@ export function RoomSceneCard({
           </motion.ul>
         ) : null}
       </Panel>
+      {scene.source === "authored" ? (
+        <AuthoredSceneDialog open={editOpen} onOpenChange={setEditOpen} scene={scene} />
+      ) : null}
     </div>
   );
 }

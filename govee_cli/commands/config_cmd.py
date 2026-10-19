@@ -3,6 +3,7 @@
 import asyncio
 import json
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import click
 
@@ -22,9 +23,12 @@ from govee_cli.exceptions import (
     ModelDetectionFailed,
     UnsupportedDevice,
 )
+from govee_cli.schedule import timespec
 
 
-@click.command()
+# A group (not a plain command) so `config location` can sit beside the flags.
+# With no subcommand the callback runs exactly as it did when this was a command.
+@click.group(invoke_without_command=True)
 @click.option("--mac", "default_mac", help="Default device MAC address")
 @click.option("--adapter", "default_adapter", help="Default Bluetooth adapter (e.g. hci0)")
 @click.option("--timeout", "default_timeout", type=float, help="Default BLE timeout in seconds")
@@ -68,6 +72,8 @@ def command(
         govee-cli config --list-devices
         govee-cli config --remove-device AA:BB:CC:DD:EE:FF
     """
+    if ctx.invoked_subcommand is not None:
+        return
     cfg = load_config()
 
     # Validate conflicting flags early
@@ -147,6 +153,88 @@ def command(
     save_config(cfg)
     click.echo("Config updated:")
     _print_config(cfg)
+
+
+@command.command(
+    "location",
+    # Negative coordinates (longitude -74.0060) must reach the argument, not be
+    # parsed as an unknown short option.
+    context_settings={"ignore_unknown_options": True},
+)
+@click.argument("latitude", type=float, required=False)
+@click.argument("longitude", type=float, required=False)
+@click.option("--timezone", "tz_name", default=None,
+              help="IANA zone, e.g. America/New_York. Unset means the host's zone.")
+@click.option("--clear", "clear", is_flag=True, help="Remove the location and timezone.")
+def location_cmd(
+    latitude: float | None,
+    longitude: float | None,
+    tz_name: str | None,
+    clear: bool,
+) -> None:
+    """Set where sun-relative schedule times are computed.
+
+    LATITUDE is -90 to 90 and LONGITUDE is -180 to 180. With no arguments this
+    shows the current location. Sunrise and sunset rules have no next run until
+    a location is set.
+
+    \b
+        govee-cli config location 40.7128 -74.0060 --timezone America/New_York
+        govee-cli config location --clear
+    """
+    if clear:
+        if latitude is not None or longitude is not None or tz_name is not None:
+            raise click.ClickException(
+                "--clear cannot be combined with coordinates or --timezone."
+            )
+        cfg = load_config()
+        cfg.latitude = None
+        cfg.longitude = None
+        cfg.timezone = None
+        save_config(cfg)
+        click.echo("Location cleared. Sunrise and sunset rules will have no next run.")
+        return
+
+    if latitude is None and longitude is None and tz_name is None:
+        _print_location(load_config())
+        return
+    if (latitude is None) != (longitude is None):
+        raise click.ClickException("Give both LATITUDE and LONGITUDE, or neither.")
+    if latitude is not None and not -90.0 <= latitude <= 90.0:
+        raise click.ClickException(f"Latitude {latitude} is out of range. Use -90 to 90.")
+    if longitude is not None and not -180.0 <= longitude <= 180.0:
+        raise click.ClickException(f"Longitude {longitude} is out of range. Use -180 to 180.")
+    if tz_name is not None:
+        _validate_timezone(tz_name)
+
+    cfg = load_config()
+    if latitude is not None and longitude is not None:
+        cfg.latitude = latitude
+        cfg.longitude = longitude
+    if tz_name is not None:
+        cfg.timezone = tz_name
+    save_config(cfg)
+    click.echo("Location updated:")
+    _print_location(cfg)
+
+
+def _validate_timezone(name: str) -> None:
+    try:
+        ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError) as e:
+        raise click.ClickException(
+            f"Unknown timezone '{name}'. Use an IANA name like America/New_York."
+        ) from e
+
+
+def _print_location(cfg: GoveeConfig) -> None:
+    loc = timespec.resolve_location(cfg)
+    if loc.latitude is not None and loc.longitude is not None:
+        click.echo(f"location: {loc.latitude:.4f}, {loc.longitude:.4f}")
+    else:
+        click.echo("location: not set (sun rules have no next run)")
+    label = f"host: {loc.timezone}" if loc.timezone_source == "host" else loc.timezone
+    click.echo(f"timezone: {label}")
 
 
 async def _add_or_update_device(

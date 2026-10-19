@@ -67,12 +67,16 @@ export interface DialogContentProps {
   position?: "center" | "right";
   className?: string;
   children: React.ReactNode;
+  /** Forwarded to Radix. `e.preventDefault()` opens without moving focus,
+   *  e.g. an edit form that should not select its first field's value. */
+  onOpenAutoFocus?: (e: Event) => void;
 }
 
 export function DialogContent({
   position = "center",
   className,
   children,
+  onOpenAutoFocus,
 }: DialogContentProps) {
   const { open } = useDialogContext();
 
@@ -93,7 +97,7 @@ export function DialogContent({
               />
             </DialogPrimitive.Overlay>
 
-            <DialogPrimitive.Content forceMount asChild>
+            <DialogPrimitive.Content forceMount asChild onOpenAutoFocus={onOpenAutoFocus}>
               {position === "center" ? (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.96, y: 10 }}

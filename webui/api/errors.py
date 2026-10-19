@@ -95,10 +95,14 @@ def install_error_handlers(app: FastAPI) -> None:
         request: Request, exc: RequestValidationError
     ) -> JSONResponse:
         # Pydantic's default is 422; the spec pins bad input at 400.
-        details = "; ".join(
-            f"{'.'.join(str(loc) for loc in err.get('loc', ['?'])[1:])}: {err.get('msg', '')}"
-            for err in exc.errors()
-        )
+        def _one(err: Any) -> str:
+            # A model-level validator has no field path; pydantic also prefixes
+            # every ValueError message with "Value error, ". Neither helps a reader.
+            msg = str(err.get("msg", "")).removeprefix("Value error, ")
+            field = ".".join(str(loc) for loc in err.get("loc", ["?"])[1:])
+            return f"{field}: {msg}" if field else msg
+
+        details = "; ".join(_one(err) for err in exc.errors())
         return _error_response(BAD_REQUEST, "bad_request", details or "Invalid request body.")
 
     @app.exception_handler(click.ClickException)
