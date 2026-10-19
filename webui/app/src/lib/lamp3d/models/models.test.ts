@@ -6,15 +6,21 @@
  * needs jsdom or a browser.
  */
 
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, vi } from "vitest";
 import { Box3, Vector3, type BufferGeometry, type Mesh } from "three";
 import { h6022Source } from "./h6022";
 import { h6056Source } from "./h6056";
 import { h6008Source } from "./h6008";
 import { h6004Source } from "./h6004";
 import { unknownSource } from "./unknown";
-import { acquireModel, releaseModel, modelCacheTestHooks } from "./source";
-import { ledCount, singleEmitterLayout, type LedLayout, type LedPlacement } from "./types";
+import { acquireModel, releaseModel, sourceForModel, modelCacheTestHooks } from "./source";
+import {
+  layoutFromCapabilities,
+  ledCount,
+  singleEmitterLayout,
+  type LedLayout,
+  type LedPlacement,
+} from "./types";
 
 const H6022_LAYOUT: LedLayout = { rows: 11, cols: 12, wrapCol: true };
 const H6056_LAYOUT: LedLayout = { rows: 2, cols: 48, wrapCol: false };
@@ -39,6 +45,32 @@ function assertCompletePermutation(placements: LedPlacement[], layout: LedLayout
   for (let i = 0; i < expectedCount; i++) {
     expect(seen.has(i)).toBe(true);
   }
+}
+
+/** Greatest radial distance among the vertices at one exact y ring. */
+function ringRadiusAtY(geometry: BufferGeometry, y: number): number {
+  const position = geometry.getAttribute("position");
+  if (!position) throw new Error("geometry has no position attribute");
+  let radius = 0;
+  for (let i = 0; i < position.count; i++) {
+    if (Math.abs(position.getY(i) - y) < EPS) {
+      radius = Math.max(radius, Math.hypot(position.getX(i), position.getZ(i)));
+    }
+  }
+  return radius;
+}
+
+function yRange(geometry: BufferGeometry): { yMin: number; yMax: number } {
+  const position = geometry.getAttribute("position");
+  if (!position) throw new Error("geometry has no position attribute");
+  let yMin = Infinity;
+  let yMax = -Infinity;
+  for (let i = 0; i < position.count; i++) {
+    const y = position.getY(i);
+    if (y < yMin) yMin = y;
+    if (y > yMax) yMax = y;
+  }
+  return { yMin, yMax };
 }
 
 /**
@@ -443,19 +475,37 @@ describe("h6004Source", () => {
     expect((box.max.y - box.min.y) / width).toBeCloseTo(56 / 11, 2);
   });
 
-  it("keeps the shade a true cylinder — equal top and bottom radius, per the spec", () => {
-    // Target lists the shade as 11" at BOTH top and bottom. A taper here
-    // would be a fabrication, and would also put each row of a future
-    // multi-texel layout at its own radius (see h6022.ts).
-    const shade = model.diffusers[0];
-    const box = new Box3().setFromObject(shade);
-    expect(box.max.x - box.min.x).toBeCloseTo(box.max.z - box.min.z, 6);
+  it("keeps the shade a true cylinder — equal top and bottom rim radius", () => {
+    // Target lists the shade as 11" at BOTH top and bottom. Compare the real
+    // lathe vertices at the two extreme rings: a cone (a smaller top radius)
+    // would pass an axis-aligned bounding-box check, so this reads the rings
+    // themselves.
+    const geometry = model.diffusers[0].geometry as BufferGeometry;
+    const { yMin, yMax } = yRange(geometry);
+    const bottom = ringRadiusAtY(geometry, yMin);
+    const top = ringRadiusAtY(geometry, yMax);
+    expect(bottom).toBeGreaterThan(0);
+    expect(top).toBeCloseTo(bottom, 6);
   });
 
-  it("disposes without throwing, twice (idempotent)", () => {
+  it("disposes each geometry once, not twice (the guard is load-bearing)", () => {
     const disposable = h6004Source.build(singleEmitterLayout());
-    expect(() => disposable.dispose()).not.toThrow();
-    expect(() => disposable.dispose()).not.toThrow();
+    const spy = vi.spyOn(disposable.diffusers[0].geometry, "dispose");
+    disposable.dispose();
+    disposable.dispose();
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("is the procedural source registered for H6004", () => {
+    expect(sourceForModel("H6004")).toBe(h6004Source);
+  });
+
+  it("defaults to a 1x1 layout from the model name", () => {
+    expect(layoutFromCapabilities(null, "H6004")).toEqual({
+      rows: 1,
+      cols: 1,
+      wrapCol: false,
+    });
   });
 });
 
@@ -495,6 +545,14 @@ describe("acquireModel / releaseModel cache", () => {
     expect(b.slots.diffuser).toBe(a.slots.diffuser);
     releaseModel("H6022");
     releaseModel("H6022");
+  });
+
+  it("acquires H6004 as its own model, not the neutral capsule", () => {
+    const model = acquireModel("H6004", layoutFromCapabilities(null, "H6004"));
+    expect(model.model).toBe("H6004");
+    expect(model.leds.length).toBe(1);
+    expect(model.layout).toEqual({ rows: 1, cols: 1, wrapCol: false });
+    releaseModel("H6004");
   });
 
   it("disposes only after every acquisition has a matching release", () => {
