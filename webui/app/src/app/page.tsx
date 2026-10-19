@@ -182,7 +182,7 @@ export default function ConsolePage() {
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       placeholder="filter devices…"
-                      className="h-9 w-56 rounded-btn border border-hairline bg-raised pl-8 pr-3 text-[13px] text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong focus-visible:outline-none"
+                      className="h-9 w-56 rounded-btn border border-hairline bg-raised pl-8 pr-3 text-[13px] text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong focus-visible:outline-none pointer-coarse:text-base"
                     />
                   </label>
                   <IconButton label="Refresh state" tooltip="Refresh state" onClick={refreshAll}>
@@ -212,7 +212,7 @@ export default function ConsolePage() {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="filter devices…"
-                  className="h-11 w-full rounded-btn border border-hairline bg-raised pl-8 pr-3 text-[13px] text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong focus-visible:outline-none"
+                  className="h-11 w-full rounded-btn border border-hairline bg-raised pl-8 pr-3 text-[13px] text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong focus-visible:outline-none pointer-coarse:text-base"
                 />
               </label>
             </motion.section>

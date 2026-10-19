@@ -172,7 +172,7 @@ export function HexField({ onCommit, className }: HexFieldProps) {
           // above) there's no separate "ink" to preserve for a text
           // field — the box itself is the whole control, so it's
           // floored directly rather than wrapped.
-          "h-7 w-[86px] rounded-btn border bg-raised px-2 font-mono text-[11px] uppercase tracking-[0.06em] text-hi transition-colors duration-150 placeholder:text-low placeholder:normal-case focus-visible:border-hairline-strong focus-visible:outline-none pointer-coarse:min-h-11",
+          "h-7 w-[86px] rounded-btn border bg-raised px-2 font-mono text-[11px] uppercase tracking-[0.06em] text-hi transition-colors duration-150 placeholder:text-low placeholder:normal-case focus-visible:border-hairline-strong focus-visible:outline-none pointer-coarse:min-h-11 pointer-coarse:text-base",
           invalid ? "border-ember" : "border-hairline",
           className,
         )}
