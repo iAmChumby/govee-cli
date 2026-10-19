@@ -35,18 +35,20 @@ describe("announce bus", () => {
     assert.deepEqual(heard, ["Schedule saved"]);
   });
 
-  it("announces a different message after an identical one collapses", () => {
+  it("re-announces an earlier message once a different one intervened", () => {
     const heard: string[] = [];
     subscribeAnnouncements((message) => heard.push(message));
 
-    announce("Schedule saved");
-    announce("Room scene \"Evenings\" saved");
-    announce("Schedule saved");
+    // `lastAnnounced` is module-level, so start from a message no other
+    // test uses; what is under test is only the collapse behaviour.
+    announce("Brightness 40% set");
+    announce("Schedule updated");
+    announce("Brightness 40% set");
 
     assert.deepEqual(heard, [
-      "Schedule saved",
-      "Room scene \"Evenings\" saved",
-      "Schedule saved",
+      "Brightness 40% set",
+      "Schedule updated",
+      "Brightness 40% set",
     ]);
   });
 });

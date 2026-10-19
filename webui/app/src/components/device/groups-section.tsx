@@ -3,7 +3,7 @@
 import * as React from "react";
 import { motion } from "motion/react";
 
-import { Panel, SectionLabel, Slider, StatusDot } from "@/components/ui";
+import { Panel, SectionLabel, Skeleton, Slider, StatusDot } from "@/components/ui";
 import {
   useGroupRun,
   useGroupState,
@@ -21,9 +21,30 @@ import { QUICK_COLORS } from "@/components/device/device-plate";
    would be exactly the dishonest "muddy purple" §C rules out.
    ================================================================== */
 
+/**
+ * The panel's honest states, decided in one place so the render below is a
+ * plain branch: an unreachable sidecar is an error, never "no groups
+ * configured" (CLAUDE.md: an unreadable thing is not "no such thing"), and
+ * the first read shows a skeleton instead of pre-empting either answer.
+ */
+export function groupsBranch({
+  data,
+  isLoading,
+  error,
+}: {
+  data: Record<string, string[]> | undefined;
+  isLoading: boolean;
+  error: unknown;
+}): "loading" | "error" | "empty" | "populated" {
+  if (isLoading) return "loading";
+  if (error) return "error";
+  return Object.keys(data ?? {}).length === 0 ? "empty" : "populated";
+}
+
 export function GroupsSection() {
-  const groups = useGroups();
-  const names = Object.keys(groups.data ?? {});
+  const { data: groups, isLoading, error } = useGroups();
+  const names = Object.keys(groups ?? {});
+  const branch = groupsBranch({ data: groups, isLoading, error });
   const [selected, setSelected] = React.useState<string | null>(null);
 
   const active =
@@ -33,7 +54,15 @@ export function GroupsSection() {
   return (
     <motion.section variants={panelIn}>
       <SectionLabel title="groups" />
-      {names.length === 0 ? (
+      {branch === "loading" ? (
+        <div className="mt-3">
+          <Skeleton className="h-8 w-32" />
+        </div>
+      ) : branch === "error" ? (
+        <p className="mt-3 font-mono text-[11px] text-ember">
+          sidecar unreachable — groups unknown
+        </p>
+      ) : branch === "empty" ? (
         <p className="mt-3 font-mono text-[11px] text-low">
           no groups configured — add one under settings
         </p>
@@ -69,7 +98,10 @@ export function GroupsSection() {
           <ul className="mt-4 divide-y divide-hairline">
             {(state.data?.devices ?? []).map((d) => (
               <li key={d.id} className="flex items-center gap-3 py-2.5">
-                <StatusDot tone={d.online === false ? "off" : "ok"} />
+                <StatusDot
+                  tone={d.online === false ? "off" : "ok"}
+                  label={d.online === false ? "offline" : "online"}
+                />
                 <span className="text-[13px] text-hi">{d.name ?? d.ref}</span>
                 <span className="ml-auto font-mono text-[11px] text-low">
                   {d.power ? "on" : "off"} · {d.brightness ?? "?"}%
