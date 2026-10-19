@@ -24,6 +24,8 @@ function readAppFile(...parts: string[]): string {
 const swSource = readAppFile("public/sw.js");
 const apiSource = readAppFile("src/lib/api.ts");
 
+const CACHE_NAME = "filament-shell-v3";
+
 interface CacheRequest {
   method: string;
   url: string;
@@ -31,36 +33,81 @@ interface CacheRequest {
   headers?: { get(name: string): string | null };
 }
 
-/** Execute public/sw.js and take its shouldCache function. */
-function loadShouldCache(): (request: CacheRequest) => boolean {
+type Listener = (event: { waitUntil(promise: Promise<unknown>): void }) => void;
+
+interface WorkerOptions {
+  /** URLs already in the current cache */
+  cacheUrls?: string[];
+  /** cache names `caches.keys()` reports */
+  cacheKeys?: string[];
+  /** body of the fresh `/` document the activate handler fetches */
+  shellHtml?: string;
+}
+
+interface Worker {
+  context: Record<string, unknown>;
+  listeners: Record<string, Listener[]>;
+  deletedCacheNames: string[];
+  deletedUrls: string[];
+}
+
+/** Execute public/sw.js with the worker globals the code touches. */
+function loadWorker(options: WorkerOptions = {}): Worker {
+  const deletedCacheNames: string[] = [];
+  const deletedUrls: string[] = [];
+  const listeners: Record<string, Listener[]> = {};
+  const cache = {
+    keys: async () => (options.cacheUrls ?? []).map((url) => ({ url })),
+    delete: async (url: string) => {
+      deletedUrls.push(url);
+      return true;
+    },
+    add: async () => undefined,
+    put: async () => undefined,
+  };
   const context: Record<string, unknown> = {
     location: { origin: ORIGIN },
     self: {
-      addEventListener: () => undefined,
+      addEventListener: (type: string, listener: Listener) => {
+        (listeners[type] ??= []).push(listener);
+      },
       skipWaiting: () => undefined,
       clients: { claim: () => undefined },
     },
     caches: {
-      open: async () => ({
-        add: async () => undefined,
-        put: async () => undefined,
-      }),
+      open: async () => cache,
       match: async () => undefined,
-      keys: async () => [],
-      delete: async () => true,
+      keys: async () => options.cacheKeys ?? [CACHE_NAME],
+      delete: async (key: string) => {
+        deletedCacheNames.push(key);
+        return true;
+      },
     },
-    fetch: async () => undefined,
+    fetch: async () => ({
+      ok: true,
+      text: async () => options.shellHtml ?? "",
+    }),
     URL,
     console,
   };
   vm.createContext(context);
   vm.runInContext(swSource, context, { filename: "public/sw.js" });
-  const fn = context.shouldCache;
+  return { context, listeners, deletedCacheNames, deletedUrls };
+}
+
+function loadShouldCache(): (request: CacheRequest) => boolean {
+  const fn = loadWorker().context.shouldCache;
   assert.equal(typeof fn, "function", "public/sw.js must define shouldCache()");
   return fn as (request: CacheRequest) => boolean;
 }
 
 const shouldCache = loadShouldCache();
+
+function referencedStaticPaths(html: string): Set<string> {
+  const fn = loadWorker().context.referencedStaticPaths;
+  assert.equal(typeof fn, "function", "public/sw.js must define referencedStaticPaths()");
+  return (fn as (html: string) => Set<string>)(html);
+}
 
 /**
  * Every pathname src/lib/api.ts can request. Comments are stripped first:
@@ -219,7 +266,57 @@ describe("Service Worker cache contract (#6)", () => {
     );
   });
 
+  it("reads the current build's static references from the shell HTML", () => {
+    const refs = referencedStaticPaths(
+      '<link href="/_next/static/css/a.css"><script src="/_next/static/chunks/b.js"></script>',
+    );
+    assert.deepEqual([...refs].sort(), [
+      "/_next/static/chunks/b.js",
+      "/_next/static/css/a.css",
+    ]);
+  });
+
+  it("evicts build chunks the current shell does not reference (LOW-3)", async () => {
+    const keep = `${ORIGIN}/_next/static/chunks/keep.js`;
+    const old = `${ORIGIN}/_next/static/chunks/old.js`;
+    const worker = loadWorker({
+      cacheUrls: [keep, old, `${ORIGIN}/`, `${ORIGIN}/icons/icon-192.png`],
+      cacheKeys: [CACHE_NAME, "filament-shell-v2"],
+      shellHtml: `<script src="${new URL(keep).pathname}"></script>`,
+    });
+    const handler = worker.listeners.activate?.[0];
+    assert.ok(handler, "public/sw.js must register an activate handler");
+    const waits: Promise<unknown>[] = [];
+    handler({ waitUntil: (promise) => waits.push(promise) });
+    await Promise.all(waits);
+
+    assert.deepEqual(worker.deletedCacheNames, ["filament-shell-v2"]);
+    assert.deepEqual(worker.deletedUrls, [old]);
+    // The shell and icons are not build output and are never evicted.
+    assert.equal(worker.deletedUrls.includes(`${ORIGIN}/`), false);
+    assert.equal(
+      worker.deletedUrls.includes(`${ORIGIN}/icons/icon-192.png`),
+      false,
+    );
+  });
+
+  it("drops every cached build chunk when the shell cannot be read", async () => {
+    const keep = `${ORIGIN}/_next/static/chunks/keep.js`;
+    const old = `${ORIGIN}/_next/static/chunks/old.js`;
+    const worker = loadWorker({
+      cacheUrls: [keep, old],
+      shellHtml: "",
+    });
+    const handler = worker.listeners.activate?.[0];
+    assert.ok(handler, "public/sw.js must register an activate handler");
+    const waits: Promise<unknown>[] = [];
+    handler({ waitUntil: (promise) => waits.push(promise) });
+    await Promise.all(waits);
+
+    assert.deepEqual(worker.deletedUrls.sort(), [keep, old].sort());
+  });
+
   it("bumps CACHE_NAME so the previous shell cache is purged", () => {
-    assert.match(swSource, /CACHE_NAME\s*=\s*"filament-shell-v2"/);
+    assert.match(swSource, /CACHE_NAME\s*=\s*"filament-shell-v3"/);
   });
 });

@@ -19,7 +19,7 @@
  * path in src/lib/api.ts and proves none of them is ever cached.
  */
 
-const CACHE_NAME = "filament-shell-v2";
+const CACHE_NAME = "filament-shell-v3";
 const STATIC_ASSETS = ["/", "/manifest.webmanifest"];
 
 /**
@@ -82,15 +82,67 @@ self.addEventListener("install", (event) => {
   self.skipWaiting();
 });
 
+/**
+ * Every `/_next/static/...` URL the current shell document references.
+ * Next's build output is content-hashed, so a chunk that is not named by
+ * today's HTML is from a previous deploy and can never be requested again
+ * by this build.
+ */
+function referencedStaticPaths(html) {
+  const paths = new Set();
+  const matches = String(html || "").match(/\/_next\/static\/[^"'\s<>\\]+/g) || [];
+  for (const match of matches) paths.add(match);
+  return paths;
+}
+
+/**
+ * Cached URLs that are build output but not referenced by the current
+ * shell. Pure so the eviction rule is testable without a CacheStorage.
+ */
+function staleStaticEntries(cachedUrls, referenced) {
+  return cachedUrls.filter((url) => {
+    const pathname = new URL(url).pathname;
+    return pathname.startsWith("/_next/static/") && !referenced.has(pathname);
+  });
+}
+
+/**
+ * LOW-3: a fixed CACHE_NAME only ever purged a hypothetical v1, so every
+ * deploy's content-hashed chunks accumulated forever. Fetch the fresh shell
+ * (never from the cache), learn which chunks this build actually names, and
+ * delete the rest. A failed shell fetch means "could not verify", so the
+ * safe move is to drop every cached build chunk — they are immutable and
+ * re-fetched on demand; keeping a chunk we cannot prove is current is the
+ * thing this exists to prevent.
+ */
+async function evictStaleStatic(cache) {
+  let html = "";
+  try {
+    const response = await fetch("/", { cache: "no-store" });
+    if (response && response.ok) html = await response.text();
+  } catch {
+    // Offline activate: fall through with an empty reference set.
+  }
+  const referenced = referencedStaticPaths(html);
+  const requests = await cache.keys();
+  const stale = staleStaticEntries(
+    requests.map((request) => request.url),
+    referenced,
+  );
+  await Promise.all(stale.map((url) => cache.delete(url)));
+  return stale;
+}
+
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
-          keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)),
-        ),
-      ),
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(
+        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)),
+      );
+      const cache = await caches.open(CACHE_NAME);
+      await evictStaleStatic(cache);
+    })(),
   );
   self.clients.claim();
 });
