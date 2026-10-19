@@ -42,6 +42,25 @@ const OUTLINE_CANCEL =
   /(^|[\s"'`:])((?:focus|focus-visible):)?outline-none(?=[\s"'`:]|$)/;
 
 /**
+ * The same cancel, under its DECLARED name.
+ *
+ * `focus-ring-painted` is a utility (globals.css) that cancels the outline
+ * so a control can paint the ring itself as a shadow flush with its own
+ * edge. It is the sanctioned spelling, and it carries the same contract:
+ * the shared ring must be painted on the same element. The rule is
+ * BELOW, in the utilities layer, so it wins over the base layer's
+ * `:focus-visible { outline: … }` without touching the ring.
+ */
+const PAINTED_RING_CANCEL = "focus-ring-painted";
+
+/**
+ * The utility's own DECLARATION in globals.css. That is the one place the
+ * cancel is allowed to stand alone — it is the sanctioned spelling itself.
+ * Every USE of it must paint the shared ring on the same element.
+ */
+const PAINTED_RING_DECL = "@utility focus-ring-painted";
+
+/**
  * The one way a control may cancel the outline: it paints the shared ring
  * itself, from the same token.
  */
@@ -78,7 +97,10 @@ describe("one focus ring (#12)", () => {
       const lines = readFileSync(file, "utf8").split(/\r?\n/);
       lines.forEach((line, i) => {
         if (line.includes(EXEMPT)) return;
-        if (!OUTLINE_CANCEL.test(line)) return;
+        if (line.includes(PAINTED_RING_DECL)) return;
+        const cancels =
+          OUTLINE_CANCEL.test(line) || line.includes(PAINTED_RING_CANCEL);
+        if (!cancels) return;
         if (line.includes(SHARED_RING)) return;
         offenders.push(`${file}:${i + 1}`);
       });
