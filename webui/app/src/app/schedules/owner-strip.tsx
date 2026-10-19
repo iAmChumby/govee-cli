@@ -62,7 +62,7 @@ export function OwnerStrip({ list }: { list: ScheduleList }) {
         </p>
         <p>
           {hasLocation ? (
-            <>{`location ${loc.latitude!.toFixed(2)}, ${loc.longitude!.toFixed(2)} · `}<span className="whitespace-nowrap">{formatZone(loc)}</span></>
+            <>{`location ${loc.name?.trim() || `${loc.latitude!.toFixed(2)}, ${loc.longitude!.toFixed(2)}`} · `}<span className="whitespace-nowrap">{formatZone(loc)}</span></>
           ) : (
             <>
               no location set: sun rules have no next run.{" "}

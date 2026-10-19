@@ -452,6 +452,7 @@ def _seed_config(path: pathlib.Path) -> None:
         # New York, timezone left unset so the UI shows "host: <zone>".
         data["latitude"] = 40.7128
         data["longitude"] = -74.0060
+        data["location_name"] = "New York, New York, United States"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2))
 

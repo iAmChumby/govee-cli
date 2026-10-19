@@ -857,3 +857,15 @@ def test_cli_add_succeeds_when_state_is_unreadable(
                       "--command", "power on"])
     assert result.exit_code == 0, result.output
     assert len(scheduler.list_rules()) == 1
+
+
+def test_schedules_location_block_carries_the_city_name(client: TestClient) -> None:
+    from govee_cli.config import load_config, save_config
+
+    assert client.get("/api/v1/schedules").json()["location"]["name"] is None
+    cfg = load_config()
+    cfg.latitude, cfg.longitude = 43.1548, -77.6156
+    cfg.location_name = "Rochester, New York, United States"
+    save_config(cfg)
+    loc = client.get("/api/v1/schedules").json()["location"]
+    assert loc["name"] == "Rochester, New York, United States"
