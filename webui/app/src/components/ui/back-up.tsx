@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 
 import { cn } from "@/lib/cn";
+import { hasInAppNav } from "@/lib/client-nav";
 
 export interface BackUpProps {
   className?: string;
@@ -14,15 +15,18 @@ export interface BackUpProps {
  * Pure half: decide whether a back tap should pop history or fall home.
  *
  * Exported so the behaviour can be unit-tested without a router or DOM.
+ * Uses in-app navigation flag (set by ClientNavTracker on first client navigation)
+ * instead of window.history.length, which is unreliable for cold deep links
+ * (e.g., opening a PWA from the home screen lands on about:blank when going back).
  */
-export function decideBackOrHome(historyLength: number): "back" | "home" {
-  return historyLength > 1 ? "back" : "home";
+export function decideBackOrHome(hasNav: boolean): "back" | "home" {
+  return hasNav ? "back" : "home";
 }
 
 /**
  * History-aware back control for device pages.
  *
- * Calls `router.back()` when the session has history (the user arrived here
+ * Calls `router.back()` when the session has in-app history (the user arrived here
  * from somewhere in the app), and falls back to `router.replace("/")` on a
  * cold start (the user opened the app straight to this device page, e.g.
  * from the PWA home screen), where `router.back()` would have nowhere to go.
@@ -34,8 +38,7 @@ export function BackUp({ className }: BackUpProps = {}) {
   const router = useRouter();
 
   const handleClick = React.useCallback(() => {
-    const action =
-      typeof window !== "undefined" ? decideBackOrHome(window.history.length) : "home";
+    const action = typeof window !== "undefined" ? decideBackOrHome(hasInAppNav()) : "home";
     if (action === "back") {
       router.back();
     } else {

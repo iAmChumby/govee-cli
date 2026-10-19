@@ -6,6 +6,7 @@ import "../styles/globals.css";
 import { Providers } from "@/components/providers";
 import { TopBar } from "@/components/shell/top-bar";
 import { StatusStrip } from "@/components/shell/status-strip";
+import { ClientNavTracker } from "@/components/ClientNavTracker";
 
 // UI + display — Archivo carries everything (display = weight 500–600,
 // tracking −0.02em; no separate display face per spec §5.2)
@@ -45,6 +46,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={`${ui.variable} ${mono.variable} font-ui`}>
         <Providers>
+          <ClientNavTracker />
           {/* Persistent app frame: chrome mounts once and survives every
               route change — no header replays, no status-strip resets. */}
           <div className="flex h-dvh flex-col overflow-hidden bg-bg">
