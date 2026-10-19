@@ -29,7 +29,16 @@ import { useDeleteActiveMode } from "@/lib/queries";
 import { UnknownModeChooser } from "@/components/stage/mode-picker";
 import { brightnessGlow, type ResolvedLampState } from "./active-mode";
 import { type PointerInputKind, shouldClaimGesture } from "./controls";
-import { useLampStage } from "./use-lamp-stage";
+import { findScrollAncestor, useLampStage } from "./use-lamp-stage";
+import {
+  findInlineCarrier,
+  intersectBox,
+  maskClipPath,
+  pickBackgroundIndex,
+  stepFollow,
+  type Box,
+  type FollowStep,
+} from "./stage-corner-mask";
 
 export interface LampStageProps {
   state: DeviceState | DeviceSummary;
@@ -219,6 +228,7 @@ function RotateHint() {
 
 export function LampStage({ state, variant = "full", className }: LampStageProps) {
   const containerRef = React.useRef<HTMLDivElement | null>(null);
+  const stageRef = React.useRef<HTMLDivElement | null>(null);
   const { resolved, webglAvailable } = useLampStage({ containerRef, state, variant });
   const mini = variant === "mini";
   const name = state.name ?? state.ref;
@@ -241,6 +251,198 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
   }, []);
   useDismissRotateHintOnFirstDrag(containerRef, !mini && !hintDismissed, dismissHint);
 
+  // The stage's rounded bottom corners cannot be clipped by the container's
+  // `overflow-hidden`: the shared `WebGLRenderer` canvas is a `fixed` element
+  // outside this subtree, and the rectangle each view is drawn into is a
+  // square `gl.scissor` rect. The render therefore paints past the rounded
+  // border at the bottom two corners, where the lit ground plane is opaque.
+  //
+  // A mask *inside* the stage cannot fix that: `overflow-hidden` clips its
+  // outward `box-shadow` back to the rounded border (verified — only a
+  // hairline survived), and at `lg` the sticky `<section>` ancestor creates
+  // a stacking context that keeps any `z-20` child below the canvas. So the
+  // same paint-only mask is mounted on `document.body` as a fixed overlay:
+  // it inherits nothing, so the surface colour is copied from the stage.
+  //
+  // The overlay is a body-level painter exactly like the canvas is, so it
+  // inherits the canvas's one hard rule: a view clips to its scrolling
+  // ancestor, or it paints over the TopBar (CLAUDE.md, "The 3D stage"). The
+  // mask is therefore clipped to the *same* rect the canvas scissors this
+  // view to — `findScrollAncestor` is the function the canvas's own
+  // registration uses, and `maskClipPath` intersects the mount point's box
+  // with that ancestor's box exactly as `views.ts`'s `readBoxes` does. A
+  // stage scrolled under the TopBar has its wedge stopped at the
+  // scroller's edge, like the paint it is covering. It paints nothing but
+  // those wedges and never touches the viewport, scissor rects, or camera.
+  React.useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+
+    const mask = document.createElement("div");
+    mask.setAttribute("aria-hidden", "true");
+    mask.className = "pointer-events-none fixed z-30 rounded-stage";
+    document.body.appendChild(mask);
+
+    // The surface the wedge has to match. The overlay lives at body level,
+    // so it inherits none of the card's `--dev-*` tokens: the surface
+    // colour is read from the DOM instead. It is the `.dev-bleed` panel
+    // when the stage sits on a card, else the nearest opaque ancestor —
+    // the app frame's own `bg-bg` on the device page, where the stage is
+    // not on a card at all.
+    const surfaceChain: HTMLElement[] = [];
+    for (
+      let el: HTMLElement | null =
+        (stage.closest(".dev-bleed") as HTMLElement | null) ?? stage.parentElement;
+      el;
+      el = el.parentElement
+    ) {
+      surfaceChain.push(el);
+    }
+    const surfaceIndex = pickBackgroundIndex(
+      surfaceChain.map((candidate) => window.getComputedStyle(candidate).backgroundColor),
+    );
+    const surfaceElement = surfaceIndex >= 0 ? surfaceChain[surfaceIndex] : null;
+
+    let surfaceColor = "";
+    const readSurface = (): string =>
+      surfaceElement ? window.getComputedStyle(surfaceElement).backgroundColor : "";
+    const applySurface = (step: FollowStep): void => {
+      if (!step.changed) return;
+      surfaceColor = step.colour;
+      mask.style.boxShadow = `0 0 0 100px ${step.colour}`;
+    };
+    const paintSurface = (): void => {
+      applySurface(stepFollow({ colour: surfaceColor, settled: 0 }, readSurface(), FOLLOW_SETTLED_READS));
+    };
+
+    // The card's surface is a MOVING target. `--dev-hue`/`--dev-alpha` are
+    // written on the card's root and the panel's background transitions
+    // over `--dur-slow`, so the mask has to follow the colour rather than
+    // freeze the one it read at mount — otherwise every console plate is
+    // painted in the untinted `--panel` colour while the card around it
+    // carries the device's tint.
+    //
+    // The element that actually carries those properties is the card's
+    // ROOT, an ancestor of the `.dev-bleed` panel, which only inherits
+    // them: the panel's own attributes never change, so watching the panel
+    // — as the first version of this mask did — never fired. The card
+    // writes them in an effect that runs after this one, so the carrier is
+    // resolved lazily and re-resolved on every tick until it appears.
+    let carrier: Element | null = null;
+    const carrierObserver = new MutationObserver(() => startFollowing());
+    function resolveCarrier(): void {
+      const found = findInlineCarrier(surfaceElement, "--dev-hue");
+      if (found === carrier) return;
+      carrierObserver.disconnect();
+      carrier = found;
+      if (carrier) {
+        carrierObserver.observe(carrier, { attributes: true, attributeFilter: ["style"] });
+      }
+    }
+
+    // While the surface is still moving, keep reading it: the card's
+    // background transitions for `--dur-slow` after the last write, and a
+    // mask frozen at the last write's colour would sit a visible step
+    // behind the card it is imitating. The poll stops as soon as the
+    // colour stops changing, so a settled card costs nothing.
+    const FOLLOW_INTERVAL_MS = 40;
+    const FOLLOW_SETTLED_READS = 3;
+    let followTimer: number | null = null;
+    let settledReads = 0;
+    function followSurface(): void {
+      resolveCarrier();
+      const step = stepFollow(
+        { colour: surfaceColor, settled: settledReads },
+        readSurface(),
+        FOLLOW_SETTLED_READS,
+      );
+      applySurface(step);
+      settledReads = step.settled;
+      if (!step.keepGoing) {
+        followTimer = null;
+        return;
+      }
+      followTimer = window.setTimeout(followSurface, FOLLOW_INTERVAL_MS);
+    }
+    function startFollowing(): void {
+      resolveCarrier();
+      paintSurface();
+      if (followTimer !== null) window.clearTimeout(followTimer);
+      settledReads = 0;
+      followTimer = window.setTimeout(followSurface, FOLLOW_INTERVAL_MS);
+    }
+
+    const toBox = (r: DOMRect): Box => ({
+      left: r.left,
+      top: r.top,
+      width: r.width,
+      height: r.height,
+    });
+
+    // The same scrolling ancestor the canvas scissors this view to.
+    const scroller = findScrollAncestor(stage);
+    const update = (): void => {
+      const rect = stage.getBoundingClientRect();
+      const maskBox = toBox(rect);
+      // The canvas's scissor rect: the mount point's box intersected with
+      // the scrolling ancestor's box (`views.ts`'s `readBoxes`). The mask
+      // clips to the same rect, so the two always stop at the same edge.
+      const mount = containerRef.current;
+      const viewBox = toBox(mount ? mount.getBoundingClientRect() : rect);
+      const scrollerRect = scroller?.getBoundingClientRect();
+      const clipBox = scrollerRect
+        ? intersectBox(viewBox, toBox(scrollerRect))
+        : viewBox;
+      const visible =
+        maskBox.width > 0 &&
+        maskBox.height > 0 &&
+        clipBox !== null &&
+        clipBox.width > 0 &&
+        clipBox.height > 0;
+      mask.style.display = visible ? "block" : "none";
+      if (!visible) return;
+      const cs = window.getComputedStyle(stage);
+      mask.style.left = `${rect.left}px`;
+      mask.style.top = `${rect.top}px`;
+      mask.style.width = `${rect.width}px`;
+      mask.style.height = `${rect.height}px`;
+      mask.style.borderRadius = cs.borderRadius;
+      mask.style.clipPath = maskClipPath(maskBox, clipBox);
+      paintSurface();
+    };
+
+    update();
+    startFollowing();
+    // The stage can still be moving when the effect first runs (the page's
+    // entrance transition), so settle it once afterwards as well.
+    const settle = window.setTimeout(update, 500);
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    const observer = new ResizeObserver(update);
+    observer.observe(stage);
+
+    // Theme and per-device hue can change without a scroll/resize.
+    const themeObserver = new MutationObserver(() => {
+      update();
+      startFollowing();
+    });
+    themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class", "data-theme", "style"],
+    });
+
+    return () => {
+      window.clearTimeout(settle);
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+      observer.disconnect();
+      themeObserver.disconnect();
+      carrierObserver.disconnect();
+      if (followTimer !== null) window.clearTimeout(followTimer);
+      mask.remove();
+    };
+  }, []);
+
   // Both controls are full-stage only: a plate is nested inside a `<Link>`
   // on the dashboard, and a second interactive element in there is both
   // invalid HTML and hijacks the card's navigation click. `showResetControl`
@@ -256,6 +458,7 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
 
   return (
     <div
+      ref={stageRef}
       role="group"
       aria-label={`${name} live stage`}
       className={cn(
