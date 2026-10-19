@@ -37,7 +37,7 @@ export default function RoomsPage() {
             <h1 className="text-xl font-semibold leading-tight tracking-display text-hi">
               Rooms
             </h1>
-            <p className="mt-1 font-mono text-label text-low">
+            <p className="mt-1 font-mono text-data text-low">
               {rooms.isLoading
                 ? "loading scenes…"
                 : `${scenes.length} saved ${scenes.length === 1 ? "scene" : "scenes"}`}
@@ -60,7 +60,7 @@ export default function RoomsPage() {
           <motion.section variants={panelIn}>
             <Panel className="border-ember/40 p-5">
               <p className="text-body font-medium text-hi">Room scenes unavailable</p>
-              <p className="mt-1 font-mono text-label text-mid">
+              <p className="mt-1 font-mono text-data text-mid">
                 {rooms.error instanceof Error ? rooms.error.message : String(rooms.error)} — is
                 the sidecar running on 127.0.0.1:6057?
               </p>

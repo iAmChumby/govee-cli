@@ -185,7 +185,7 @@ export function DefaultsSection() {
             </div>
 
             {errors.form ? (
-              <p role="alert" className="font-mono text-label leading-snug text-ember">
+              <p role="alert" className="font-mono text-data leading-snug text-ember">
                 {errors.form}
               </p>
             ) : null}

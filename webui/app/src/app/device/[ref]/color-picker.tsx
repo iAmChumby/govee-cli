@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import { cn } from "@/lib/cn";
+import { PAINT_SWATCHES, type PaintSwatch } from "@/lib/color-tokens";
 import { COLOR_DIALOG_COALESCE_MS, useTrailingCommit } from "./use-trailing-commit";
 
 /* ==================================================================
@@ -11,19 +12,9 @@ import { COLOR_DIALOG_COALESCE_MS, useTrailingCommit } from "./use-trailing-comm
    only place warm tones are allowed to live (WEBUI_SPEC §5.2).
    ================================================================== */
 
-/** Ten curated paint colors — saturated primaries plus both whites. */
-export const SWATCHES: readonly string[] = [
-  "#FF4545",
-  "#FFA53D",
-  "#FFD23D",
-  "#46D06A",
-  "#3DD6C4",
-  "#3D7BFF",
-  "#8A5CFF",
-  "#FF5CA8",
-  "#FFC978",
-  "#EAF2FF",
-];
+/** Ten curated paint colors — saturated primaries plus both whites.
+ *  #34: the palette is a typed token with one owner (`@/lib/color-tokens`). */
+export const SWATCHES: readonly PaintSwatch[] = PAINT_SWATCHES;
 
 export function normalizeHex(raw: string): string | null {
   const v = raw.trim().replace(/^#/, "");
@@ -172,7 +163,7 @@ export function HexField({ onCommit, className }: HexFieldProps) {
           // above) there's no separate "ink" to preserve for a text
           // field — the box itself is the whole control, so it's
           // floored directly rather than wrapped.
-          "h-7 w-[86px] rounded-btn border bg-raised px-2 font-mono text-label uppercase tracking-label text-hi transition-colors duration-150 placeholder:text-low placeholder:normal-case focus-visible:border-hairline-strong pointer-coarse:min-h-11 pointer-coarse:text-base",
+          "h-7 w-[86px] rounded-btn border bg-raised px-2 font-mono text-data uppercase tracking-label text-hi transition-colors duration-150 placeholder:text-low placeholder:normal-case focus-visible:border-hairline-strong pointer-coarse:min-h-11 pointer-coarse:text-base",
           invalid ? "border-ember" : "border-hairline",
           className,
         )}

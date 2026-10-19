@@ -143,7 +143,7 @@ export function CaptureRoomDialog({
                 {error ? (
                   <span
                     role="alert"
-                    className="mt-1.5 block font-mono text-label leading-snug text-ember"
+                    className="mt-1.5 block font-mono text-data leading-snug text-ember"
                   >
                     {error}
                   </span>
@@ -174,7 +174,7 @@ export function CaptureRoomDialog({
                   <AlertTriangle size={13} strokeWidth={1.75} aria-hidden />
                   {result.unknown.length} device{result.unknown.length === 1 ? "" : "s"} unknown
                 </p>
-                <p className="mt-1.5 font-mono text-micro leading-relaxed text-mid">
+                <p className="mt-1.5 font-mono text-data leading-relaxed text-mid">
                   the console never saw what {result.unknown.length === 1 ? "this device" : "these devices"}{" "}
                   {result.unknown.length === 1 ? "was" : "were"} playing, so restoring this
                   scene will skip {result.unknown.length === 1 ? "it" : "them"} rather than

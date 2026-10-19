@@ -53,6 +53,9 @@ export function TopBar() {
           hidden-elements inventory rather than surfaced. */}
       <div className="flex items-baseline gap-3">
         <span className="flex items-baseline">
+          {/* #34 FROZEN: the wordmark's type, tracking and colour, and the
+              breathe dot beside it, are pinned in identity-classes.snapshot.json
+              and identity-styles.snapshot.json. Promotion may not restyle it. */}
           <span className="text-title font-semibold lowercase leading-none tracking-display text-hi">
             filament
           </span>

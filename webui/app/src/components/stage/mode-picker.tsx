@@ -260,7 +260,7 @@ export function UnknownModeChooser({ deviceRef }: UnknownModeChooserProps) {
           ) : null}
 
           {listsFailed ? (
-            <p className="font-mono text-label leading-snug text-low">
+            <p className="font-mono text-data leading-snug text-low">
               couldn&rsquo;t load this device&rsquo;s scene/DIY/music libraries —
               basic and off are still available above.
             </p>
@@ -357,7 +357,7 @@ function OptionRow({
       )}
     >
       <span className="truncate text-data text-hi">{optionName(opt)}</span>
-      <span className="flex shrink-0 items-center gap-1.5 font-mono text-nano uppercase leading-none tracking-caps text-low">
+      <span className="flex shrink-0 items-center gap-1.5 font-mono text-data uppercase leading-none tracking-caps text-low">
         {pending ? (
           <Spinner label={`loading ${optionName(opt)}`} />
         ) : null}

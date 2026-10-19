@@ -126,7 +126,7 @@ function edgeMask(edges: ScrollEdges): string | undefined {
  *  so the three call sites can't drift out of sync with each other. */
 function BudgetCount({ budget }: { budget: BudgetReadoutValue }) {
   return (
-    <span className="inline-flex items-baseline gap-1">
+    <span className="inline-flex items-baseline gap-1 text-data">
       <Odometer value={budget.v2Today} /> v2/day
       {budget.percent !== null ? (
         <span className="text-low">
@@ -139,6 +139,11 @@ function BudgetCount({ budget }: { budget: BudgetReadoutValue }) {
 }
 
 /**
+ * FROZEN (#34). The purge may promote this markup into primitives; it may not
+ * restyle it. The emitted classes are pinned in identity-classes.snapshot.json
+ * and this file is hashed as a freeze input, so a class edit fails `npm test`.
+ * Change it only with the change that needs it.
+ *
  * Bottom status strip: sidecar health, mock badge, measured API latency,
  * rate-limit hint, ticking mono clock. Sits in the app frame's footer row.
  *
@@ -304,10 +309,10 @@ export function StatusStrip() {
             layout regression. Both the >=md and below-md renders of the
             latency readout carry the attribute, since each is what its
             respective audit width (1440 / 390) actually measures. */}
-        <span data-volatile="true" className="hidden shrink-0 items-baseline gap-1.5 md:flex">
+        <span data-volatile="true" className="hidden shrink-0 items-baseline gap-1.5 text-data md:flex">
           {latency !== null ? <Odometer value={latency} pad={2} suffix="ms" /> : "— ms"}
         </span>
-        <span data-volatile="true" className="flex shrink-0 items-baseline gap-1.5 md:hidden">
+        <span data-volatile="true" className="flex shrink-0 items-baseline gap-1.5 text-data md:hidden">
           {latency !== null ? <Odometer value={latency} pad={2} suffix="ms" /> : "— ms"}
         </span>
 
@@ -381,7 +386,7 @@ export function StatusStrip() {
         {/* Least important item on the strip (§11.6 T31, rule 2) — it
             scrolls with everything else below md instead of staying
             pinned at the far right the way `flex-1` keeps it there today. */}
-        <span data-volatile="true" className="shrink-0 tabular-nums">
+        <span data-volatile="true" className="shrink-0 text-data tabular-nums">
           {time}
         </span>
       </div>

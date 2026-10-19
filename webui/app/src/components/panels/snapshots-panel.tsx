@@ -131,7 +131,7 @@ export function SnapshotsPanel({ deviceRef }: { deviceRef: string }) {
           spellCheck={false}
           maxLength={6}
           className={cn(
-            "h-7 w-24 rounded-btn border bg-raised px-2 font-mono text-label tabular-nums text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong pointer-coarse:h-11 pointer-coarse:text-base",
+            "h-7 w-24 rounded-btn border bg-raised px-2 font-mono text-data tabular-nums text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong pointer-coarse:h-11 pointer-coarse:text-base",
             idInvalid ? "border-ember" : "border-hairline",
           )}
         />
@@ -185,14 +185,14 @@ function SnapshotRow({ snapshot, active, pending, onApply }: SnapshotRowProps) {
         {snapshot.name}
       </span>
 
-      <span className="font-mono text-micro tabular-nums text-low">
+      <span className="font-mono text-data tabular-nums text-low">
         #{snapshot.value}
       </span>
 
       {pending ? (
         <Spinner label={`applying ${snapshot.name}`} />
       ) : active ? (
-        <span className="font-mono text-nano uppercase leading-none tracking-caps text-accent">
+        <span className="font-mono text-data uppercase leading-none tracking-caps text-accent">
           applied
         </span>
       ) : null}

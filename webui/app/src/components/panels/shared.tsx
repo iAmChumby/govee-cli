@@ -14,6 +14,7 @@ import { motion } from "motion/react";
 
 import { ApiError } from "@/lib/api";
 import { cn } from "@/lib/cn";
+import { PAINT_SWATCHES } from "@/lib/color-tokens";
 import { fadeUp, staggerParent } from "@/lib/motion";
 import { resolveNamedPalette } from "@/lib/motion-engine/classify";
 import { INDETERMINATE_PALETTE } from "@/lib/motion-engine/palette";
@@ -119,7 +120,7 @@ interface QueryErrorLineProps {
 export function QueryErrorLine({ message, onRetry }: QueryErrorLineProps) {
   return (
     <div className="flex items-center gap-3 rounded-card border border-ember/30 px-3 py-2.5">
-      <p className="min-w-0 font-mono text-label leading-relaxed text-ember">
+      <p className="min-w-0 font-mono text-data leading-relaxed text-ember">
         {message}
       </p>
       {onRetry ? (
@@ -209,20 +210,9 @@ export function ChipRowSkeleton({ count = 4 }: { count?: number }) {
 
 /* -------------------------------------------------------------- swatches */
 
-// Curated paint palette — mirrors color-picker.SWATCHES (kept local so the
-// panels layer stays decoupled from the device-route folder).
-const PAINT_SWATCHES: readonly string[] = [
-  "#FF4545",
-  "#FFA53D",
-  "#FFD23D",
-  "#46D06A",
-  "#3DD6C4",
-  "#3D7BFF",
-  "#8A5CFF",
-  "#FF5CA8",
-  "#FFC978",
-  "#EAF2FF",
-];
+// Curated paint palette — one typed owner (`@/lib/color-tokens`), shared
+// with the device route's colour well. #34 closed the duplication point:
+// this used to be a second, untyped copy of color-picker.SWATCHES.
 
 interface MiniSwatchesProps {
   activeHex: string | null;

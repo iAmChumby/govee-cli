@@ -248,7 +248,7 @@ export function DualPreview({
             </button>
           </div>
           <StaticGrid geometry={geometry} colors={canvasColors} className="self-start" />
-          <p className="font-mono text-nano leading-relaxed text-low">
+          <p className="font-mono text-data leading-relaxed text-low">
             {showIntent
               ? `smooth preview at ${INTENT_FPS}fps — not what the device will do.`
               : "exactly as drawn, unquantized."}
@@ -260,7 +260,7 @@ export function DualPreview({
             label is the longer of the two and was the one most often seen
             lapping the `{fps}` Chip. */}
         <div className="grid min-w-0 grid-rows-[auto_auto_1fr_auto] gap-y-1.5">
-          <span className="min-w-0 font-mono text-micro uppercase leading-snug tracking-micro text-low">
+          <span className="min-w-0 font-mono text-data uppercase leading-snug tracking-micro text-low">
             hardware · {segmentCount} segments
           </span>
           <div className="flex min-w-0 items-center">

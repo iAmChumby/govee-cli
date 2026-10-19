@@ -186,8 +186,8 @@ export function ExportDialog({
                     }}
                     className={
                       transport === t
-                        ? "h-8 cursor-pointer rounded-btn border border-hairline-strong bg-accent-dim px-3 font-mono text-micro uppercase tracking-label text-hi"
-                        : "h-8 cursor-pointer rounded-btn border border-hairline px-3 font-mono text-micro uppercase tracking-label text-mid hover:border-hairline-strong hover:text-hi"
+                        ? "h-8 cursor-pointer rounded-btn border border-hairline-strong bg-accent-dim px-3 font-mono text-data uppercase tracking-label text-hi"
+                        : "h-8 cursor-pointer rounded-btn border border-hairline px-3 font-mono text-data uppercase tracking-label text-mid hover:border-hairline-strong hover:text-hi"
                     }
                   >
                     {t === "ble" ? "ble · full rate" : "cloud · 2fps cap"}
@@ -196,7 +196,7 @@ export function ExportDialog({
               </div>
             </div>
           ) : (
-            <p className="font-mono text-micro text-low">
+            <p className="font-mono text-data text-low">
               cloud v2 only — {segmentCount} segments, capped near {CLOUD_MAX_FPS}fps.
             </p>
           )}
@@ -211,7 +211,7 @@ export function ExportDialog({
             <Switch checked={playAfter} onCheckedChange={setPlayAfter} ariaLabel="Play after saving" />
           </div>
 
-          <p className="border-t border-hairline pt-3 font-mono text-micro leading-relaxed text-low">
+          <p className="border-t border-hairline pt-3 font-mono text-data leading-relaxed text-low">
             {frameCount} frame{frameCount === 1 ? "" : "s"} → {segmentCount} segments at {fps}fps.
           </p>
 

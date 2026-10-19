@@ -200,7 +200,7 @@ function WakeRampPopover({
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent align="center" className="w-64">
         <p className="text-data font-medium text-hi">wake-ramp</p>
-        <p className="mt-1 font-mono text-micro leading-snug text-low">
+        <p className="mt-1 font-mono text-data leading-snug text-low">
           {entry.device_hint ?? "unknown device"} · ramps 1% → 50% brightness at
           2000K over ~30 min (fixed to this one automation)
         </p>
@@ -219,7 +219,7 @@ function WakeRampPopover({
                   : "not armed"
             }
           />
-          <span className="font-mono text-label text-mid">
+          <span className="font-mono text-data text-mid">
             {status === null
               ? "status unknown — script unreachable"
               : armedDate
@@ -248,7 +248,7 @@ function WakeRampPopover({
           </Button>
         </div>
         <p
-          className="mt-2 truncate font-mono text-nano text-low"
+          className="mt-2 truncate font-mono text-data text-low"
           style={{ color: hslCss(hsl) }}
           title="device color used for this band"
         >
@@ -414,7 +414,7 @@ export function ScheduleTimeline({
                       />
                     </PopoverTrigger>
                     <PopoverContent align="center" className="w-72">
-                      <p className="font-mono text-micro leading-snug text-mid">
+                      <p className="font-mono text-data leading-snug text-mid">
                         {estimated ? "~" : ""}
                         {formatClock(d.getHours(), d.getMinutes())} ·{" "}
                         {estimated ? "estimated from cron syntax" : "exact"}
@@ -426,13 +426,13 @@ export function ScheduleTimeline({
                           PopoverContent's own width (`w-72` below) already
                           bounds this, so wrapping needs no max-w lift. */}
                       <p
-                        className="mt-1.5 truncate font-mono text-micro text-low pointer-coarse:whitespace-normal pointer-coarse:break-words"
+                        className="mt-1.5 truncate font-mono text-data text-low pointer-coarse:whitespace-normal pointer-coarse:break-words"
                         title={entry.raw_line ?? undefined}
                       >
                         {entry.raw_line ?? entry.command}
                       </p>
                       {entry.today_occurrences_truncated ? (
-                        <p className="mt-1.5 font-mono text-nano text-low">
+                        <p className="mt-1.5 font-mono text-data text-low">
                           +more today (capped at 20 shown)
                         </p>
                       ) : null}
@@ -496,7 +496,7 @@ export function ScheduleTimeline({
       </div>
 
       {/* hour labels */}
-      <div className="mt-1.5 flex justify-between font-mono text-nano text-low">
+      <div className="mt-1.5 flex justify-between font-mono text-data text-low">
         {GRID_HOURS.filter((h) => h % 6 === 0).map((h) => (
           <span key={h}>{pad2(h % 24)}:00</span>
         ))}
@@ -510,7 +510,7 @@ export function ScheduleTimeline({
               <button
                 type="button"
                 onClick={() => onSelectRule?.(r.id)}
-                className="min-h-7 w-full cursor-pointer rounded-chip border border-hairline px-2 py-1 text-left font-mono text-label leading-snug text-mid hover:border-hairline-strong hover:text-hi pointer-coarse:min-h-11"
+                className="min-h-7 w-full cursor-pointer rounded-chip border border-hairline px-2 py-1 text-left font-mono text-data leading-snug text-mid hover:border-hairline-strong hover:text-hi pointer-coarse:min-h-11"
               >
                 <span data-volatile={isSun(parseWhen(r.time)?.kind ?? "clock") ? "true" : undefined}>
                   {dotLabel(r)}
@@ -524,7 +524,7 @@ export function ScheduleTimeline({
       ) : null}
 
       {unplotted.length > 0 ? (
-        <p className="mt-1 font-mono text-label leading-snug text-mid">
+        <p className="mt-1 font-mono text-data leading-snug text-mid">
           {unplotted.length} {unplotted.length === 1 ? "rule" : "rules"} not on today&apos;s timeline:{" "}
           {unplotted.map((r) => `${r.name} (${r.today_reason ?? "unknown"})`).join(", ")}
         </p>

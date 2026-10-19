@@ -40,7 +40,7 @@ export function Field({ label, error, hint, className, children }: FieldProps) {
       </span>
       {children}
       {error ? (
-        <span role="alert" className="mt-1.5 block font-mono text-label leading-snug text-ember">
+        <span role="alert" className="mt-1.5 block font-mono text-data leading-snug text-ember">
           {error}
         </span>
       ) : hint ? (

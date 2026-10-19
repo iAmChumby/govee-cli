@@ -550,7 +550,7 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
               transition={{ duration: 1, ease: "easeInOut" }}
               className={cn(
                 "relative z-20 min-w-0 max-w-[68%] rounded-chip border border-hairline bg-bg/95 px-1.5 py-0.5 font-mono leading-snug tracking-micro text-low pointer-coarse:whitespace-normal pointer-coarse:break-words",
-                mini ? "text-mini" : "text-nano",
+                "text-data",
               )}
             >
               {resolved.caption}
@@ -559,7 +559,7 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
             <span
               className={cn(
                 "relative z-20 min-w-0 max-w-[68%] rounded-chip border border-hairline bg-bg/95 px-1.5 py-0.5 font-mono leading-snug tracking-micro text-low pointer-coarse:whitespace-normal pointer-coarse:break-words",
-                mini ? "text-mini" : "text-nano",
+                "text-data",
               )}
             >
               {resolved.caption}

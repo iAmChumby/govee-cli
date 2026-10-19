@@ -183,7 +183,7 @@ export function MotionControls({
               {motion.type === "pulse" ? <Waves size={12} strokeWidth={1.6} aria-hidden /> : null}
               cycle speed
             </span>
-            <span className="font-mono text-label tabular-nums text-mid">
+            <span className="font-mono text-data tabular-nums text-mid">
               {motion.periodSeconds.toFixed(1)}s / cycle
             </span>
           </div>
@@ -205,7 +205,7 @@ export function MotionControls({
         <Chip tone={estimate.totalKeyframes > 200 ? "warn" : "neutral"}>
           {estimate.totalKeyframes} keyframes (deduped)
         </Chip>
-        <span className="font-mono text-nano text-low">of {estimate.naive} max</span>
+        <span className="font-mono text-data text-low">of {estimate.naive} max</span>
       </div>
     </div>
   );

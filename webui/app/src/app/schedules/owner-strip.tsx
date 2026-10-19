@@ -36,14 +36,14 @@ export function OwnerStrip({ list }: { list: ScheduleList }) {
         <div className="min-w-0 flex-1">
           <p className="text-body font-medium leading-snug text-hi">{owner.headline}</p>
           {owner.detail ? (
-            <p data-volatile="true" className="mt-0.5 font-mono text-label leading-snug text-mid">
+            <p data-volatile="true" className="mt-0.5 font-mono text-data leading-snug text-mid">
               {owner.detail}
             </p>
           ) : null}
         </div>
       </div>
 
-      <div className="space-y-1 border-t border-hairline pt-2.5 font-mono text-label leading-snug text-mid">
+      <div className="space-y-1 border-t border-hairline pt-2.5 font-mono text-data leading-snug text-mid">
         <p data-volatile="true">
           {next ? (
             list.owner.state === "running" ? (

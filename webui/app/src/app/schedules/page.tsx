@@ -96,7 +96,7 @@ function RuleRow({
 
         <div className={cn("min-w-0", !rule.enabled && "opacity-55")}>
           <p className="break-words text-body font-medium leading-tight text-hi">{rule.name}</p>
-          <p className="mt-0.5 break-words font-mono text-label leading-snug text-mid">
+          <p className="mt-0.5 break-words font-mono text-data leading-snug text-mid">
             {targetLine(rule, devices)}
           </p>
         </div>
@@ -137,13 +137,13 @@ function RuleRow({
             </span>
           </div>
 
-          <p data-volatile="true" className="font-mono text-label tabular-nums text-mid">
+          <p data-volatile="true" className="font-mono text-data tabular-nums text-mid">
             next: {next}
           </p>
         </div>
 
         {rule.target_problem || rule.missed_minute || lastError ? (
-          <div className="col-span-3 space-y-1 font-mono text-label leading-snug">
+          <div className="col-span-3 space-y-1 font-mono text-data leading-snug">
             {rule.target_problem ? (
               <p className="flex items-start gap-1.5 text-ember">
                 <TriangleAlert size={12} strokeWidth={1.75} aria-hidden className="mt-px shrink-0" />
@@ -213,7 +213,7 @@ export default function SchedulesPage() {
               <h1 className="text-xl font-semibold leading-tight tracking-display text-hi">
                 Schedules
               </h1>
-              <p className="mt-1 font-mono text-label text-low">
+              <p className="mt-1 font-mono text-data text-low">
                 {schedules.isLoading
                   ? "loading rules…"
                   : `${rules.length} ${rules.length === 1 ? "rule" : "rules"} · ${enabledCount} enabled`}
@@ -230,7 +230,7 @@ export default function SchedulesPage() {
             <motion.section variants={panelIn}>
               <Panel className="border-ember/40 p-5">
                 <p className="text-body font-medium text-hi">Rules unavailable</p>
-                <p className="mt-1 font-mono text-label text-mid">
+                <p className="mt-1 font-mono text-data text-mid">
                   {errMessage(schedules.error)} — is the sidecar running on 127.0.0.1:6057?
                 </p>
               </Panel>

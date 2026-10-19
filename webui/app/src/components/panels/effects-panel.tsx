@@ -108,10 +108,10 @@ export function EffectsPanel({ deviceRef }: { deviceRef: string }) {
               only rendered when the sidecar reports an effect playing, so
               "playing" is exactly what the app knows. */}
           <StatusDot tone="ok" label="playing" />
-          <span className="min-w-0 truncate font-mono text-label text-hi">
+          <span className="min-w-0 truncate font-mono text-data text-hi">
             {mine.file}
           </span>
-          <span className="ml-auto shrink-0 font-mono text-micro tabular-nums text-low">
+          <span className="ml-auto shrink-0 font-mono text-data tabular-nums text-low">
             {mine.transport} · {mine.fps} fps
           </span>
           <StopButton busy={stopping} onStop={handleStop} label="Stop effect playback" />
@@ -197,7 +197,7 @@ function EffectRow({
     >
       <div className="min-w-0 flex-1">
         <p className="truncate text-data leading-tight text-hi">{effect.name}</p>
-        <p className="mt-0.5 truncate font-mono text-micro leading-none text-low">
+        <p className="mt-0.5 truncate font-mono text-data leading-none text-low">
           {effect.fps} fps · {effect.loop ? "loop" : "once"} ·{" "}
           {effect.segments} seg{effect.segments === 1 ? "" : "s"}
           {formatSegmentIds(effect.segment_ids)}

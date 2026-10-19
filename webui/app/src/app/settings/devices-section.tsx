@@ -167,7 +167,7 @@ function AddDeviceDialog({
           </Field>
 
           {errors.form ? (
-            <p role="alert" className="font-mono text-label leading-snug text-ember">
+            <p role="alert" className="font-mono text-data leading-snug text-ember">
               {errors.form}
             </p>
           ) : null}
@@ -284,7 +284,7 @@ export function DevicesSection() {
                     max-w to lift); wrapping under pointer:coarse just lets
                     it use that same width across more than one line. */}
                 <span
-                  className="min-w-0 flex-1 truncate font-mono text-label text-low pointer-coarse:whitespace-normal pointer-coarse:break-words"
+                  className="min-w-0 flex-1 truncate font-mono text-data text-low pointer-coarse:whitespace-normal pointer-coarse:break-words"
                   title={d.id}
                 >
                   {d.id}
@@ -300,7 +300,7 @@ export function DevicesSection() {
         )}
 
         {devices.isError ? (
-          <p className="mt-3 border-t border-hairline pt-3 font-mono text-label text-ember">
+          <p className="mt-3 border-t border-hairline pt-3 font-mono text-data text-ember">
             {errMessage(devices.error)}
           </p>
         ) : null}

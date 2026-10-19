@@ -30,6 +30,11 @@ export interface OdometerProps {
 }
 
 /**
+ * FROZEN (#34). The purge may promote this markup into primitives; it may not
+ * restyle it. The emitted classes are pinned in identity-classes.snapshot.json
+ * and this file is hashed as a freeze input, so a class edit fails `npm test`.
+ * Change it only with the change that needs it.
+ *
  * Rolling numeric readout. Each digit is its own spring-driven column
  * (translateY through a 0–9 stack) in fixed-width IBM Plex Mono, so
  * values of any magnitude roll odometer-style instead of snapping.

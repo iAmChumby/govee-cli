@@ -195,7 +195,7 @@ function ResolvedLine({ draft, now }: { draft: Draft; now: string }) {
   }
   if (preview.isError || !preview.data) {
     return (
-      <p className="font-mono text-label leading-snug text-low">
+      <p className="font-mono text-data leading-snug text-low">
         could not resolve a time: the sidecar did not answer
       </p>
     );
@@ -203,7 +203,7 @@ function ResolvedLine({ draft, now }: { draft: Draft; now: string }) {
   const p = preview.data;
   if (p.error) {
     return (
-      <p role="alert" className="flex items-start gap-1.5 font-mono text-label leading-snug text-ember">
+      <p role="alert" className="flex items-start gap-1.5 font-mono text-data leading-snug text-ember">
         <TriangleAlert size={12} strokeWidth={1.75} aria-hidden className="mt-px shrink-0" />
         {p.error}
       </p>
@@ -212,7 +212,7 @@ function ResolvedLine({ draft, now }: { draft: Draft; now: string }) {
   const noLocation = sun && (p.location.latitude === null || /location/i.test(p.reason ?? ""));
   if (noLocation) {
     return (
-      <p className="font-mono text-label leading-snug text-mid">
+      <p className="font-mono text-data leading-snug text-mid">
         No location set: {draft.kind} times cannot be computed.{" "}
         <Link href="/settings" className="whitespace-nowrap text-hi underline underline-offset-2">
           Set it in Settings
@@ -223,7 +223,7 @@ function ResolvedLine({ draft, now }: { draft: Draft; now: string }) {
   const zone = <span className="whitespace-nowrap">{formatZone(p.location)}</span>;
   const detail = sun && p.event_time ? <>{`${draft.kind} ${wallHM(p.event_time)}, `}{zone}</> : zone;
   return (
-    <div className="space-y-0.5 font-mono text-label leading-snug text-mid">
+    <div className="space-y-0.5 font-mono text-data leading-snug text-mid">
       <p>
         {p.today_fire
           ? <>{`Today: ${wallHM(p.today_fire)} (`}{detail})</>
@@ -365,7 +365,7 @@ function RuleForm({
                 className={cn(INPUT_CLASS, "font-mono pointer-coarse:h-11")}
               />
               {errors.time ? (
-                <span role="alert" className="mt-1.5 block font-mono text-label leading-snug text-ember">
+                <span role="alert" className="mt-1.5 block font-mono text-data leading-snug text-ember">
                   {errors.time}
                 </span>
               ) : null}
@@ -420,7 +420,7 @@ function RuleForm({
             })}
           </div>
           {errors.days ? (
-            <span role="alert" className="mt-1.5 block font-mono text-label leading-snug text-ember">
+            <span role="alert" className="mt-1.5 block font-mono text-data leading-snug text-ember">
               {errors.days}
             </span>
           ) : null}
@@ -514,7 +514,7 @@ function RuleForm({
         )}
 
         {errors.form ? (
-          <p role="alert" className="flex items-start gap-1.5 font-mono text-label leading-snug text-ember">
+          <p role="alert" className="flex items-start gap-1.5 font-mono text-data leading-snug text-ember">
             <TriangleAlert size={12} strokeWidth={1.75} aria-hidden className="mt-px shrink-0" />
             {errors.form}
           </p>

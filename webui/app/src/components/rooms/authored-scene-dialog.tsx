@@ -140,7 +140,7 @@ function DiyPicker({
         </select>
       </label>
       {scenes.isError ? (
-        <p role="alert" className="mt-1.5 font-mono text-label leading-snug text-ember">
+        <p role="alert" className="mt-1.5 font-mono text-data leading-snug text-ember">
           could not load DIY scenes: {errMessage(scenes.error)}
         </p>
       ) : null}
@@ -177,14 +177,14 @@ function DeviceRow({
           <p className="break-words text-body font-medium leading-snug text-hi">
             {label}
             {offline ? (
-              <span className="ml-2 inline-flex items-center gap-1 align-middle font-mono text-micro uppercase tracking-caps text-ember">
+              <span className="ml-2 inline-flex items-center gap-1 align-middle font-mono text-data uppercase tracking-caps text-ember">
                 <AlertTriangle size={11} strokeWidth={1.75} aria-hidden />
                 offline
               </span>
             ) : null}
           </p>
           {device.model ? (
-            <p className="font-mono text-micro text-low">{device.model}</p>
+            <p className="font-mono text-data text-low">{device.model}</p>
           ) : null}
         </div>
         <Switch
@@ -219,7 +219,7 @@ function DeviceRow({
               <div>
                 <div className="mb-1 flex items-baseline justify-between gap-3">
                   <span className={LABEL_CLASS}>brightness</span>
-                  <span className="font-mono text-label text-mid">{draft.brightness}%</span>
+                  <span className="font-mono text-data text-mid">{draft.brightness}%</span>
                 </div>
                 <Slider
                   value={draft.brightness}
@@ -254,7 +254,7 @@ function DeviceRow({
                       onPick={(color) => onChange({ color: color.toUpperCase() })}
                     />
                     <HexField onCommit={(color) => onChange({ color })} />
-                    <span className="font-mono text-label text-mid">
+                    <span className="font-mono text-data text-mid">
                       {draft.color ?? "none chosen"}
                     </span>
                   </div>
@@ -265,7 +265,7 @@ function DeviceRow({
                 <div>
                   <div className="mb-1 flex items-baseline justify-between gap-3">
                     <span className={LABEL_CLASS}>colour temperature</span>
-                    <span className="font-mono text-label text-mid">{draft.kelvin}K</span>
+                    <span className="font-mono text-data text-mid">{draft.kelvin}K</span>
                   </div>
                   <Slider
                     value={clamp(draft.kelvin, range.min, range.max)}
@@ -275,7 +275,7 @@ function DeviceRow({
                     onValueChange={(kelvin) => onChange({ kelvin })}
                     ariaLabel={`Colour temperature for ${label}`}
                   />
-                  <p className="mt-1 font-mono text-micro leading-snug text-low">
+                  <p className="mt-1 font-mono text-data leading-snug text-low">
                     {range.min}–{range.max}K
                     {range.known
                       ? ""
@@ -403,7 +403,7 @@ function EditorBody({
           {devices.isLoading ? (
             <p className="font-mono text-label text-low">loading devices…</p>
           ) : devices.isError ? (
-            <p role="alert" className="font-mono text-label leading-snug text-ember">
+            <p role="alert" className="font-mono text-data leading-snug text-ember">
               could not load devices: {errMessage(devices.error)}
             </p>
           ) : registered.length === 0 ? (
@@ -424,7 +424,7 @@ function EditorBody({
             </ul>
           )}
           {dropped.length > 0 ? (
-            <p className="mt-2 font-mono text-micro leading-snug text-ember">
+            <p className="mt-2 font-mono text-data leading-snug text-ember">
               {dropped.length === 1 ? "1 saved device is" : `${dropped.length} saved devices are`}{" "}
               no longer registered and will be dropped when you save
             </p>
@@ -434,12 +434,12 @@ function EditorBody({
 
       <div className="mt-3 shrink-0 space-y-2 border-t border-hairline pt-3">
         {error ? (
-          <p role="alert" className="font-mono text-label leading-snug text-ember">
+          <p role="alert" className="font-mono text-data leading-snug text-ember">
             {error}
           </p>
         ) : null}
         {blocker ? (
-          <p className="font-mono text-label leading-snug text-mid">{blocker}</p>
+          <p className="font-mono text-data leading-snug text-mid">{blocker}</p>
         ) : null}
 
         <div className="flex items-center justify-end gap-2">

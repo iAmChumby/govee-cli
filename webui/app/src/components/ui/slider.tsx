@@ -60,6 +60,11 @@ export interface SliderProps {
 }
 
 /**
+ * FROZEN (#34). Promotion may replace the markup, never the look. Classes are
+ * pinned in identity-classes.snapshot.json and the computed track/fill/thumb
+ * in both themes — including the `tint` fill while dragging — in
+ * identity-styles.snapshot.json. See scripts/identity_styles.py.
+ *
  * Hairline instrument slider. 2px track, accent fill whose width is
  * spring-driven (continuous, never stepped), 18px thumb with an inner
  * dot and optional value bubble. Radix provides drag + keyboard support.
@@ -215,7 +220,7 @@ export function Slider({
             {showBubble ? (
               <span
                 className={cn(
-                  "pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 rounded-chip border border-hairline bg-raised px-1.5 py-0.5 font-mono text-micro leading-none text-hi transition-opacity duration-150",
+                  "pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 rounded-chip border border-hairline bg-raised px-1.5 py-0.5 font-mono text-data leading-none text-hi transition-opacity duration-150",
                   dragging ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100",
                 )}
               >
