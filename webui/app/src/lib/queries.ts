@@ -44,7 +44,6 @@ import {
   subscribeIntents,
   type IntentPatch,
 } from "@/lib/intent";
-import { announce } from "@/lib/announce";
 import {
   commandIntentFields,
   failedGroupMembers,
@@ -738,10 +737,16 @@ export function useCaptureRoom() {
     mutationFn: (name: string) => api.captureRoom(name),
     onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: ["rooms"] });
-      // A room-scene save has no toast today, so the live region is the
-      // only screen-reader channel for this state change. Confirmed only:
-      // this runs in onSuccess, never while anything is pending.
-      void announce(`Room scene "${result.name}" saved`);
+      // One channel only. The toast IS the screen-reader channel: the
+      // mounted `Toaster` is itself an `aria-live="polite"` region
+      // (components/ui/toaster.tsx), so a toast is spoken when it lands.
+      // Calling `announce()` with the same string as well made a screen
+      // reader hear "Room scene … saved" twice — once from the live
+      // region and once from the toast stack — which is exactly what
+      // `lib/announce.ts`'s own contract forbids ("nothing announced here
+      // is also toasted … callers pick exactly one channel"). The toast
+      // stays (it is the channel sighted users read, and it carries the
+      // capture detail); the live region stays silent for this one.
       const incomplete = result.unknown.length > 0;
       toast({
         variant: incomplete ? "info" : "ok",
