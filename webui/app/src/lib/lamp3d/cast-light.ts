@@ -264,7 +264,28 @@ export function createHalo(model: LampModel): Sprite {
     opacity: 0,
   });
   const sprite = new Sprite(material);
-  sprite.position.set(0, model.height * 0.5, 0);
+  // Anchor the halo to the light itself, not the model's mid-height. On a
+  // floor lamp the midpoint sits around the lower shelf, so `height * 0.5`
+  // put the background bloom 22" below the H6004's emitter. The mean LED
+  // position is where the light actually leaves the fixture; a model with no
+  // emitters keeps the old mid-height fallback so it still renders.
+  const mean = model.leds.reduce(
+    (acc, led) => [
+      acc[0] + led.position[0],
+      acc[1] + led.position[1],
+      acc[2] + led.position[2],
+    ],
+    [0, 0, 0],
+  );
+  if (model.leds.length > 0) {
+    sprite.position.set(
+      mean[0] / model.leds.length,
+      mean[1] / model.leds.length,
+      mean[2] / model.leds.length,
+    );
+  } else {
+    sprite.position.set(0, model.height * 0.5, 0);
+  }
   sprite.scale.setScalar(model.fitRadius * HALO_SCALE_FACTOR);
   return sprite;
 }
