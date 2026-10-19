@@ -106,7 +106,7 @@ test("rule 1: `active.mode === \"unknown\"` (a real ledger entry saying so) also
   // (it just says "unknown") — so the caption and the chooser both surface,
   // matching stage.tsx's `!motionMeta && active?.mode === "unknown"` branch
   // exactly (guarded on the mode literal, not merely "no active object").
-  assert.equal(resolved.caption, "unknown");
+  assert.equal(resolved.caption, "mode unknown — no ledger record");
   assert.equal(resolved.showUnknownChooser, true);
   assert.equal(resolved.showResetControl, false);
 });

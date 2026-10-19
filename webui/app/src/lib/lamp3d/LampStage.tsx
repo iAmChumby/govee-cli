@@ -21,6 +21,7 @@
 
 import * as React from "react";
 import { RotateCcw } from "lucide-react";
+import { motion } from "motion/react";
 
 import { cn } from "@/lib/cn";
 import type { DeviceState, DeviceSummary } from "@/lib/api";
@@ -338,24 +339,29 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
               never go missing was the one being cut. `max-w-[68%]` keeps it
               clear of the chooser control sharing this row, and `leading-snug`
               replaces `leading-none` so wrapped lines do not collide. */}
-          <span
-            className={cn(
-              // `relative z-20` puts this ABOVE the shared WebGL canvas,
-              // which `renderer.ts` mounts on `document.body` at z-10. On a
-              // phone the stage is short and the lamp is centred, so a
-              // wrapped caption reaches the lamp's silhouette and the lamp —
-              // being the higher layer — painted over its last line. There is
-              // no clear corner to retreat to at that size: the body occupies
-              // the middle of the box vertically and horizontally. Raising the
-              // caption instead is what makes the honesty text unhideable at
-              // any stage size, and `bg-bg/95` gives it enough backing to stay
-              // legible where it does cross the lamp.
-              "relative z-20 min-w-0 max-w-[68%] rounded-chip border border-hairline bg-bg/95 px-1.5 py-0.5 font-mono leading-snug tracking-micro text-low",
-              mini ? "text-[7px]" : "text-[9px]",
-            )}
-          >
-            {resolved.caption}
-          </span>
+          {resolved.caption === "mode unknown — no ledger record" ? (
+            // 1s pulse on first sight for the "unknown" state
+            <motion.span
+              initial={{ opacity: 0.5 }}
+              animate={{ opacity: [0.5, 1, 0.5, 1] }}
+              transition={{ duration: 1, ease: "easeInOut" }}
+              className={cn(
+                "relative z-20 min-w-0 max-w-[68%] rounded-chip border border-hairline bg-bg/95 px-1.5 py-0.5 font-mono leading-snug tracking-micro text-low pointer-coarse:whitespace-normal pointer-coarse:break-words",
+                mini ? "text-[7px]" : "text-[9px]",
+              )}
+            >
+              {resolved.caption}
+            </motion.span>
+          ) : (
+            <span
+              className={cn(
+                "relative z-20 min-w-0 max-w-[68%] rounded-chip border border-hairline bg-bg/95 px-1.5 py-0.5 font-mono leading-snug tracking-micro text-low pointer-coarse:whitespace-normal pointer-coarse:break-words",
+                mini ? "text-[7px]" : "text-[9px]",
+              )}
+            >
+              {resolved.caption}
+            </span>
+          )}
           {control ? <span className="pointer-events-auto">{control}</span> : null}
         </div>
       ) : null}
