@@ -189,15 +189,63 @@ function watchTheme(): void {
  *  (the frosted diffusers) renders a full extra pass per pixel. */
 const MAX_DPR = 2;
 
-/** How long a `slow`-tier plate holds its last frame before it is allowed to
- *  redraw again — "about 4fps" per the design doc's performance budget
- *  (`1000 / 250 = 4`). Exported and driven through a pure predicate
+/** How long a `slow`-tier plate holds its last *LED field* before it is
+ *  allowed to recompute — "about 4fps" per the design doc's performance
+ *  budget (`1000 / 250 = 4`). Exported and driven through a pure predicate
  *  (`dueForSlowRedraw`) specifically so the cadence decision itself — not
  *  just "some interval exists" — is unit-testable without a renderer. */
 export const SLOW_TIER_INTERVAL_MS = 250;
 
 export function dueForSlowRedraw(lastDrawnAtMs: number, nowMs: number): boolean {
   return nowMs - lastDrawnAtMs >= SLOW_TIER_INTERVAL_MS;
+}
+
+/** One visible view's work for this frame. */
+export interface FrameDrawStep<V> {
+  view: V;
+  /** Whether this view re-evaluates its LED field before drawing. When
+   *  false the view still draws — it just reuses the buffer it already
+   *  holds, so it appears exactly as it did last frame. */
+  recomputeField: boolean;
+}
+
+/**
+ * Decides what each visible view does this frame: **every** visible view
+ * draws, and the redraw budget only chooses which of them recompute their
+ * LED field first.
+ *
+ * The budget deliberately does not gate the draw itself. `PLATE_CONCURRENCY_CAP`
+ * was originally applied to whether a view was drawn at all, on the premise
+ * (see `motion-engine/driver.ts`) that an unbudgeted plate "holds its last
+ * frame". It does not: the shared canvas is created without
+ * `preserveDrawingBuffer` (see `ensureRenderer`), so the browser clears the
+ * whole drawing buffer after each composite and a view that skipped its draw
+ * is simply absent from the frame. That was invisible while the fleet had
+ * exactly `PLATE_CONCURRENCY_CAP` plates — `slow` stayed empty — and appeared
+ * the moment a fifth device made one plate rotate through it, blinking at the
+ * slow tier's own 4Hz.
+ *
+ * Drawing an unbudgeted view is cheap and, more to the point, mandatory for
+ * correctness beyond mere presence: `models/source.ts` shares one `LampModel`
+ * — one `object3D`, one set of materials — across every view of a model, so
+ * `applyEmission` must bind this view's LED texture and its own
+ * `emissiveIntensity` to that shared diffuser immediately before its draw.
+ * What the budget still bounds is the genuinely per-LED cost: the
+ * `evaluateLedField`/`writeEffectFrame` pass over the whole matrix.
+ */
+export function planFrameDraws<V>(
+  active: readonly V[],
+  slow: readonly V[],
+  slowDueNow: (view: V) => boolean,
+): FrameDrawStep<V>[] {
+  const steps: FrameDrawStep<V>[] = [];
+  for (const view of active) {
+    steps.push({ view, recomputeField: true });
+  }
+  for (const view of slow) {
+    steps.push({ view, recomputeField: slowDueNow(view) });
+  }
+  return steps;
 }
 
 /* ------------------------------------------------------------- camera framing */
@@ -761,23 +809,41 @@ export function cameraFitDistance(extent: FitExtent, aspect: number): number {
   return Math.max(distanceForV, distanceForH) * CAMERA_FIT_MARGIN;
 }
 
-function drawView(view: ViewState, rects: FrameRects, tSeconds: number, nowMs: number): void {
+/**
+ * Draws one view into its scissor rect.
+ *
+ * `recomputeField` is the redraw budget's only lever (see `planFrameDraws`):
+ * false reuses the LED buffer this view already holds, so it draws exactly as
+ * it did last frame instead of vanishing from the composite. Everything below
+ * the field pass runs unconditionally — the diffuser material is shared across
+ * every view of a model, so this view's texture and `emissiveIntensity` have
+ * to be bound to it immediately before its own draw call.
+ */
+function drawView(
+  view: ViewState,
+  rects: FrameRects,
+  tSeconds: number,
+  nowMs: number,
+  recomputeField: boolean,
+): void {
   const renderer = sharedRenderer;
   if (!renderer) return;
 
   const buffer = view.ledTex.buffer;
-  if (view.effect) {
-    writeEffectFrame(view.effect, view.layout, nowMs, buffer);
-  } else if (view.spec) {
-    const t = view.reducedMotion ? view.frozenT : tSeconds;
-    evaluateLedField(view.spec, view.layout, t, buffer);
-  } else {
-    // No spec and no effect is the ledger's "unknown" case (or simply "off"
-    // with nothing else set yet) — zeroed LEDs, no colour, no motion, per
-    // the design doc's rule 1. `applyEmission` below also zeroes on
-    // `!power`, but doing it here too means a genuinely unknown mode reads
-    // as unlit even if a caller passes `power: true` for it.
-    clearLedField(buffer);
+  if (recomputeField) {
+    if (view.effect) {
+      writeEffectFrame(view.effect, view.layout, nowMs, buffer);
+    } else if (view.spec) {
+      const t = view.reducedMotion ? view.frozenT : tSeconds;
+      evaluateLedField(view.spec, view.layout, t, buffer);
+    } else {
+      // No spec and no effect is the ledger's "unknown" case (or simply "off"
+      // with nothing else set yet) — zeroed LEDs, no colour, no motion, per
+      // the design doc's rule 1. `applyEmission` below also zeroes on
+      // `!power`, but doing it here too means a genuinely unknown mode reads
+      // as unlit even if a caller passes `power: true` for it.
+      clearLedField(buffer);
+    }
   }
 
   // The gain `applyEmission` returns is this frame's exposure lift (see
@@ -819,7 +885,7 @@ function drawView(view: ViewState, rects: FrameRects, tSeconds: number, nowMs: n
   renderer.setScissor(rects.scissorX, rects.scissorY, rects.scissorW, rects.scissorH);
   // Clearing is itself bounded by the scissor rect while scissor test is
   // enabled, so this only ever erases this view's own rect — never another
-  // view's already-drawn pixels or a `slow`-tier view's held-over frame.
+  // view's already-drawn pixels this frame.
   renderer.clear(true, true, true);
   renderer.render(view.scene, view.camera);
 }
@@ -838,22 +904,26 @@ function renderFrame(tSeconds: number): void {
   registry.readBoxes(canvasCss, nowMs);
   const { active, slow } = registry.drawSets(PLATE_CONCURRENCY_CAP, nowMs);
 
-  for (const stageView of active) {
+  // Every visible view draws; the budget only picks which recompute their LED
+  // field. `drawSets` already excludes off-screen views from both sets, so
+  // `active ∪ slow` is exactly "visible this frame" — see `planFrameDraws`
+  // for why presence must not depend on the budget.
+  const plan = planFrameDraws(active, slow, (stageView) => {
     const view = viewStates.get(stageView.id);
-    if (!view || !stageView.box || !stageView.clipBox) continue;
-    const rects = computeFrameRects(stageView.box, stageView.clipBox, canvasCss);
-    if (!rects) continue;
-    drawView(view, rects, tSeconds, nowMs);
-  }
+    return view ? dueForSlowRedraw(view.lastSlowDrawAt, nowMs) : false;
+  });
 
-  for (const stageView of slow) {
+  for (const { view: stageView, recomputeField } of plan) {
     const view = viewStates.get(stageView.id);
     if (!view || !stageView.box || !stageView.clipBox) continue;
-    if (!dueForSlowRedraw(view.lastSlowDrawAt, nowMs)) continue;
     const rects = computeFrameRects(stageView.box, stageView.clipBox, canvasCss);
     if (!rects) continue;
-    view.lastSlowDrawAt = nowMs;
-    drawView(view, rects, tSeconds, nowMs);
+    // Stamped only on a field recompute: this is the slow tier's own cadence
+    // clock, not a record of the last time the view was painted.
+    if (recomputeField) {
+      view.lastSlowDrawAt = nowMs;
+    }
+    drawView(view, rects, tSeconds, nowMs, recomputeField);
   }
 }
 
@@ -894,5 +964,7 @@ function drawViewImmediate(view: ViewState): void {
 
   const nowMs = typeof performance !== "undefined" ? performance.now() : Date.now();
   const tSeconds = nowMs / 1000;
-  drawView(view, rects, tSeconds, nowMs);
+  // An explicit "draw right now" follows a state change, so it always
+  // re-evaluates the field rather than repainting a stale buffer.
+  drawView(view, rects, tSeconds, nowMs, true);
 }

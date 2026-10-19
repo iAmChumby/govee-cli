@@ -16,8 +16,10 @@ import { ConfirmDeleteButton } from "./confirm-delete-button";
 import { Field, INPUT_CLASS } from "./field";
 import { deleteDevice, registerDevice, type RegisterDeviceBody } from "./sidecar";
 
-/** The four models this deployment supports (WEBUI_SPEC §3). */
-const SUPPORTED_MODELS = ["H6056", "H6008", "H6183", "H6022"] as const;
+/** The models this deployment supports (WEBUI_SPEC §3) — kept in step with
+ *  `MODEL_SPECS` in `govee_cli/transport.py`, which is what actually decides
+ *  whether the sidecar can route a device. */
+const SUPPORTED_MODELS = ["H6056", "H6008", "H6183", "H6022", "H6004"] as const;
 
 function errMessage(err: unknown): string {
   return err instanceof ApiError ? err.message : String(err);

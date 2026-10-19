@@ -156,6 +156,18 @@ describe("createHalo / updateHalo", () => {
     expect(halo.material.opacity).toBe(0);
   });
 
+  it("centres the halo on the mean LED position, not the model midpoint", () => {
+    const model = fakeModelWithSpill([]);
+    model.leds = [
+      { index: 0, row: 0, col: 0, position: [0, 4, 0], normal: [0, 1, 0] },
+      { index: 1, row: 0, col: 1, position: [0, 6, 0], normal: [0, 1, 0] },
+    ];
+    const halo = createHalo(model);
+    expect(halo.position.x).toBeCloseTo(0);
+    expect(halo.position.y).toBeCloseTo(5);
+    expect(halo.position.z).toBeCloseTo(0);
+  });
+
   it("colours the halo from the given mean and scales opacity by brightnessFactor", () => {
     const model = fakeModelWithSpill([]);
     const halo = createHalo(model);
