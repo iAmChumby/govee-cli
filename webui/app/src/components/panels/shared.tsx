@@ -97,7 +97,7 @@ export function EmptyState({ title, hint }: EmptyStateProps) {
     <div className="rounded-card border border-dashed border-hairline px-6 py-10 text-center">
       <p className="text-data leading-snug text-mid">{title}</p>
       {hint ? (
-        <p className="mx-auto mt-1.5 max-w-[var(--relative-caption-measure)] font-mono text-micro leading-relaxed text-low">
+        <p className="mx-auto mt-1.5 max-w-relative-caption-measure font-mono text-micro leading-relaxed text-low">
           {hint}
         </p>
       ) : null}

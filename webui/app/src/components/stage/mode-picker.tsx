@@ -215,7 +215,7 @@ export function UnknownModeChooser({ deviceRef }: UnknownModeChooserProps) {
           stage stops guessing.
         </DialogDescription>
 
-        <div className="mt-4 max-h-[var(--relative-mode-list-height)] space-y-4 overflow-y-auto pr-1">
+        <div className="mt-4 max-h-relative-mode-list-height space-y-4 overflow-y-auto pr-1">
           <OptionGroup
             title="basics"
             options={FIXED_OPTIONS}

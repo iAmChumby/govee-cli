@@ -1041,6 +1041,52 @@
         }
       },
       {
+        "$comment": "/* the RELATIVE measures, bridged into Tailwind's spacing\n     namespace so `w-relative-owner-strip-width` resolves against the\n     declared --relative-* values above. Wave 6a tokenised these but left\n     them as bracketed arbitrary values, which is a raw literal wearing a\n     token's name — and a shape the M2 gate could not see. These are\n     NAMES now: the class says what the value measures, the token says\n     what it is. */",
+        "tokens": {
+          "--spacing-relative-owner-strip-width": {
+            "$value": "var(--relative-owner-strip-width)"
+          },
+          "--spacing-relative-time-column-width": {
+            "$value": "var(--relative-time-column-width)"
+          },
+          "--spacing-relative-caption-measure": {
+            "$value": "var(--relative-caption-measure)"
+          },
+          "--spacing-relative-mode-list-height": {
+            "$value": "var(--relative-mode-list-height)"
+          },
+          "--spacing-relative-stage-halo-height": {
+            "$value": "var(--relative-stage-halo-height)"
+          },
+          "--spacing-relative-stage-halo-width": {
+            "$value": "var(--relative-stage-halo-width)"
+          },
+          "--spacing-relative-stage-caption-width": {
+            "$value": "var(--relative-stage-caption-width)"
+          }
+        }
+      },
+      {
+        "$comment": "/* the platform INSETS and the two measured boxes, bridged the\n     same way, so no class string carries a bracketed var() reference.\n     `pt-safe-top` / `pb-safe-bottom` are the standalone-PWA safe-area\n     insets; `h-stage-height-landscape` is #10's coarse-pointer stage\n     height; `w-band-w` / `w-band-w-touch` are the schedule timeline's\n     band box and its coarse-pointer hit box, whose widths are set per\n     element (timeline.tsx writes --band-w inline). */",
+        "tokens": {
+          "--spacing-safe-top": {
+            "$value": "var(--safe-top)"
+          },
+          "--spacing-safe-bottom": {
+            "$value": "var(--safe-bottom)"
+          },
+          "--spacing-stage-height-landscape": {
+            "$value": "var(--stage-height-landscape)"
+          },
+          "--spacing-band-w": {
+            "$value": "var(--band-w)"
+          },
+          "--spacing-band-w-touch": {
+            "$value": "var(--band-w-touch)"
+          }
+        }
+      },
+      {
         "tokens": {
           "--safe-top": {
             "$value": "var(--safe-top)"

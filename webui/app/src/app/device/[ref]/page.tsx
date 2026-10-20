@@ -42,7 +42,7 @@ function DeviceConsoleContent({ ref }: { ref: string }) {
   const state = useDeviceState(ref);
 
   return (
-    <main className="min-h-0 min-w-0 flex-1 overflow-y-auto pointer-coarse:pb-[var(--safe-bottom)]">
+    <main className="min-h-0 min-w-0 flex-1 overflow-y-auto pointer-coarse:pb-safe-bottom">
       {/*
         T34 (WEBUI_V3_SPEC §11.6): the dial's vertical position is chassis-
         above-it plus the stage height. Every `max-md:` here shaves the
@@ -153,7 +153,7 @@ function DeviceConsoleContent({ ref }: { ref: string }) {
                 token wins exactly where it applies; portrait phones and
                 fine-pointer desktops never match it at all.
               */}
-              <LampStage state={state.data} className="h-space-260 sm:h-space-380 lg:h-space-480 pointer-coarse:landscape:h-[var(--stage-height-landscape)]" />
+              <LampStage state={state.data} className="h-space-260 sm:h-space-380 lg:h-space-480 pointer-coarse:landscape:h-stage-height-landscape" />
               <p className="mt-3 max-md:mt-1.5 px-1 font-mono text-data leading-relaxed max-md:leading-snug text-low">
                 {state.data.id}
                 {state.data.model === "H6022" ? " · 132-led 12×11 wrapped matrix" : ""}
@@ -178,7 +178,7 @@ function LoadingSkeleton() {
   return (
     <div className="mt-4 max-md:mt-2 grid min-w-0 items-start gap-5 max-md:gap-3 lg:grid-cols-[minmax(0,11fr)_minmax(0,9fr)] pointer-coarse:landscape:mt-3 pointer-coarse:landscape:gap-3 pointer-coarse:landscape:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
       {/* stage skeleton — mirrors the loaded stage's bare-value height (T34) so the skeleton-to-content swap doesn't itself jump the layout; landscape mirror per #10 */}
-      <div className="flex h-space-260 items-center justify-center rounded-stage border border-hairline bg-raised sm:h-space-380 lg:h-space-480 pointer-coarse:landscape:h-[var(--stage-height-landscape)]">
+      <div className="flex h-space-260 items-center justify-center rounded-stage border border-hairline bg-raised sm:h-space-380 lg:h-space-480 pointer-coarse:landscape:h-stage-height-landscape">
         <Skeleton className="h-40 w-40 rounded-full" />
       </div>
       {/* deck skeleton */}

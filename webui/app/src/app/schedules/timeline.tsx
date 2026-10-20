@@ -371,11 +371,19 @@ export function ScheduleTimeline({
               // the box is >=44x44 (ink width + 19px each side, 44px tall at
               // y=44..88 of the 96px rail) while the ink stays 28px tall at
               // y=52..80, and the dot row's boxes end at y=44 so nothing overlaps.
-              className="group absolute bottom-1 top-8 w-[var(--band-w)] cursor-pointer pointer-coarse:bottom-0 pointer-coarse:top-11 pointer-coarse:-ml-space-19 pointer-coarse:w-[calc(var(--band-w)+38px)]"
+              className="group absolute bottom-1 top-8 w-band-w cursor-pointer pointer-coarse:bottom-0 pointer-coarse:top-11 pointer-coarse:-ml-space-19 pointer-coarse:w-band-w-touch"
               style={
                 {
                   left: `${bandStartPct}%`,
                   "--band-w": bandEndPct !== null ? `${Math.max(1.5, bandEndPct - bandStartPct)}%` : "8px",
+                  // The coarse-pointer hit box is the band's own width plus
+                  // 19px of finger room on each side. It is declared HERE,
+                  // on the element that owns --band-w, because a custom
+                  // property resolves its var() references where it is
+                  // DECLARED: a :root-level `--band-w-touch` would be
+                  // computed against a :root that has no --band-w, and
+                  // would inherit down as an invalid value.
+                  "--band-w-touch": "calc(var(--band-w) + 38px)",
                 } as React.CSSProperties
               }
             >

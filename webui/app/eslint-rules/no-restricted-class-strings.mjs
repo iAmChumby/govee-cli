@@ -36,8 +36,24 @@ export const CLASS_STRING_PATTERNS = [
   },
   {
     id: "dimension",
-    source: String.raw`(?<!text-)\[[0-9.]+(px|rem|em|ch|vh|vw|dvh|svh|lvh|%)\]`,
-    message: "Bracketed dimension: declare it on the type/space scale (#27) instead.",
+    // A bracketed dimension is a raw length typed by hand: either a
+    // number with a unit (`[86px]`, `[55vh]`) or a `var()` reference
+    // (`[var(--relative-owner-strip-width)]`).
+    //
+    // The var() branch was added in wave 6b (PR review L-2). The old
+    // pattern matched only a number-with-unit, so a bracketed var()
+    // reference walked straight through the gate — a raw value wearing a
+    // token's name, invisible to the rule that exists to keep raw values
+    // out. Eight call sites had already learned to use that escape.
+    //
+    // The fix has two halves and both are needed: the pattern now SEES
+    // the shape, and the seven relative measures are bridged into
+    // Tailwind's spacing namespace so the eight call sites can say
+    // `w-relative-owner-strip-width` — a name — instead.
+    source: String.raw`(?<!text-)\[(?:[0-9.]+(?:px|rem|em|ch|vh|vw|dvh|svh|lvh|%)|[^\]]*var\([^\]]*)\]`,
+    message:
+      "Bracketed dimension: declare it on the type/space scale (#27) " +
+      "instead — a var() reference is still a bracketed value.",
   },
   {
     id: "outline",

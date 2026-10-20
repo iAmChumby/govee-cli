@@ -299,7 +299,7 @@ function MusicControls({ deviceRef, modes, active }: MusicControlsProps) {
             showBubble
             className="flex-1"
           />
-          <span className="w-[var(--relative-time-column-width)] text-right">
+          <span className="w-relative-time-column-width text-right">
             <Odometer value={sensitivity} pad={3} className="text-body text-hi" />
           </span>
         </div>

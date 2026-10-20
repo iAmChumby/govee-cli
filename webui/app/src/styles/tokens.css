@@ -383,6 +383,34 @@
   --transition-duration-motion-300: var(--motion-duration-300);
   --transition-duration-motion-500: var(--motion-duration-500);
 
+  /* the RELATIVE measures, bridged into Tailwind's spacing
+     namespace so `w-relative-owner-strip-width` resolves against the
+     declared --relative-* values above. Wave 6a tokenised these but left
+     them as bracketed arbitrary values, which is a raw literal wearing a
+     token's name — and a shape the M2 gate could not see. These are
+     NAMES now: the class says what the value measures, the token says
+     what it is. */
+  --spacing-relative-owner-strip-width: var(--relative-owner-strip-width);
+  --spacing-relative-time-column-width: var(--relative-time-column-width);
+  --spacing-relative-caption-measure: var(--relative-caption-measure);
+  --spacing-relative-mode-list-height: var(--relative-mode-list-height);
+  --spacing-relative-stage-halo-height: var(--relative-stage-halo-height);
+  --spacing-relative-stage-halo-width: var(--relative-stage-halo-width);
+  --spacing-relative-stage-caption-width: var(--relative-stage-caption-width);
+
+  /* the platform INSETS and the two measured boxes, bridged the
+     same way, so no class string carries a bracketed var() reference.
+     `pt-safe-top` / `pb-safe-bottom` are the standalone-PWA safe-area
+     insets; `h-stage-height-landscape` is #10's coarse-pointer stage
+     height; `w-band-w` / `w-band-w-touch` are the schedule timeline's
+     band box and its coarse-pointer hit box, whose widths are set per
+     element (timeline.tsx writes --band-w inline). */
+  --spacing-safe-top: var(--safe-top);
+  --spacing-safe-bottom: var(--safe-bottom);
+  --spacing-stage-height-landscape: var(--stage-height-landscape);
+  --spacing-band-w: var(--band-w);
+  --spacing-band-w-touch: var(--band-w-touch);
+
   --safe-top: var(--safe-top);
   --safe-right: var(--safe-right);
   --safe-bottom: var(--safe-bottom);
