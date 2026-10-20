@@ -13,7 +13,8 @@ import { describe, it } from "vitest";
  *  - the token exists and is the app's accent;
  *  - the one :focus-visible rule consumes it;
  *  - no `focus-visible:outline-none` survives unless the same line paints
- *    `focus-visible:ring-(--focus-ring)`.
+ *    `focus-visible:ring-(--focus-ring)` AND
+ *    `focus-visible:ring-(length:--focus-ring-width)`.
  */
 
 const SRC = fileURLToPath(new URL("..", import.meta.url));
@@ -62,9 +63,17 @@ const PAINTED_RING_DECL = "@utility focus-ring-painted";
 
 /**
  * The one way a control may cancel the outline: it paints the shared ring
- * itself, from the same token.
+ * itself, from the same tokens.
+ *
+ * BOTH tokens, not one. The colour token alone was the contract until
+ * wave 6b, and a control that painted the right colour at the wrong
+ * width passed it: `focus-visible:ring-4` would paint a 4px ring of the
+ * shared colour — a different ring from the app's, drawn by the same
+ * class list, and the gate would call it correct. The width has its own
+ * token (`--focus-ring-width`), so the contract now names it.
  */
 const SHARED_RING = "focus-visible:ring-(--focus-ring)";
+const SHARED_RING_WIDTH = "focus-visible:ring-(length:--focus-ring-width)";
 
 /**
  * A line may opt out with this marker and a reason. It is for elements
@@ -101,7 +110,7 @@ describe("one focus ring (#12)", () => {
         const cancels =
           OUTLINE_CANCEL.test(line) || line.includes(PAINTED_RING_CANCEL);
         if (!cancels) return;
-        if (line.includes(SHARED_RING)) return;
+        if (line.includes(SHARED_RING) && line.includes(SHARED_RING_WIDTH)) return;
         offenders.push(`${file}:${i + 1}`);
       });
     }
@@ -109,7 +118,39 @@ describe("one focus ring (#12)", () => {
       offenders,
       [],
       "an outline cancel without the shared ring — a bare `outline-none` " +
-        "cancels the ring exactly as `focus-visible:outline-none` does",
+        "cancels the ring exactly as `focus-visible:outline-none` does, " +
+        "and a ring painted at the wrong width is not the app's ring",
+    );
+  });
+
+  it("has teeth: a cancel without the width token is an offender", () => {
+    // The contract above is only worth anything if it fails on a bad
+    // control. This checks the check: the three shapes that must be
+    // rejected, and the one that must not.
+    const offenders = (line: string) =>
+      line.includes(PAINTED_RING_CANCEL) &&
+      !(line.includes(SHARED_RING) && line.includes(SHARED_RING_WIDTH));
+
+    assert.equal(
+      offenders(
+        `focus-visible:focus-ring-painted focus-visible:ring-(--focus-ring)`,
+      ),
+      true,
+      "the colour token alone is not enough — the width is checked too",
+    );
+    assert.equal(
+      offenders(
+        `focus-visible:focus-ring-painted focus-visible:ring-(length:--focus-ring-width)`,
+      ),
+      true,
+      "the width token alone is not enough — the colour is checked too",
+    );
+    assert.equal(
+      offenders(
+        `focus-visible:focus-ring-painted focus-visible:ring-(length:--focus-ring-width) focus-visible:ring-(--focus-ring)`,
+      ),
+      false,
+      "the full contract passes",
     );
   });
 });
