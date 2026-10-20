@@ -15,6 +15,7 @@ import { dominantHsl } from "@/lib/motion-engine/dominant-hsl";
 import type { ActiveMode as MotionActiveMode } from "@/lib/motion-engine/types";
 import { useDeviceControls, usePendingState } from "@/lib/queries";
 import { springCelebrate } from "@/lib/motion";
+import { edgeMask, useEdgeScroll } from "@/lib/use-edge-scroll";
 import { cn } from "@/lib/cn";
 
 /* ==================================================================
@@ -249,6 +250,12 @@ export function DevicePlate({ device }: { device: DeviceSummary }) {
   const power = online && device.power === true;
   useDeviceBleed(cardRef, activeHsl(device), power, device.brightness ?? null);
 
+  // #9: live edge affordance on the channel-strip dock. The mask and the
+  // overscroll-behavior containment both appear only when the row actually
+  // overflows — see the dock div below.
+  const { ref: dockRef, edges: dockEdges } = useEdgeScroll<HTMLDivElement>();
+  const dockMask = edgeMask(dockEdges);
+
   const { stageRef, onClick: onOpen } = useStagePromotion(device.ref, href);
 
   // Celebration #1 — "first light": off -> on, and only that transition.
@@ -384,27 +391,32 @@ export function DevicePlate({ device }: { device: DeviceSummary }) {
           </span>
         </div>
 
-        {/* channel strip — quick color + temperature dock. At >=sm, one
-            row that scrolls and masks exactly as before (§11.6 T33: "the
-            row is untouched" at this width, because that's what the grid
-            was designed around). Below sm the dock is 6 44px swatches
-            with 8px gaps (304px) inside a ~310-324px content box, so the
-            divider and all three temperature presets fell past the right
-            edge on first paint — WEBUI_V3_SPEC.md §11.2 (1), "the user's
-            screenshots show 270 sliced in half", the worst defect this
-            round exists to fix. `max-sm:flex-wrap` lets 6 swatches fill
-            row one and the divider + 3 presets fill row two instead, so
-            nothing scrolls and nothing hides at that width; the mask
-            that used to *hide* the cut only made sense while there was a
-            cut to hide, so `max-sm:[mask-image:none]` (+ the -webkit-
-            variant) turns it off there. The mask itself had to move out
-            of `style` and into these two base utility classes to make
-            that override possible at all: an inline `style` attribute
-            beats any class selector's specificity regardless of media
-            query, so a `max-sm:[mask-image:none]` *class* sitting next to
-            a `style={{maskImage}}` prop would have compiled cleanly and
-            done nothing on a real phone. */}
-        <div className="mt-3 flex items-center gap-2 overflow-x-auto border-t border-hairline py-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%_-_20px),transparent)] [-webkit-mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%_-_20px),transparent)] max-sm:flex-wrap max-sm:[mask-image:none] max-sm:[-webkit-mask-image:none]">
+        {/* channel strip — quick color + temperature dock (#9). At >=sm this is
+            one scrolling row; the same `useEdgeScroll` hook the tab rail uses
+            drives a LIVE edge fade (`edgeMask`) that appears only while the row
+            overflows and vanishes at the ends — not the always-on static mask
+            that used to dissolve the divider even when there was nothing to
+            scroll to (§11.2 item 1: "clipped content reads as finished content").
+            `data-scroll-affordance="true"` (conditional on `dockEdges.scrollable`)
+            hands the row the same `overscroll-behavior-x: contain` the tab rail
+            gets (globals.css, `[data-scroll-affordance="true"]`): an edge-swipe-
+            out while dragging a swatch can't chain into a back-navigation.
+            Below sm the dock `flex-wrap`s — six swatches on row one, divider +
+            three presets on row two — so nothing scrolls, `computeEdges` measures
+            `scrollable: false`, `edgeMask` returns `undefined`, and neither the
+            mask nor the affordance attribute appear. No media-query override is
+            needed: the mask lives on `style` (as it does on the tab rail) and is
+            simply absent when the row doesn't overflow. The 6 swatches with 8px
+            gaps (304px) fit inside the ~310-324px content box on row one; the
+            divider + presets wrap to row two instead of being sliced in half
+            (WEBUI_V3_SPEC.md §11.2 item 1: "the user's screenshots show 270
+            sliced in half"). */}
+        <div
+          ref={dockRef}
+          data-scroll-affordance={dockEdges.scrollable ? "true" : undefined}
+          className="mt-3 flex items-center gap-2 overflow-x-auto border-t border-hairline py-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden max-sm:flex-wrap"
+          style={dockMask ? { maskImage: dockMask, WebkitMaskImage: dockMask } : undefined}
+        >
           {QUICK_COLORS.map((hex) => {
             const active = device.color?.hex.toUpperCase() === hex;
             return (

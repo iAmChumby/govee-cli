@@ -49,6 +49,35 @@ export function computeEdges(
   return { scrollable, atStart, atEnd };
 }
 
+/**
+ * Build a CSS `mask-image` gradient that fades the side(s) of a scrolling
+ * row which have more content. Returns `undefined` when the row is not
+ * scrollable, so the mask is absent entirely rather than permanently on.
+ *
+ * A static `mask-image` reads the same whether or not there is more content
+ * to scroll to — it dissolved the divider even on a row that fit exactly,
+ * which is §11.2 item (1)'s "clipped content reads as finished content"
+ * defect. Fading only the side that has more content, and dropping the fade
+ * on reaching it, turns the same visual language into an actual affordance.
+ *
+ * The gradient fades the row's own pixels to transparent rather than
+ * layering paint on top, so this introduces no colour (§G / §11.4).
+ *
+ * It lives here, beside `computeEdges`, because it is the pure half of the
+ * same contract: the arithmetic says which side has more content, this
+ * turns that into the CSS. `tabs.tsx` and `status-strip.tsx` each carry
+ * their own copy of this function today — the same rule, written out twice.
+ * The dock imports this one; the other two are left alone because
+ * `status-strip.tsx` is a frozen #34 identity input and closing that
+ * duplication is not #9's scope.
+ */
+export function edgeMask(edges: ScrollEdges): string | undefined {
+  if (!edges.scrollable) return undefined;
+  const left = edges.atStart ? "black 0" : "transparent 0, black 20px";
+  const right = edges.atEnd ? "black 100%" : "black calc(100% - 20px), transparent 100%";
+  return `linear-gradient(to right, ${left}, ${right})`;
+}
+
 const UNMEASURED: ScrollEdges = { scrollable: false, atStart: true, atEnd: true };
 
 function sameEdges(a: ScrollEdges, b: ScrollEdges): boolean {

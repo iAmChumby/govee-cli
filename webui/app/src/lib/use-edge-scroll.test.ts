@@ -8,7 +8,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 
-import { computeEdges } from "./use-edge-scroll";
+import { computeEdges, edgeMask } from "./use-edge-scroll";
 
 test("a row that fits exactly is not scrollable, and reports both edges", () => {
   const edges = computeEdges(0, 316, 316);
@@ -59,4 +59,51 @@ test("a sub-pixel residual against either end still counts as that edge", () => 
 
   const nearStart = computeEdges(0.5, 460, 316);
   assert.equal(nearStart.atStart, true);
+});
+
+test("edgeMask is undefined when the row is not scrollable", () => {
+  const edges = computeEdges(0, 316, 316);
+  assert.equal(edgeMask(edges), undefined);
+});
+
+test("edgeMask is undefined when a sub-pixel residual keeps the row non-scrollable", () => {
+  const edges = computeEdges(0, 317.5, 316);
+  assert.equal(edgeMask(edges), undefined);
+});
+
+test("edgeMask fades both sides when mid-scroll (content on both ends)", () => {
+  const edges = computeEdges(72, 460, 316);
+  const mask = edgeMask(edges);
+  assert.ok(mask, "mask must exist when scrollable");
+  assert.ok(mask!.includes("transparent 0, black 20px"), "left side must fade in");
+  assert.ok(mask!.includes("black calc(100% - 20px), transparent 100%"), "right side must fade out");
+});
+
+test("edgeMask fades only the right side when at the start", () => {
+  const edges = computeEdges(0, 460, 316);
+  const mask = edgeMask(edges);
+  assert.ok(mask, "mask must exist when scrollable");
+  assert.ok(mask!.includes("black 0"), "left side must NOT fade (atStart = true)");
+  assert.ok(mask!.includes("black calc(100% - 20px), transparent 100%"), "right side must fade out");
+});
+
+test("edgeMask fades only the left side when at the end", () => {
+  const overflow = 460 - 316;
+  const edges = computeEdges(overflow, 460, 316);
+  const mask = edgeMask(edges);
+  assert.ok(mask, "mask must exist when scrollable");
+  assert.ok(mask!.includes("transparent 0, black 20px"), "left side must fade in");
+  assert.ok(mask!.includes("black 100%"), "right side must NOT fade (atEnd = true)");
+});
+
+test("edgeMask reacts to a sub-pixel near-end: right side still fades until truly at end", () => {
+  // scrollLeft lands 0.5px short of the true overflow due to rounding —
+  // atEnd is still true, so the right side must NOT fade.
+  const overflow = 460 - 316;
+  const edges = computeEdges(overflow - 0.5, 460, 316);
+  assert.equal(edges.atEnd, true);
+  const mask = edgeMask(edges);
+  assert.ok(mask, "mask must exist when scrollable");
+  assert.ok(mask!.includes("black 100%"), "right side must NOT fade when nearEnd is true");
+  assert.ok(mask!.includes("transparent 0, black 20px"), "left side must still fade in");
 });
