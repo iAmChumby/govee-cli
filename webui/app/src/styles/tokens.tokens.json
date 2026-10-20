@@ -146,6 +146,16 @@
         "$value": "28px",
         "$type": "dimension",
         "$description": "dialogs, sheets"
+      },
+      "swatch": {
+        "$value": "5px",
+        "$type": "dimension",
+        "$description": "the native colour input's swatch"
+      },
+      "stage-halo": {
+        "$value": "46% 46% 18% 18% / 58% 58% 14% 14%",
+        "$type": "borderRadius",
+        "$description": "the stage halo's elliptical corners"
       }
     },
     "duration": {
@@ -213,6 +223,127 @@
       "52": {
         "$value": "52px",
         "$type": "dimension"
+      },
+      "86": {
+        "$value": "86px",
+        "$type": "dimension",
+        "$description": "the hex colour field's width"
+      },
+      "120": {
+        "$value": "120px",
+        "$type": "dimension",
+        "$description": "the phone width of the control deck's minimum column and the device page's readout column"
+      },
+      "136": {
+        "$value": "136px",
+        "$type": "dimension",
+        "$description": "the coarse-pointer landscape skeleton box"
+      },
+      "140": {
+        "$value": "140px",
+        "$type": "dimension",
+        "$description": "the control deck's minimum column width"
+      },
+      "160": {
+        "$value": "160px",
+        "$type": "dimension",
+        "$description": "the device page's loading skeleton box"
+      },
+      "220": {
+        "$value": "220px",
+        "$type": "dimension",
+        "$description": "the console's desktop rail width"
+      },
+      "260": {
+        "$value": "260px",
+        "$type": "dimension",
+        "$description": "the device page's stage box, phone width"
+      },
+      "280": {
+        "$value": "280px",
+        "$type": "dimension",
+        "$description": "the group list's maximum width"
+      },
+      "300": {
+        "$value": "300px",
+        "$type": "dimension",
+        "$description": "the calibration wizard's segment list height"
+      },
+      "380": {
+        "$value": "380px",
+        "$type": "dimension",
+        "$description": "the device page's stage box, tablet width"
+      },
+      "440": {
+        "$value": "440px",
+        "$type": "dimension",
+        "$description": "the paint studio dialogs' maximum width"
+      },
+      "480": {
+        "$value": "480px",
+        "$type": "dimension",
+        "$description": "the device page's stage box, desktop width"
+      },
+      "1080": {
+        "$value": "1080px",
+        "$type": "dimension",
+        "$description": "the page container's maximum width (console, rooms, schedules, settings)"
+      },
+      "1200": {
+        "$value": "1200px",
+        "$type": "dimension",
+        "$description": "the device page's container maximum width"
+      }
+    },
+    "border": {
+      "$description": "border WIDTHS, the two the tree types as bracketed dimensions. The names must not collide with a colour token: Tailwind resolves `border-<name>` against the width namespace first, so a `--color-<name>` would lose.",
+      "fine": {
+        "$value": "0.5px",
+        "$type": "dimension",
+        "$description": "the hairline on a canvas cell and a colour swatch"
+      },
+      "active": {
+        "$value": "3px",
+        "$type": "dimension",
+        "$description": "the selected colour swatch's ring"
+      }
+    },
+    "relative": {
+      "$description": "lengths that are relative to something other than the pixel grid: the root font size, the font's character width, the viewport, or the containing box. They are declared here so no class string carries a raw literal; converting them to pixels would change WHAT they measure, not just how they are spelled.",
+      "owner-strip-width": {
+        "$value": "7.5rem",
+        "$type": "dimension",
+        "$description": "the schedule owner strip's width"
+      },
+      "time-column-width": {
+        "$value": "5ch",
+        "$type": "dimension",
+        "$description": "the music panel's time column"
+      },
+      "caption-measure": {
+        "$value": "44ch",
+        "$type": "dimension",
+        "$description": "the what-is-playing caption's line length"
+      },
+      "mode-list-height": {
+        "$value": "55vh",
+        "$type": "dimension",
+        "$description": "the mode picker's scrollable list height"
+      },
+      "stage-halo-height": {
+        "$value": "56%",
+        "$type": "dimension",
+        "$description": "the stage halo's height, of the stage box"
+      },
+      "stage-halo-width": {
+        "$value": "32%",
+        "$type": "dimension",
+        "$description": "the stage halo's width, of the stage box"
+      },
+      "stage-caption-width": {
+        "$value": "68%",
+        "$type": "dimension",
+        "$description": "the stage caption's maximum width, of the stage box"
       }
     },
     "focus": {
@@ -314,6 +445,29 @@
       },
       "$type": "transition",
       "$description": "exits and reduced-motion fallbacks (≤180ms)"
+    },
+    "durations": {
+      "$description": "the CSS transition durations the tree types as `duration-*` (M2). One rung per MEASURED value — a rename, never a repaint: the suffix is the duration, and no value was rounded to a neighbour. `150` is the same number as `motion.fadeFast` above; the generator refuses to write if the two ever disagree, so the one number cannot drift into two.",
+      "150": {
+        "$value": "150ms",
+        "$type": "duration",
+        "$description": "the app's default control transition (hover, press, focus)"
+      },
+      "200": {
+        "$value": "200ms",
+        "$type": "duration",
+        "$description": "the device plate's stage border transition"
+      },
+      "300": {
+        "$value": "300ms",
+        "$type": "duration",
+        "$description": "the stage caption's colour transition"
+      },
+      "500": {
+        "$value": "500ms",
+        "$type": "duration",
+        "$description": "the schedule row's transition"
+      }
     },
     "variants": {
       "fadeUp": {
@@ -701,6 +855,12 @@
           },
           "--radius-overlay": {
             "$value": "var(--radius-raw-overlay)"
+          },
+          "--radius-swatch": {
+            "$value": "var(--radius-raw-swatch)"
+          },
+          "--radius-stage-halo": {
+            "$value": "var(--radius-raw-stage-halo)"
           }
         }
       },
@@ -807,6 +967,76 @@
           },
           "--spacing-space-52": {
             "$value": "var(--space-52)"
+          },
+          "--spacing-space-86": {
+            "$value": "var(--space-86)"
+          },
+          "--spacing-space-120": {
+            "$value": "var(--space-120)"
+          },
+          "--spacing-space-136": {
+            "$value": "var(--space-136)"
+          },
+          "--spacing-space-140": {
+            "$value": "var(--space-140)"
+          },
+          "--spacing-space-160": {
+            "$value": "var(--space-160)"
+          },
+          "--spacing-space-220": {
+            "$value": "var(--space-220)"
+          },
+          "--spacing-space-260": {
+            "$value": "var(--space-260)"
+          },
+          "--spacing-space-280": {
+            "$value": "var(--space-280)"
+          },
+          "--spacing-space-300": {
+            "$value": "var(--space-300)"
+          },
+          "--spacing-space-380": {
+            "$value": "var(--space-380)"
+          },
+          "--spacing-space-440": {
+            "$value": "var(--space-440)"
+          },
+          "--spacing-space-480": {
+            "$value": "var(--space-480)"
+          },
+          "--spacing-space-1080": {
+            "$value": "var(--space-1080)"
+          },
+          "--spacing-space-1200": {
+            "$value": "var(--space-1200)"
+          }
+        }
+      },
+      {
+        "$comment": "/* border widths, bridged into Tailwind's border-width namespace so\n     `border-fine` / `border-active` resolve against the declared :root values\n     above. A bracketed `border-[3px]` would be read as a COLOUR by Tailwind's\n     arbitrary-value path, so the width has to come from the theme. */",
+        "tokens": {
+          "--border-width-fine": {
+            "$value": "var(--border-raw-fine)"
+          },
+          "--border-width-active": {
+            "$value": "var(--border-raw-active)"
+          }
+        }
+      },
+      {
+        "$comment": "/* transition durations, bridged into Tailwind's transition-duration\n     namespace so `duration-motion-150` resolves against the declared\n     --motion-duration-* values above. The rungs are the MEASURED durations\n     the tree already used; the class name changed, the millisecond did not. */",
+        "tokens": {
+          "--transition-duration-motion-150": {
+            "$value": "var(--motion-duration-150)"
+          },
+          "--transition-duration-motion-200": {
+            "$value": "var(--motion-duration-200)"
+          },
+          "--transition-duration-motion-300": {
+            "$value": "var(--motion-duration-300)"
+          },
+          "--transition-duration-motion-500": {
+            "$value": "var(--motion-duration-500)"
           }
         }
       },

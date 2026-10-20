@@ -89,7 +89,7 @@ export function GroupsSection() {
                   // same reasoning as device-plate.tsx's name-Link fix. Both
                   // are inert with a mouse, so desktop's 97x29 box is
                   // unchanged (§11.1).
-                  "cursor-pointer rounded-chip border px-2.5 py-1.5 font-mono text-micro uppercase tracking-caps transition-colors duration-150 pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center pointer-coarse:justify-center",
+                  "cursor-pointer rounded-chip border px-2.5 py-1.5 font-mono text-micro uppercase tracking-caps transition-colors duration-motion-150 pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center pointer-coarse:justify-center",
                   active === name
                     ? "border-hairline-strong bg-accent-dim text-hi"
                     : "border-hairline text-mid hover:border-hairline-strong hover:text-hi",
@@ -162,14 +162,14 @@ function GroupBroadcast({ name, members }: { name: string; members: string[] }) 
         <button
           type="button"
           onClick={() => fire("power on")}
-          className="cursor-pointer rounded-btn border border-hairline px-3 py-1.5 text-data text-hi transition-colors duration-150 hover:border-hairline-strong hover:bg-accent-dim pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center pointer-coarse:justify-center"
+          className="cursor-pointer rounded-btn border border-hairline px-3 py-1.5 text-data text-hi transition-colors duration-motion-150 hover:border-hairline-strong hover:bg-accent-dim pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center pointer-coarse:justify-center"
         >
           all on
         </button>
         <button
           type="button"
           onClick={() => fire("power off")}
-          className="cursor-pointer rounded-btn border border-hairline px-3 py-1.5 text-data text-hi transition-colors duration-150 hover:border-hairline-strong hover:bg-accent-dim pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center pointer-coarse:justify-center"
+          className="cursor-pointer rounded-btn border border-hairline px-3 py-1.5 text-data text-hi transition-colors duration-motion-150 hover:border-hairline-strong hover:bg-accent-dim pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center pointer-coarse:justify-center"
         >
           all off
         </button>
@@ -197,7 +197,7 @@ function GroupBroadcast({ name, members }: { name: string; members: string[] }) 
             >
               <span
                 aria-hidden
-                className="block h-6 w-6 rounded-chip border border-hairline transition-all duration-150 hover:scale-110 hover:border-hairline-strong active:scale-95"
+                className="block h-6 w-6 rounded-chip border border-hairline transition-all duration-motion-150 hover:scale-110 hover:border-hairline-strong active:scale-95"
                 style={{ background: hex }}
               />
             </button>
@@ -215,7 +215,7 @@ function GroupBroadcast({ name, members }: { name: string; members: string[] }) 
             fire(`brightness ${value}`);
           }}
           ariaLabel={`${name} group brightness`}
-          className="max-w-[280px] flex-1"
+          className="max-w-space-280 flex-1"
         />
         <span className="font-mono text-data text-low">
           {scrub !== null ? `${scrub}%` : "drag to set all"}

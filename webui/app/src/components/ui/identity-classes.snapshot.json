@@ -92,7 +92,7 @@
   "reason": "the filament wordmark's type and tracking"
  },
  "brand.dot": {
-  "html": "ml-1 inline-block h-[5px] w-[5px] animate-dot-breathe rounded-full bg-accent",
+  "html": "ml-1 inline-block h-space-5 w-space-5 animate-dot-breathe rounded-full bg-accent",
   "reason": "the 5px status pinhole beside the wordmark"
  }
 }

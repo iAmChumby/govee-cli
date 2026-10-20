@@ -61,7 +61,7 @@ export function TopBar() {
           </span>
           <span
             aria-hidden
-            className="ml-1 inline-block h-[5px] w-[5px] animate-dot-breathe rounded-full bg-accent"
+            className="ml-1 inline-block h-space-5 w-space-5 animate-dot-breathe rounded-full bg-accent"
           />
         </span>
         <span className="hidden text-label uppercase leading-none tracking-micro text-low sm:inline">
@@ -77,7 +77,7 @@ export function TopBar() {
           back link above the device name — so hiding this is deduplication,
           not omission. */}
       <span className="hidden items-center gap-2 font-mono text-label text-low md:flex">
-        <Link href="/" className="text-low hover:text-hi transition-colors duration-150">
+        <Link href="/" className="text-low hover:text-hi transition-colors duration-motion-150">
           console
         </Link>
         {crumbs
@@ -120,7 +120,7 @@ export function TopBar() {
                 aria-current={active ? "page" : undefined}
                 aria-label={item.label}
                 className={cn(
-                  "flex h-11 w-11 items-center justify-center rounded-btn transition-colors duration-150",
+                  "flex h-11 w-11 items-center justify-center rounded-btn transition-colors duration-motion-150",
                   active ? "bg-accent-dim text-hi" : "text-mid hover:bg-accent-dim hover:text-hi",
                 )}
               >

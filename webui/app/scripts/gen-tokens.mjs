@@ -33,6 +33,14 @@ function valueOf(token) {
 }
 
 /**
+ * A token GROUP may carry DTCG metadata of its own ($description, $comment).
+ * Those are not tokens, so they are not emitted; only the real entries are.
+ */
+function entriesOf(group) {
+  return Object.entries(group).filter(([name]) => !name.startsWith("$"));
+}
+
+/**
  * The z-layers' @property `initial-value` is DERIVED from the layer's
  * declared value, never stated a second time.
  *
@@ -76,6 +84,32 @@ function checkZRegistrations(t) {
   }
   if (problems.length) {
     throw new Error(`tokens: z registrations disagree with z values:\n  ${problems.join("\n  ")}`);
+  }
+}
+
+/**
+ * The 150ms transition duration is the ONE number in this file that lives in
+ * two vocabularies: the CSS ladder (`motion.durations.150`) and the Motion
+ * library's `fadeFast` (seconds). The two spellings of one duration drifted
+ * apart exactly the way the z layers did, so the generator refuses to write
+ * if they ever disagree — the drift cannot reach the stylesheet.
+ */
+function checkMotionDurations(t) {
+  const problems = [];
+  const fade = t.motion.fadeFast.$value;
+  const fadeMs = `${Math.round(fade.duration * 1000)}ms`;
+  const ladder = t.motion.durations;
+  for (const [name, token] of Object.entries(ladder)) {
+    if (name === "150" && token.$value !== fadeMs) {
+      problems.push(
+        `motion.durations.${name} is ${token.$value} but motion.fadeFast is ${fade.duration}s (${fadeMs})`,
+      );
+    }
+  }
+  if (problems.length) {
+    throw new Error(
+      `tokens: the motion duration ladder and fadeFast disagree:\n  ${problems.join("\n  ")}`,
+    );
   }
 }
 
@@ -133,16 +167,22 @@ function renderCss(t) {
   out.push("/* ---- Primitives (theme-invariant) -------------------------- */");
   out.push(":root {");
   out.push("  /* radius scale (raw) — generous, smooth */");
-  for (const [name, token] of Object.entries(t.primitive.radius)) {
+  for (const [name, token] of entriesOf(t.primitive.radius)) {
     const desc = token.$description.padEnd(22);
     out.push(`  --radius-raw-${name}: ${valueOf(token)}; /* ${desc} */`);
   }
   out.push("");
+  out.push("  /* border widths — the two the tree typed as bracketed dimensions */");
+  for (const [name, token] of entriesOf(t.primitive.border)) {
+    const desc = token.$description.padEnd(22);
+    out.push(`  --border-raw-${name}: ${valueOf(token)}; /* ${desc} */`);
+  }
+  out.push("");
   out.push("  /* motion */");
-  for (const [name, token] of Object.entries(t.primitive.duration)) {
+  for (const [name, token] of entriesOf(t.primitive.duration)) {
     out.push(`  --dur-${name}: ${valueOf(token)};`);
   }
-  for (const [name, token] of Object.entries(t.primitive.ease)) {
+  for (const [name, token] of entriesOf(t.primitive.ease)) {
     out.push(`  --ease-${name}: ${valueOf(token)};`);
   }
   out.push("");
@@ -151,8 +191,15 @@ function renderCss(t) {
   out.push("     values, it does not repaint them. Tailwind's 4px rhythm (p-3 = 12px,");
   out.push("     gap-2.5 = 10px) still comes from the one --spacing base.");
   out.push("     Bridged into Tailwind's spacing namespace below as p-space-3 etc. */");
-  for (const [name, token] of Object.entries(t.primitive.space)) {
+  for (const [name, token] of entriesOf(t.primitive.space)) {
     out.push(`  --space-${name}: ${valueOf(token)};`);
+  }
+  out.push("");
+  out.push("  /* relative lengths — root-, font-, viewport- and container-relative.");
+  out.push("     They are declared, not typed: converting one to pixels would change");
+  out.push("     WHAT it measures, so it keeps its own unit. */");
+  for (const [name, token] of entriesOf(t.primitive.relative)) {
+    out.push(`  --relative-${name}: ${valueOf(token)};`);
   }
   out.push("");
   out.push("  /* one focus ring (#12). --accent is the app's own ring colour; it clears");
@@ -183,7 +230,15 @@ function renderCss(t) {
   out.push(
     `  --motion-fade-fast: ${Math.round(fade.duration * 1000)}ms var(--motion-ease-out);`,
   );
-  for (const [name, spring] of Object.entries(t.motion.springs)) {
+  out.push("");
+  out.push("  /* transition durations (M2) — the measured durations the tree typed");
+  out.push("     as `duration-150` / `-200` / `-300` / `-500`. The class name changed;");
+  out.push("     the millisecond did not. `150` is the same number as --motion-fade-fast");
+  out.push("     above, and the generator refuses to write if the two disagree. */");
+  for (const [name, token] of entriesOf(t.motion.durations)) {
+    out.push(`  --motion-duration-${name}: ${valueOf(token)};`);
+  };
+  for (const [name, spring] of entriesOf(t.motion.springs)) {
     out.push(`  --motion-spring-${name}-stiffness: ${spring.$value.stiffness};`);
     out.push(`  --motion-spring-${name}-damping: ${spring.$value.damping};`);
   }
@@ -315,6 +370,7 @@ function main() {
   // registrations disagree with it, the JSON is wrong — fail before writing
   // or checking anything, so a divergence can never reach the CSS.
   checkZRegistrations(tokens);
+  checkMotionDurations(tokens);
   const rendered = [
     { path: CSS_OUT, label: "src/styles/tokens.css", text: renderCss(tokens) },
     { path: JS_OUT, label: "src/lib/motion.ts", text: renderJs(tokens) },

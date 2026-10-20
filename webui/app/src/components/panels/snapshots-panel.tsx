@@ -131,7 +131,7 @@ export function SnapshotsPanel({ deviceRef }: { deviceRef: string }) {
           spellCheck={false}
           maxLength={6}
           className={cn(
-            "h-7 w-24 rounded-btn border bg-raised px-2 font-mono text-data tabular-nums text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong pointer-coarse:h-11 pointer-coarse:text-base",
+            "h-7 w-24 rounded-btn border bg-raised px-2 font-mono text-data tabular-nums text-hi transition-colors duration-motion-150 placeholder:text-low focus-visible:border-hairline-strong pointer-coarse:h-11 pointer-coarse:text-base",
             idInvalid ? "border-ember" : "border-hairline",
           )}
         />
@@ -174,12 +174,12 @@ function SnapshotRow({ snapshot, active, pending, onApply }: SnapshotRowProps) {
       aria-pressed={active}
       aria-label={`Apply snapshot ${snapshot.name}`}
       className={cn(
-        "group flex w-full cursor-pointer items-center gap-3 rounded-card border bg-raised px-3 py-2.5 text-left transition-colors duration-150 hover:border-hairline-strong",
+        "group flex w-full cursor-pointer items-center gap-3 rounded-card border bg-raised px-3 py-2.5 text-left transition-colors duration-motion-150 hover:border-hairline-strong",
         active ? "border-hairline-strong ring-1 ring-accent" : "border-hairline",
       )}
     >
       {/* neutral edge — snapshots are captured state, not authored color */}
-      <span aria-hidden className="h-8 w-[3px] shrink-0 rounded-full bg-hairline-strong" />
+      <span aria-hidden className="h-8 w-space-3 shrink-0 rounded-full bg-hairline-strong" />
 
       <span className="min-w-0 flex-1 truncate text-data leading-tight text-hi">
         {snapshot.name}

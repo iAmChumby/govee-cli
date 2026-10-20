@@ -268,7 +268,7 @@ function MusicControls({ deviceRef, modes, active }: MusicControlsProps) {
                 aria-pressed={isActive}
                 onClick={() => setModeKey(m.key)}
                 className={cn(
-                  "cursor-pointer rounded-chip border px-2.5 py-1.5 font-mono text-micro uppercase leading-none tracking-caps transition-colors duration-150",
+                  "cursor-pointer rounded-chip border px-2.5 py-1.5 font-mono text-micro uppercase leading-none tracking-caps transition-colors duration-motion-150",
                   isActive
                     ? "border-hairline-strong bg-accent-dim text-hi"
                     : "border-hairline text-mid hover:border-hairline-strong hover:text-hi",
@@ -298,7 +298,7 @@ function MusicControls({ deviceRef, modes, active }: MusicControlsProps) {
             showBubble
             className="flex-1"
           />
-          <span className="w-[5ch] text-right">
+          <span className="w-[var(--relative-time-column-width)] text-right">
             <Odometer value={sensitivity} pad={3} className="text-body text-hi" />
           </span>
         </div>

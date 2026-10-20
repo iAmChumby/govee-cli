@@ -23,7 +23,7 @@ export default function SettingsPage() {
         variants={staggerParent}
         initial="hidden"
         animate="show"
-        className="mx-auto max-w-[1080px] space-y-5 px-6 pb-16 pt-6"
+        className="mx-auto max-w-space-1080 space-y-5 px-6 pb-16 pt-6"
       >
         {/* head */}
         <motion.section variants={panelIn} className="flex flex-wrap items-end justify-between gap-4">

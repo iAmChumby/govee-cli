@@ -134,7 +134,7 @@ export function CalibrationWizard({ refId, geometry, segmentCount, open, onOpenC
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[440px]">
+      <DialogContent className="max-w-space-440">
         <DialogTitle>Calibrate segments</DialogTitle>
         <DialogDescription>
           {step === "intro" &&
@@ -171,7 +171,7 @@ export function CalibrationWizard({ refId, geometry, segmentCount, open, onOpenC
 
         {step === "reorder" || step === "saving" ? (
           <div className="mt-4 space-y-3">
-            <ul className="max-h-[300px] space-y-1.5 overflow-y-auto" aria-label="Segment order">
+            <ul className="max-h-space-300 space-y-1.5 overflow-y-auto" aria-label="Segment order">
               {order.map((segId, position) => (
                 <li
                   key={segId}
@@ -190,7 +190,7 @@ export function CalibrationWizard({ refId, geometry, segmentCount, open, onOpenC
                     aria-label={`Move segment ${segId} up`}
                     disabled={position === 0 || step === "saving"}
                     onClick={() => move(position, -1)}
-                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-btn border border-hairline text-mid transition-colors duration-150 hover:border-hairline-strong hover:text-hi disabled:pointer-events-none disabled:opacity-30"
+                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-btn border border-hairline text-mid transition-colors duration-motion-150 hover:border-hairline-strong hover:text-hi disabled:pointer-events-none disabled:opacity-30"
                   >
                     <ChevronUp size={13} strokeWidth={1.75} aria-hidden />
                   </button>
@@ -199,7 +199,7 @@ export function CalibrationWizard({ refId, geometry, segmentCount, open, onOpenC
                     aria-label={`Move segment ${segId} down`}
                     disabled={position === order.length - 1 || step === "saving"}
                     onClick={() => move(position, 1)}
-                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-btn border border-hairline text-mid transition-colors duration-150 hover:border-hairline-strong hover:text-hi disabled:pointer-events-none disabled:opacity-30"
+                    className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-btn border border-hairline text-mid transition-colors duration-motion-150 hover:border-hairline-strong hover:text-hi disabled:pointer-events-none disabled:opacity-30"
                   >
                     <ChevronDown size={13} strokeWidth={1.75} aria-hidden />
                   </button>

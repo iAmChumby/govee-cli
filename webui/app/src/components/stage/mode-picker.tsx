@@ -199,7 +199,7 @@ export function UnknownModeChooser({ deviceRef }: UnknownModeChooserProps) {
         // shove — and a fine-pointer desktop never evaluates the rule.
         className="group pointer-events-auto flex shrink-0 cursor-pointer items-center pointer-coarse:h-11"
       >
-        <span className="flex h-6 items-center gap-1 rounded-chip border border-dashed border-hairline bg-bg/80 px-2 font-mono text-nano uppercase leading-none tracking-micro text-low transition-colors duration-150 group-hover:border-hairline-strong">
+        <span className="flex h-6 items-center gap-1 rounded-chip border border-dashed border-hairline bg-bg/80 px-2 font-mono text-nano uppercase leading-none tracking-micro text-low transition-colors duration-motion-150 group-hover:border-hairline-strong">
           <HelpCircle aria-hidden className="h-3 w-3 shrink-0" />
           what&rsquo;s playing?
         </span>
@@ -214,7 +214,7 @@ export function UnknownModeChooser({ deviceRef }: UnknownModeChooserProps) {
           stage stops guessing.
         </DialogDescription>
 
-        <div className="mt-4 max-h-[55vh] space-y-4 overflow-y-auto pr-1">
+        <div className="mt-4 max-h-[var(--relative-mode-list-height)] space-y-4 overflow-y-auto pr-1">
           <OptionGroup
             title="basics"
             options={FIXED_OPTIONS}
@@ -277,7 +277,7 @@ export function UnknownModeChooser({ deviceRef }: UnknownModeChooserProps) {
               // `pointer-coarse:` bumps it past the 44px floor via padding
               // alone; the fine-pointer geometry (px-3 py-1.5, ~26-28px) is
               // untouched.
-              className="rounded-btn border border-hairline px-3 py-1.5 font-medium uppercase tracking-caps text-micro text-mid transition-colors duration-150 hover:border-hairline-strong hover:text-hi pointer-coarse:min-h-11 pointer-coarse:px-4 pointer-coarse:py-3"
+              className="rounded-btn border border-hairline px-3 py-1.5 font-medium uppercase tracking-caps text-micro text-mid transition-colors duration-motion-150 hover:border-hairline-strong hover:text-hi pointer-coarse:min-h-11 pointer-coarse:px-4 pointer-coarse:py-3"
             >
               cancel
             </button>
@@ -348,7 +348,7 @@ function OptionRow({
       onClick={() => onChoose(opt)}
       whileTap={disabled || reduced ? undefined : { scale: 0.98, transition: springSnappy }}
       className={cn(
-        "flex w-full cursor-pointer items-center justify-between gap-3 rounded-card border border-hairline bg-raised px-3 py-2 text-left transition-colors duration-150 hover:border-hairline-strong",
+        "flex w-full cursor-pointer items-center justify-between gap-3 rounded-card border border-hairline bg-raised px-3 py-2 text-left transition-colors duration-motion-150 hover:border-hairline-strong",
         // px-3 py-2 plus one line of 12px text lands under 44px — the same
         // gap every other picker row in this app has under pointer-coarse.
         // min-h (not h-) so a long scene name that wraps still grows.

@@ -113,6 +113,12 @@
   --radius-raw-panel: 20px; /* panels                 */
   --radius-raw-stage: 28px; /* stage, overlays        */
   --radius-raw-overlay: 28px; /* dialogs, sheets        */
+  --radius-raw-swatch: 5px; /* the native colour input's swatch */
+  --radius-raw-stage-halo: 46% 46% 18% 18% / 58% 58% 14% 14%; /* the stage halo's elliptical corners */
+
+  /* border widths — the two the tree typed as bracketed dimensions */
+  --border-raw-fine: 0.5px; /* the hairline on a canvas cell and a colour swatch */
+  --border-raw-active: 3px; /* the selected colour swatch's ring */
 
   /* motion */
   --dur-fast: 140ms;
@@ -135,6 +141,31 @@
   --space-19: 19px;
   --space-22: 22px;
   --space-52: 52px;
+  --space-86: 86px;
+  --space-120: 120px;
+  --space-136: 136px;
+  --space-140: 140px;
+  --space-160: 160px;
+  --space-220: 220px;
+  --space-260: 260px;
+  --space-280: 280px;
+  --space-300: 300px;
+  --space-380: 380px;
+  --space-440: 440px;
+  --space-480: 480px;
+  --space-1080: 1080px;
+  --space-1200: 1200px;
+
+  /* relative lengths — root-, font-, viewport- and container-relative.
+     They are declared, not typed: converting one to pixels would change
+     WHAT it measures, so it keeps its own unit. */
+  --relative-owner-strip-width: 7.5rem;
+  --relative-time-column-width: 5ch;
+  --relative-caption-measure: 44ch;
+  --relative-mode-list-height: 55vh;
+  --relative-stage-halo-height: 56%;
+  --relative-stage-halo-width: 32%;
+  --relative-stage-caption-width: 68%;
 
   /* one focus ring (#12). --accent is the app's own ring colour; it clears
      3:1 against every surface the ring is drawn on in both themes (#111214
@@ -162,6 +193,15 @@
      a duration scale that held 140/240/420. */
   --motion-ease-out: cubic-bezier(0, 0, 0.58, 1);
   --motion-fade-fast: 150ms var(--motion-ease-out);
+
+  /* transition durations (M2) — the measured durations the tree typed
+     as `duration-150` / `-200` / `-300` / `-500`. The class name changed;
+     the millisecond did not. `150` is the same number as --motion-fade-fast
+     above, and the generator refuses to write if the two disagree. */
+  --motion-duration-150: 150ms;
+  --motion-duration-200: 200ms;
+  --motion-duration-300: 300ms;
+  --motion-duration-500: 500ms;
   --motion-spring-standard-stiffness: 260;
   --motion-spring-standard-damping: 26;
   --motion-spring-heavy-stiffness: 170;
@@ -275,6 +315,8 @@
   --radius-panel: var(--radius-raw-panel);
   --radius-stage: var(--radius-raw-stage);
   --radius-overlay: var(--radius-raw-overlay);
+  --radius-swatch: var(--radius-raw-swatch);
+  --radius-stage-halo: var(--radius-raw-stage-halo);
 
   --shadow-overlay: var(--shadow-overlay-raw);
 
@@ -310,6 +352,36 @@
   --spacing-space-19: var(--space-19);
   --spacing-space-22: var(--space-22);
   --spacing-space-52: var(--space-52);
+  --spacing-space-86: var(--space-86);
+  --spacing-space-120: var(--space-120);
+  --spacing-space-136: var(--space-136);
+  --spacing-space-140: var(--space-140);
+  --spacing-space-160: var(--space-160);
+  --spacing-space-220: var(--space-220);
+  --spacing-space-260: var(--space-260);
+  --spacing-space-280: var(--space-280);
+  --spacing-space-300: var(--space-300);
+  --spacing-space-380: var(--space-380);
+  --spacing-space-440: var(--space-440);
+  --spacing-space-480: var(--space-480);
+  --spacing-space-1080: var(--space-1080);
+  --spacing-space-1200: var(--space-1200);
+
+  /* border widths, bridged into Tailwind's border-width namespace so
+     `border-fine` / `border-active` resolve against the declared :root values
+     above. A bracketed `border-[3px]` would be read as a COLOUR by Tailwind's
+     arbitrary-value path, so the width has to come from the theme. */
+  --border-width-fine: var(--border-raw-fine);
+  --border-width-active: var(--border-raw-active);
+
+  /* transition durations, bridged into Tailwind's transition-duration
+     namespace so `duration-motion-150` resolves against the declared
+     --motion-duration-* values above. The rungs are the MEASURED durations
+     the tree already used; the class name changed, the millisecond did not. */
+  --transition-duration-motion-150: var(--motion-duration-150);
+  --transition-duration-motion-200: var(--motion-duration-200);
+  --transition-duration-motion-300: var(--motion-duration-300);
+  --transition-duration-motion-500: var(--motion-duration-500);
 
   --safe-top: var(--safe-top);
   --safe-right: var(--safe-right);

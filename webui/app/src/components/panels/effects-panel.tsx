@@ -191,7 +191,7 @@ function EffectRow({
   return (
     <div
       className={cn(
-        "flex items-center gap-3 rounded-card border bg-raised px-3 py-2.5 transition-colors duration-150",
+        "flex items-center gap-3 rounded-card border bg-raised px-3 py-2.5 transition-colors duration-motion-150",
         playing ? "border-hairline-strong ring-1 ring-accent" : "border-hairline",
       )}
     >
@@ -243,7 +243,7 @@ function StopButton({ busy, onStop, label }: StopButtonProps) {
       disabled={busy}
       aria-busy={busy || undefined}
       aria-label={label}
-      className="inline-flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-btn border border-ember/40 px-2.5 text-micro font-medium uppercase leading-none tracking-caps text-ember transition-colors duration-150 hover:border-ember hover:bg-ember/10 disabled:pointer-events-none disabled:opacity-40"
+      className="inline-flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-btn border border-ember/40 px-2.5 text-micro font-medium uppercase leading-none tracking-caps text-ember transition-colors duration-motion-150 hover:border-ember hover:bg-ember/10 disabled:pointer-events-none disabled:opacity-40"
     >
       {busy ? <Spinner /> : <Square size={10} strokeWidth={2} aria-hidden />}
       stop

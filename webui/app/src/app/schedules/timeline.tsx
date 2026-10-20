@@ -153,7 +153,7 @@ const MarkerDot = React.forwardRef<
         // buttons) but the actual tap target is grown to ~44px via an
         // invisible ::before overlay — this rail is dense enough on a phone
         // viewport that an 8px raw hit box is very hard to land a thumb on.
-        "absolute h-2 w-2 -translate-x-1/2 cursor-pointer rounded-full border transition-transform duration-150 before:absolute before:-inset-space-18 before:content-[''] hover:scale-125",
+        "absolute h-2 w-2 -translate-x-1/2 cursor-pointer rounded-full border transition-transform duration-motion-150 before:absolute before:-inset-space-18 before:content-[''] hover:scale-125",
         tone === "accent"
           ? "border-hi bg-hi"
           : dashed
@@ -380,7 +380,7 @@ export function ScheduleTimeline({
             >
               <span
                 aria-hidden
-                className="absolute inset-0 rounded-chip border transition-transform duration-150 group-hover:scale-[1.03] pointer-coarse:inset-x-space-19 pointer-coarse:inset-y-2"
+                className="absolute inset-0 rounded-chip border transition-transform duration-motion-150 group-hover:scale-[1.03] pointer-coarse:inset-x-space-19 pointer-coarse:inset-y-2"
                 style={{
                   backgroundColor: statusUnknown
                     ? "var(--accent-dim)"
@@ -473,7 +473,7 @@ export function ScheduleTimeline({
             >
               <span
                 className={cn(
-                  "flex items-center justify-center rounded-full border border-accent-contrast bg-accent text-accent-contrast transition-transform duration-150 hover:scale-125",
+                  "flex items-center justify-center rounded-full border border-accent-contrast bg-accent text-accent-contrast transition-transform duration-motion-150 hover:scale-125",
                   sun ? "h-4 w-4" : "h-2.5 w-2.5",
                   selectedIds.includes(rule.id) && "ring-2 ring-hi/60",
                 )}

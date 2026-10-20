@@ -117,7 +117,7 @@ export function PaletteBar({
               aria-pressed={symmetry === opt.id}
               onClick={() => onSymmetryChange(opt.id)}
               className={cn(
-                "h-11 cursor-pointer rounded-btn border px-2.5 font-mono text-micro uppercase tracking-label transition-colors duration-150",
+                "h-11 cursor-pointer rounded-btn border px-2.5 font-mono text-micro uppercase tracking-label transition-colors duration-motion-150",
                 symmetry === opt.id
                   ? "border-hairline-strong bg-accent-dim text-hi"
                   : "border-hairline text-mid hover:border-hairline-strong hover:text-hi",

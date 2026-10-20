@@ -83,7 +83,7 @@ function RuleRow({
     <li
       id={`rule-${rule.id}`}
       className={cn(
-        "-mx-2 rounded-card px-2 py-3 transition-colors duration-500 first:pt-0 last:pb-0",
+        "-mx-2 rounded-card px-2 py-3 transition-colors duration-motion-500 first:pt-0 last:pb-0",
         highlighted && "bg-accent-dim",
       )}
     >
@@ -108,7 +108,7 @@ function RuleRow({
           onClick={onEdit}
           className="group inline-flex h-7 w-7 cursor-pointer items-center justify-center pointer-coarse:-m-2 pointer-coarse:h-11 pointer-coarse:w-11"
         >
-          <span className="inline-flex h-7 w-7 items-center justify-center rounded-btn border border-hairline text-mid transition-colors duration-150 group-hover:border-hairline-strong group-hover:bg-accent-dim group-hover:text-hi">
+          <span className="inline-flex h-7 w-7 items-center justify-center rounded-btn border border-hairline text-mid transition-colors duration-motion-150 group-hover:border-hairline-strong group-hover:bg-accent-dim group-hover:text-hi">
             <Pencil size={13} strokeWidth={1.5} aria-hidden />
           </span>
         </button>
@@ -205,7 +205,7 @@ export default function SchedulesPage() {
           variants={staggerParent}
           initial="hidden"
           animate="show"
-          className="mx-auto max-w-[1080px] space-y-5 px-6 pb-16 pt-6"
+          className="mx-auto max-w-space-1080 space-y-5 px-6 pb-16 pt-6"
         >
           {/* head */}
           <motion.section variants={panelIn} className="flex flex-wrap items-end justify-between gap-4">

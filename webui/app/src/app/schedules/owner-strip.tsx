@@ -27,7 +27,7 @@ export function OwnerStrip({ list }: { list: ScheduleList }) {
       <div className="flex items-start gap-3 max-sm:flex-col max-sm:gap-2">
         {/* Fixed column so the headline starts at the same x in every state
             (stacked above the headline on phones). */}
-        <div className="w-[7.5rem] shrink-0 max-sm:w-auto">
+        <div className="w-[var(--relative-owner-strip-width)] shrink-0 max-sm:w-auto">
           <Chip tone={warn ? "warn" : "neutral"}>
             {warn ? <TriangleAlert size={10} strokeWidth={2} aria-hidden /> : null}
             {owner.chip}

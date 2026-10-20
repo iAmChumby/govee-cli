@@ -97,7 +97,7 @@ export function ScenesPanel({ deviceRef }: { deviceRef: string }) {
           aria-label="Filter scenes"
           spellCheck={false}
           autoComplete="off"
-          className="h-9 w-full rounded-btn border border-hairline bg-raised pl-8 pr-3 text-data text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong pointer-coarse:h-11 pointer-coarse:text-base"
+          className="h-9 w-full rounded-btn border border-hairline bg-raised pl-8 pr-3 text-data text-hi transition-colors duration-motion-150 placeholder:text-low focus-visible:border-hairline-strong pointer-coarse:h-11 pointer-coarse:text-base"
         />
       </label>
 
@@ -181,7 +181,7 @@ function SceneCard({ scene, active, pending, onApply }: SceneCardProps) {
       aria-pressed={active}
       aria-label={`Apply scene ${scene.name}`}
       className={cn(
-        "group flex w-full cursor-pointer items-center gap-3 rounded-card border bg-raised p-2.5 text-left transition-colors duration-150 hover:border-hairline-strong",
+        "group flex w-full cursor-pointer items-center gap-3 rounded-card border bg-raised p-2.5 text-left transition-colors duration-motion-150 hover:border-hairline-strong",
         active ? "border-hairline-strong ring-1 ring-accent" : "border-hairline",
       )}
     >

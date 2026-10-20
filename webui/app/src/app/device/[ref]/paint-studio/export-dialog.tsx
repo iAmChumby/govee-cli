@@ -146,7 +146,7 @@ export function ExportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[440px]">
+      <DialogContent className="max-w-space-440">
         <DialogTitle>Save as effect</DialogTitle>
         <DialogDescription>
           Writes a real keyframe file to <code>scenes/</code> — zero device I/O until you
@@ -165,7 +165,7 @@ export function ExportDialog({
               onChange={(e) => setName(e.target.value)}
               placeholder="shelf-drum-spiral"
               autoComplete="off"
-              className="h-9 w-full rounded-btn border border-hairline bg-raised px-3 text-body text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong pointer-coarse:h-11 pointer-coarse:text-base"
+              className="h-9 w-full rounded-btn border border-hairline bg-raised px-3 text-body text-hi transition-colors duration-motion-150 placeholder:text-low focus-visible:border-hairline-strong pointer-coarse:h-11 pointer-coarse:text-base"
             />
           </div>
 

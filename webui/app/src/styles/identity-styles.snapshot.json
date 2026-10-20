@@ -1,9 +1,9 @@
 {
  "_meta": {
   "base": "http://127.0.0.1:6456",
-  "commit": "ee28eeaea32b10e607f9ab1bdf754b02fab97c35",
+  "commit": "2db08fc73a76c1ce48916d20eb7f561e485cb95a",
   "note": "Computed styles of the seven identity components #34 freezes, recorded in a real Chromium. The CI test guards the inputs (component source, tokens.css, globals.css); `identity_styles.py check` re-measures a running app against this file.",
-  "recorded_at": "2026-10-19T22:57:27+00:00",
+  "recorded_at": "2026-10-19T23:35:44+00:00",
   "themes": [
    "dark",
    "light"
@@ -23,7 +23,7 @@
   "webui/app/postcss.config.mjs": "141ef24ca27a99d08962210fdf20212d3435fdcfa21b46cd88b44d22f751dfae",
   "webui/app/src/app/layout.tsx": "88ee4db2dc7fbc16b79e51d0f2a24761311e223d7543e9a244f5fff1b53b8904",
   "webui/app/src/components/shell/status-strip.tsx": "d53b08657c05ecfb5b88594e2e85559d31a18381136130da2d42589562b87f43",
-  "webui/app/src/components/shell/top-bar.tsx": "6190e66a1600516943bb1647d5ef1fd0fa702975b6f73393b0cb113fec0c0771",
+  "webui/app/src/components/shell/top-bar.tsx": "afc504cde43788c360cad2380210299fdb79ae06428b9b300559a7ae1934a494",
   "webui/app/src/components/ui/chip.tsx": "e1bf9b3182f643850351337881eac67ba9b2181b1e9ebb9936e248294c727767",
   "webui/app/src/components/ui/dial.tsx": "a8da11e2f84d1d4fceee03002ec9c08a8cb872b7fa87529c4612203b7bcffbf5",
   "webui/app/src/components/ui/odometer.tsx": "19535b0b3398be8d670c708fcae37d3f42d5150ed221d05b23a64b5ae3ca94fe",
@@ -33,8 +33,8 @@
   "webui/app/src/components/ui/status-dot.tsx": "29ca9213da39d59357dce5e8d489c4464fc907ff03231d288a2fb29a6c04c4cd",
   "webui/app/src/components/ui/switch.tsx": "de9dd07636213d30ee9d91c72f05bf0553cecd7869d79fdadacca44cc7f3515e",
   "webui/app/src/lib/color-tokens.ts": "297f181187eb676b3e3c1abb36196234192d8aceded9da01bacd29fa4d0f8e21",
-  "webui/app/src/styles/globals.css": "f0ce7eecbb974133f99985bdcbde046e950bff75b9352339c9b726ba692be916",
-  "webui/app/src/styles/tokens.css": "edc315f2386f7ea7fc585de2972a1bdfbc035a2519b92af8a202e49e85cefa2c"
+  "webui/app/src/styles/globals.css": "be02f01ab9e6b823564a637f6a99f02ba55b4e2bd453723237629b81f43167d9",
+  "webui/app/src/styles/tokens.css": "a7593f249fc43e7c981924ecdce37de3bce2fd17b30343f4b41cf81551d7f23a"
  },
  "parts": {
   "brand.dot.dark": {
@@ -42,7 +42,7 @@
    "route": "/",
    "selector": "header span.animate-dot-breathe",
    "values": {
-    "@class": "ml-1 inline-block h-[5px] w-[5px] animate-dot-breathe rounded-full bg-accent",
+    "@class": "ml-1 inline-block h-space-5 w-space-5 animate-dot-breathe rounded-full bg-accent",
     "@tag": "span",
     "animation-duration": "3.4s",
     "animation-name": "dot-breathe",
@@ -84,7 +84,7 @@
    "route": "/",
    "selector": "header span.animate-dot-breathe",
    "values": {
-    "@class": "ml-1 inline-block h-[5px] w-[5px] animate-dot-breathe rounded-full bg-accent",
+    "@class": "ml-1 inline-block h-space-5 w-space-5 animate-dot-breathe rounded-full bg-accent",
     "@tag": "span",
     "animation-duration": "3.4s",
     "animation-name": "dot-breathe",

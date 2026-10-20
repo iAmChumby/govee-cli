@@ -133,7 +133,7 @@ function CreateGroupDialog({
                   // list, never moving anything else on the page.
                   <label
                     key={d.id}
-                    className="flex cursor-pointer items-center gap-2.5 rounded-chip px-2 py-1.5 pointer-coarse:min-h-11 text-body text-mid transition-colors duration-150 hover:bg-accent-dim hover:text-hi"
+                    className="flex cursor-pointer items-center gap-2.5 rounded-chip px-2 py-1.5 pointer-coarse:min-h-11 text-body text-mid transition-colors duration-motion-150 hover:bg-accent-dim hover:text-hi"
                   >
                     <input
                       type="checkbox"

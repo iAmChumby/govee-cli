@@ -41,7 +41,7 @@ import {
    ================================================================== */
 
 const INPUT_CLASS =
-  "h-9 w-full rounded-btn border border-hairline bg-raised px-3 text-body text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong pointer-coarse:h-11 pointer-coarse:text-base";
+  "h-9 w-full rounded-btn border border-hairline bg-raised px-3 text-body text-hi transition-colors duration-motion-150 placeholder:text-low focus-visible:border-hairline-strong pointer-coarse:h-11 pointer-coarse:text-base";
 
 const LABEL_CLASS = "block text-label uppercase leading-none tracking-micro text-mid";
 
@@ -82,7 +82,7 @@ function Segmented({
           >
             <span
               className={cn(
-                "inline-flex h-7 items-center rounded-btn border px-3 text-label transition-colors duration-150",
+                "inline-flex h-7 items-center rounded-btn border px-3 text-label transition-colors duration-motion-150",
                 active
                   ? "border-hairline-strong bg-accent-dim text-hi"
                   : "border-hairline text-mid hover:border-hairline-strong hover:text-hi",

@@ -64,7 +64,7 @@ export function SwatchRow({ activeHex, onPick, ariaGroupLabel = "Curated colors"
             <span
               aria-hidden
               className={cn(
-                "block h-7 w-7 rounded-chip border border-hairline transition-all duration-150 hover:border-hairline-strong hover:scale-105 active:scale-95",
+                "block h-7 w-7 rounded-chip border border-hairline transition-all duration-motion-150 hover:border-hairline-strong hover:scale-105 active:scale-95",
                 active && "ring-2 ring-accent ring-offset-2 ring-offset-panel",
               )}
               style={{ background: hex }}
@@ -114,10 +114,10 @@ export function NativeColorInput({ value, onPick, className }: NativeColorInputP
       value={value}
       onChange={(e) => commit(e.target.value)}
       className={cn(
-        "h-7 w-7 cursor-pointer appearance-none rounded-chip border border-hairline bg-transparent p-0 transition-colors duration-150 hover:border-hairline-strong pointer-coarse:min-h-11 pointer-coarse:min-w-11",
+        "h-7 w-7 cursor-pointer appearance-none rounded-chip border border-hairline bg-transparent p-0 transition-colors duration-motion-150 hover:border-hairline-strong pointer-coarse:min-h-11 pointer-coarse:min-w-11",
         "[&::-webkit-color-swatch-wrapper]:p-0 pointer-coarse:[&::-webkit-color-swatch-wrapper]:p-2",
-        "[&::-webkit-color-swatch]:rounded-[5px] [&::-webkit-color-swatch]:border-none",
-        "[&::-moz-color-swatch]:rounded-[5px] [&::-moz-color-swatch]:border-none pointer-coarse:[&::-moz-color-swatch]:m-2",
+        "[&::-webkit-color-swatch]:rounded-swatch [&::-webkit-color-swatch]:border-none",
+        "[&::-moz-color-swatch]:rounded-swatch [&::-moz-color-swatch]:border-none pointer-coarse:[&::-moz-color-swatch]:m-2",
         className,
       )}
     />
@@ -163,7 +163,7 @@ export function HexField({ onCommit, className }: HexFieldProps) {
           // above) there's no separate "ink" to preserve for a text
           // field — the box itself is the whole control, so it's
           // floored directly rather than wrapped.
-          "h-7 w-[86px] rounded-btn border bg-raised px-2 font-mono text-data uppercase tracking-label text-hi transition-colors duration-150 placeholder:text-low placeholder:normal-case focus-visible:border-hairline-strong pointer-coarse:min-h-11 pointer-coarse:text-base",
+          "h-7 w-space-86 rounded-btn border bg-raised px-2 font-mono text-data uppercase tracking-label text-hi transition-colors duration-motion-150 placeholder:text-low placeholder:normal-case focus-visible:border-hairline-strong pointer-coarse:min-h-11 pointer-coarse:text-base",
           invalid ? "border-ember" : "border-hairline",
           className,
         )}

@@ -35,7 +35,7 @@ const NAV_ITEMS = [
 
 function Rail({ devices }: { devices: DeviceSummary[] }) {
   return (
-    <aside className="hidden w-[220px] shrink-0 flex-col border-r border-hairline bg-panel md:flex">
+    <aside className="hidden w-space-220 shrink-0 flex-col border-r border-hairline bg-panel md:flex">
       <nav className="flex flex-col gap-0.5 p-3">
         {NAV_ITEMS.map((item) => (
           <Link
@@ -43,7 +43,7 @@ function Rail({ devices }: { devices: DeviceSummary[] }) {
             href={item.href}
             aria-current={item.active ? "page" : undefined}
             className={cn(
-              "flex items-center gap-2.5 rounded-btn px-2.5 py-2 text-body transition-colors duration-150",
+              "flex items-center gap-2.5 rounded-btn px-2.5 py-2 text-body transition-colors duration-motion-150",
               item.active
                 ? "bg-accent-dim text-hi"
                 : "text-mid hover:bg-accent-dim hover:text-hi",
@@ -64,7 +64,7 @@ function Rail({ devices }: { devices: DeviceSummary[] }) {
             <Link
               key={d.id}
               href={`/device/${encodeURIComponent(d.ref)}`}
-              className="flex items-center gap-2.5 rounded-btn px-2.5 py-1.5 text-body text-mid transition-colors duration-150 hover:bg-accent-dim hover:text-hi"
+              className="flex items-center gap-2.5 rounded-btn px-2.5 py-1.5 text-body text-mid transition-colors duration-motion-150 hover:bg-accent-dim hover:text-hi"
             >
               <StatusDot
                 tone={d.online === false ? "off" : "ok"}
@@ -110,7 +110,7 @@ function GroupRailButton({ name }: { name: string }) {
     <button
       type="button"
       title={`${members.length} member${members.length === 1 ? "" : "s"}`}
-      className="flex w-full cursor-pointer items-center gap-2.5 rounded-btn px-2.5 py-2 text-body text-mid transition-colors duration-150 hover:bg-accent-dim hover:text-hi"
+      className="flex w-full cursor-pointer items-center gap-2.5 rounded-btn px-2.5 py-2 text-body text-mid transition-colors duration-motion-150 hover:bg-accent-dim hover:text-hi"
     >
       {name}
       <span className="ml-auto font-mono text-data text-low">
@@ -149,7 +149,7 @@ export default function ConsolePage() {
             variants={staggerParent}
             initial="hidden"
             animate="show"
-            className="mx-auto max-w-[1080px] space-y-5 px-4 pb-16 pt-6 sm:px-6"
+            className="mx-auto max-w-space-1080 space-y-5 px-4 pb-16 pt-6 sm:px-6"
           >
             {/* head */}
             <motion.section variants={panelIn} className="flex flex-col gap-3">
@@ -185,7 +185,7 @@ export default function ConsolePage() {
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       placeholder="filter devices…"
-                      className="h-9 w-56 rounded-btn border border-hairline bg-raised pl-8 pr-3 text-body text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong pointer-coarse:text-base"
+                      className="h-9 w-56 rounded-btn border border-hairline bg-raised pl-8 pr-3 text-body text-hi transition-colors duration-motion-150 placeholder:text-low focus-visible:border-hairline-strong pointer-coarse:text-base"
                     />
                   </label>
                   <IconButton label="Refresh state" tooltip="Refresh state" onClick={refreshAll}>
@@ -215,7 +215,7 @@ export default function ConsolePage() {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="filter devices…"
-                  className="h-11 w-full rounded-btn border border-hairline bg-raised pl-8 pr-3 text-body text-hi transition-colors duration-150 placeholder:text-low focus-visible:border-hairline-strong pointer-coarse:text-base"
+                  className="h-11 w-full rounded-btn border border-hairline bg-raised pl-8 pr-3 text-body text-hi transition-colors duration-motion-150 placeholder:text-low focus-visible:border-hairline-strong pointer-coarse:text-base"
                 />
               </label>
             </motion.section>

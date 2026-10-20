@@ -273,7 +273,7 @@ export function LocationSection() {
                             type="button"
                             disabled={pick.isPending}
                             onClick={() => pick.mutate(match)}
-                            className="flex w-full flex-col gap-0.5 px-3 py-2 text-left transition-colors duration-150 hover:bg-raised focus-visible:bg-raised disabled:opacity-50 pointer-coarse:min-h-11 pointer-coarse:justify-center"
+                            className="flex w-full flex-col gap-0.5 px-3 py-2 text-left transition-colors duration-motion-150 hover:bg-raised focus-visible:bg-raised disabled:opacity-50 pointer-coarse:min-h-11 pointer-coarse:justify-center"
                           >
                             <span className="break-words text-body leading-snug text-hi">{match.label}</span>
                             <span className="break-words font-mono text-data leading-snug text-mid">
