@@ -1,5 +1,46 @@
-@import "tailwindcss";
+@import "tailwindcss" source("..");
 @import "./tokens.css";
+
+/* ============================================================
+   The source scan reads the app's SOURCE, and only the app's
+   source.
+
+   Tailwind scans files as PLAIN TEXT and compiles any token
+   that looks like a class it knows. A file that is not a
+   rendering surface is still text, and its text still compiles:
+
+   the first wave-6b review found a doc comment in
+   src/styles/focus-ring.test.ts that named a ring utility, and
+   the scan turned that comment into a real rule in the
+   PRODUCTION stylesheet — a rule that would have overridden the
+   app's own focus-ring width for the first component that used
+   it, and that no stylesheet reviewer had ever looked at.
+
+   So the scan is now rooted at `src/` (the `source()` on the import
+   above): the lint config, the lint rules and the token generator live
+   outside the app's source, and they talk ABOUT class strings, so they
+   are not a source of classes. The test tree inside `src/` is excluded
+   as well — a test asserts about class strings, it does not render them.
+
+   The effect: a class string in a test or in the tooling can no
+   longer become a shipped rule, and the ten rules that only those
+   files referenced are no longer emitted — five layout utilities, an
+   11px type size, the bare ring-painting utility, the two
+   outline-cancel utilities the M2 gate bans, and a 4px focus-visible
+   ring. No production file uses any of them; the variant the app does
+   use is still emitted, because device-plate.tsx and LampStage.tsx
+   really use it.
+
+   The exact ten are listed in reports/wave6b.md. This comment
+   deliberately does not spell them: the #12 contract test reads
+   source text, so a comment that NAMED a cancel would read as one —
+   and a class-looking token in a comment is exactly what this
+   exclusion exists to stop.
+
+   `source()` is relative to THIS stylesheet, so `..` is `src/`.
+   ============================================================ */
+@source not "../**/*.test.ts";
+@source not "../**/*.test.tsx";
 
 /* ============================================================
    Base layer — neutral optical bench. Flat surfaces, hairline
