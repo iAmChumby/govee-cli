@@ -181,4 +181,44 @@ describe("the presentational control parts", () => {
     assert.equal(selectRendered.type, "select");
     assert.equal((selectRendered.props as { ref?: unknown }).ref, selectRef);
   });
+
+  it("forwards a handler to the DOM element, and it is the caller's own", () => {
+    // The wave-6b review found the gap: this file asserted the element,
+    // the attributes, the `type` default and the ref — and never a
+    // HANDLER. A part that stopped spreading the rest of its props would
+    // leave every button in the app deaf, and no other assertion here
+    // would notice. A handler is behaviour, so it is asserted.
+    //
+    // There is no DOM in this suite — vitest runs node-only here and the
+    // repo takes no new dependency for a test runner — so the handler is
+    // asserted where it LANDS: on the host element React renders, on the
+    // element that replaces the raw control. React attaches a listener to
+    // exactly that element, so this is the edge the click would cross.
+    const onClick = () => undefined;
+    const onChange = () => undefined;
+
+    const button = (
+      Pressable as unknown as {
+        render: (props: object, ref: React.Ref<unknown>) => React.ReactElement;
+      }
+    ).render({ children: "x", onClick, type: "button" }, null);
+    assert.equal(button.type, "button");
+    assert.equal((button.props as { onClick?: unknown }).onClick, onClick);
+
+    const input = (
+      Input as unknown as {
+        render: (props: object, ref: React.Ref<unknown>) => React.ReactElement;
+      }
+    ).render({ onChange, type: "text" }, null);
+    assert.equal(input.type, "input");
+    assert.equal((input.props as { onChange?: unknown }).onChange, onChange);
+
+    const select = (
+      Select as unknown as {
+        render: (props: object, ref: React.Ref<unknown>) => React.ReactElement;
+      }
+    ).render({ onChange }, null);
+    assert.equal(select.type, "select");
+    assert.equal((select.props as { onChange?: unknown }).onChange, onChange);
+  });
 });
