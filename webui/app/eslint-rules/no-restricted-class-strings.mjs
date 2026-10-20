@@ -26,8 +26,24 @@ export const PROBES = ["11", "11px", "150"];
 export const CLASS_STRING_PATTERNS = [
   {
     id: "text-size",
-    source: String.raw`text-\[[0-9.]+px\]`,
-    message: "Arbitrary type size: use a --text-* rung (#27) instead of text-[Npx].",
+    // An arbitrary TYPE SIZE, in any of the three units a size can be
+    // typed in: `text-[11px]`, `text-[1.5rem]`, `text-[0.9em]`.
+    //
+    // The review of wave 6b found the hole: the pattern matched `px`
+    // only, so a raw size in `rem` or `em` — the same raw value, typed
+    // in another unit — walked straight through the gate that exists to
+    // keep raw values out. A denominator that only counts one spelling
+    // of a value is not a denominator.
+    //
+    // What it still does NOT match, on purpose: `text-[color:var(--x)]`.
+    // That is a COLOUR, not a size; the bracket holds no length. The
+    // `dimension` pattern below skips every `text-` bracket for the same
+    // reason, so a colour in a bracket stays legal and is not
+    // double-reported.
+    source: String.raw`text-\[[0-9.]+(px|rem|em)\]`,
+    message:
+      "Arbitrary type size: use a --text-* rung (#27) instead of " +
+      "text-[Npx], text-[Nrem] or text-[Nem].",
   },
   {
     id: "duration",

@@ -58,6 +58,24 @@ const compat = new FlatCompat({
  *     matches alone. Without this rule the gate would let a class string
  *     built at runtime through while the same string written literally is
  *     reported, which is exactly the gap a denominator must not have.
+ *
+ * KNOWN GAP — an ALIASED tag evades `react/forbid-elements`.
+ *
+ *   `react/forbid-elements` matches the JSX NAME, not the tag the name
+ *   resolves to. So this is not reported:
+ *
+ *     const Tag = "button" as const;
+ *     return <Tag>x</Tag>;              // renders a real <button>
+ *
+ *   The neighbouring shapes ARE reported, and the gate was checked for
+ *   each of them: `React.createElement("button", …)` is reported (the
+ *   rule reads createElement too), and `<button {...props} />` is
+ *   reported. The alias is the one shape that is not, and it is recorded
+ *   here rather than left as folklore: the gate is a migration guard,
+ *   not a sandbox, and a determined obfuscation (an alias, a computed
+ *   tag, a factory) is out of its reach by construction.
+ *   `react/forbid-elements` is the wrong tool for that, and no tool that
+ *   is right is worth the dependency.
  */
 const primitive = (element, replacement) => ({
   element,
