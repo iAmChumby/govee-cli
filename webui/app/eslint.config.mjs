@@ -16,7 +16,7 @@ const compat = new FlatCompat({
 });
 
 /**
- * M2 — the migration's denominator, warn-only (wave 5).
+ * M2 — the migration's gate, now at ERROR.
  *
  * Two rules, both scoped to product code outside `components/ui/`:
  *   - react/forbid-elements: a raw control primitive is a component that was
@@ -30,8 +30,19 @@ const compat = new FlatCompat({
  * markup). Warning on the assertion would make the denominator un-flippable.
  * A test is not a control a user clicks.
  *
- * Flip criterion (wave 6): make every entry below "error" once `npm run
- * lint` reports 0 warnings for all of them on the full src tree.
+ * THE FLIP (wave 6). These were warnings from wave 5. The consensus's flip
+ * criterion is concrete: error once `npm run lint` reports 0 warnings for
+ * both rules on the full src tree. It does:
+ *
+ *   react/forbid-elements    62 -> 0   (34 <button>, 24 <input>, 4 <select>)
+ *   no-restricted-syntax     91 -> 0   (wave 6a)
+ *   no-restricted-class-strings 0 -> 0
+ *
+ * The 62 control primitives went onto the presentational parts in
+ * components/ui/ (Pressable, Input, Select) — the same element, the same
+ * attributes, the same classes, the same handlers. The class-string rule
+ * grew a branch in wave 6b that sees a bracketed var() reference, so the
+ * denominator is honest about the shape the tree used to hide behind.
  *
  * The class-string bans are defined once, in
  * `eslint-rules/no-restricted-class-strings.mjs`, and read by BOTH halves of
@@ -79,33 +90,33 @@ const eslintConfig = [
     },
     rules: {
       "react/forbid-elements": [
-        "warn",
+        "error",
         {
           forbid: [
             primitive("button", "Button or IconButton from components/ui/"),
             primitive(
               "input",
-              "a components/ui/ field; no Input component exists yet, so this warning is its promotion entry",
+              "a components/ui/ field; use the Input part from components/ui/",
             ),
             primitive(
               "select",
-              "a components/ui/ Select; none exists yet, so this warning is its promotion entry",
+              "a components/ui/ Select; use the Select part from components/ui/",
             ),
             primitive(
               "textarea",
-              "a components/ui/ Textarea; none exists yet, so this warning is its promotion entry",
+              "a components/ui/ Textarea; none exists yet, so this is its promotion entry",
             ),
             primitive("a", "Link, or BackUp from components/ui/ for navigation"),
           ],
         },
       ],
       "no-restricted-syntax": [
-        "warn",
+        "error",
         ...CLASS_STRING_PATTERNS.flatMap((pattern) => bannedClassString(pattern)),
       ],
       // The half of the class-string ban core cannot see: a template
       // literal whose banned token an interpolation split in two.
-      "no-restricted-class-strings/no-restricted-class-strings": "warn",
+      "no-restricted-class-strings/no-restricted-class-strings": "error",
     },
   },
 ];
