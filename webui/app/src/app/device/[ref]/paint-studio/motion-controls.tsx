@@ -16,6 +16,7 @@ import { Minus, Plus, RotateCw, Waves } from "lucide-react";
 
 import { cn } from "@/lib/cn";
 import { Chip } from "@/components/ui/chip";
+import { Pressable } from "@/components/ui/pressable";
 import { Slider } from "@/components/ui/slider";
 import {
   buildEffectSegments,
@@ -104,7 +105,7 @@ export function MotionControls({
             // the hover rule onto the now-chrome-less button so it still
             // paints on the span beneath. A mouse never matches
             // `pointer-coarse:`, so desktop geometry is byte-identical.
-            <button
+            <Pressable
               key={opt.id}
               type="button"
               aria-pressed={active}
@@ -121,7 +122,7 @@ export function MotionControls({
               >
                 {opt.label}
               </span>
-            </button>
+            </Pressable>
           );
         })}
       </div>
@@ -131,7 +132,7 @@ export function MotionControls({
           {motion.type !== "rotate" ? (
             <div role="group" aria-label="Axis" className="flex items-center gap-1">
               {(["col", "row"] as MotionAxis[]).map((a) => (
-                <button
+                <Pressable
                   key={a}
                   type="button"
                   aria-pressed={axis === a}
@@ -144,7 +145,7 @@ export function MotionControls({
                   )}
                 >
                   {a === "col" ? "columns" : "rows"}
-                </button>
+                </Pressable>
               ))}
             </div>
           ) : (
@@ -156,7 +157,7 @@ export function MotionControls({
 
           <div role="group" aria-label="Direction" className="flex items-center gap-1">
             {[1, -1].map((s) => (
-              <button
+              <Pressable
                 key={s}
                 type="button"
                 aria-pressed={sign === s}
@@ -170,7 +171,7 @@ export function MotionControls({
                 )}
               >
                 {s === 1 ? <Plus size={13} strokeWidth={1.75} aria-hidden /> : <Minus size={13} strokeWidth={1.75} aria-hidden />}
-              </button>
+              </Pressable>
             ))}
           </div>
         </div>

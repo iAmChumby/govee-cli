@@ -12,6 +12,9 @@ import {
   DialogContent,
   DialogDescription,
   DialogTitle,
+  Input,
+  Pressable,
+  Select,
 } from "@/components/ui";
 import { useToast } from "@/components/ui/toaster";
 import { ApiError, api, type DeviceSummary, type ScheduleRule } from "@/lib/api";
@@ -106,7 +109,7 @@ function Segmented<T extends string>({
       {options.map((o) => {
         const active = o.value === value;
         return (
-          <button
+          <Pressable
             key={o.value}
             type="button"
             role="radio"
@@ -120,7 +123,7 @@ function Segmented<T extends string>({
             )}
           >
             {o.label}
-          </button>
+          </Pressable>
         );
       })}
     </div>
@@ -137,14 +140,14 @@ function StepButton({
   children: React.ReactNode;
 }) {
   return (
-    <button
+    <Pressable
       type="button"
       aria-label={label}
       onClick={onClick}
       className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-btn border border-hairline bg-raised text-mid transition-colors duration-motion-150 hover:border-hairline-strong hover:text-hi pointer-coarse:h-11 pointer-coarse:w-11"
     >
       {children}
-    </button>
+    </Pressable>
   );
 }
 
@@ -161,7 +164,7 @@ function SelectBox({
 }) {
   return (
     <span className="relative block">
-      <select
+      <Select
         aria-label={label}
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -171,7 +174,7 @@ function SelectBox({
         )}
       >
         {children}
-      </select>
+      </Select>
       <ChevronDown
         size={13}
         strokeWidth={1.5}
@@ -333,7 +336,7 @@ function RuleForm({
             the footer below stays put, so Cancel/Save are always visible. */}
         <div className="max-h-[calc(100dvh-17rem)] space-y-4 overflow-y-auto px-1 -mx-1">
         <Field label="name" error={errors.name}>
-          <input
+          <Input
             type="text"
             value={draft.name}
             onChange={(e) => set("name", e.target.value)}
@@ -357,7 +360,7 @@ function RuleForm({
           />
           {draft.kind === "clock" ? (
             <div>
-              <input
+              <Input
                 type="time"
                 aria-label="Clock time"
                 value={draft.clock}
@@ -401,7 +404,7 @@ function RuleForm({
             {DAYS.map((day) => {
               const on = draft.days.includes(day);
               return (
-                <button
+                <Pressable
                   key={day}
                   type="button"
                   aria-pressed={on}
@@ -415,7 +418,7 @@ function RuleForm({
                   )}
                 >
                   {day}
-                </button>
+                </Pressable>
               );
             })}
           </div>
@@ -457,7 +460,7 @@ function RuleForm({
               error={errors.command}
               hint="same verbs as govee-cli power/brightness/color/temp/scene"
             >
-              <input
+              <Input
                 type="text"
                 value={draft.command}
                 onChange={(e) => set("command", e.target.value)}
@@ -469,7 +472,7 @@ function RuleForm({
             </Field>
             <div className="-mt-2 flex flex-wrap gap-1.5 max-sm:grid max-sm:grid-cols-2">
               {QUICK_COMMANDS.map((cmd) => (
-                <button
+                <Pressable
                   key={cmd}
                   type="button"
                   aria-pressed={draft.command === cmd}
@@ -483,7 +486,7 @@ function RuleForm({
                   )}
                 >
                   {cmd}
-                </button>
+                </Pressable>
               ))}
             </div>
           </>

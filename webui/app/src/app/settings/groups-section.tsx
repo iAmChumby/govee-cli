@@ -12,6 +12,7 @@ import {
   DialogContent,
   DialogDescription,
   DialogTitle,
+  Input,
   Panel,
   SectionLabel,
   Skeleton,
@@ -103,7 +104,7 @@ function CreateGroupDialog({
 
         <form onSubmit={handleSubmit} noValidate className="mt-5 space-y-4">
           <Field label="name" error={errors.name}>
-            <input
+            <Input
               type="text"
               value={name}
               onChange={(e) => {
@@ -135,7 +136,7 @@ function CreateGroupDialog({
                     key={d.id}
                     className="flex cursor-pointer items-center gap-2.5 rounded-chip px-2 py-1.5 pointer-coarse:min-h-11 text-body text-mid transition-colors duration-motion-150 hover:bg-accent-dim hover:text-hi"
                   >
-                    <input
+                    <Input
                       type="checkbox"
                       checked={members.has(d.id)}
                       onChange={() => toggleMember(d.id)}

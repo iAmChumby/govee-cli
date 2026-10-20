@@ -3,7 +3,7 @@
 import * as React from "react";
 import { motion } from "motion/react";
 
-import { Panel, SectionLabel, Skeleton, Slider, StatusDot } from "@/components/ui";
+import { Panel, Pressable, SectionLabel, Skeleton, Slider, StatusDot } from "@/components/ui";
 import {
   useGroupRun,
   useGroupState,
@@ -75,7 +75,7 @@ export function GroupsSection() {
         <Panel className="p-5">
           <div className="flex flex-wrap gap-2">
             {names.map((name) => (
-              <button
+              <Pressable
                 key={name}
                 type="button"
                 onClick={() => setSelected(name)}
@@ -96,7 +96,7 @@ export function GroupsSection() {
                 )}
               >
                 {name}
-              </button>
+              </Pressable>
             ))}
           </div>
 
@@ -159,20 +159,20 @@ function GroupBroadcast({ name, members }: { name: string; members: string[] }) 
             centering by default, so a bare min-h would leave the text
             pinned to the top of the taller box); inert with a mouse, so
             desktop's 32px-tall box is unchanged (§11.1). */}
-        <button
+        <Pressable
           type="button"
           onClick={() => fire("power on")}
           className="cursor-pointer rounded-btn border border-hairline px-3 py-1.5 text-data text-hi transition-colors duration-motion-150 hover:border-hairline-strong hover:bg-accent-dim pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center pointer-coarse:justify-center"
         >
           all on
-        </button>
-        <button
+        </Pressable>
+        <Pressable
           type="button"
           onClick={() => fire("power off")}
           className="cursor-pointer rounded-btn border border-hairline px-3 py-1.5 text-data text-hi transition-colors duration-motion-150 hover:border-hairline-strong hover:bg-accent-dim pointer-coarse:flex pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:items-center pointer-coarse:justify-center"
         >
           all off
-        </button>
+        </Pressable>
         {/* Quick-colour swatches broadcast one colour to every device in the
             group — 24x24, well under 44px. Copies device-plate.tsx's
             channel-strip dock pattern (§11.6 comment there): grow the HIT
@@ -187,7 +187,7 @@ function GroupBroadcast({ name, members }: { name: string; members: string[] }) 
             24px apart via the base `gap-1.5`, unchanged from before. */}
         <div className="ml-auto flex items-center gap-1.5 pointer-coarse:gap-2">
           {QUICK_COLORS.map((hex) => (
-            <button
+            <Pressable
               key={hex}
               type="button"
               title={`Group color ${hex}`}
@@ -200,7 +200,7 @@ function GroupBroadcast({ name, members }: { name: string; members: string[] }) 
                 className="block h-6 w-6 rounded-chip border border-hairline transition-all duration-motion-150 hover:scale-110 hover:border-hairline-strong active:scale-95"
                 style={{ background: hex }}
               />
-            </button>
+            </Pressable>
           ))}
         </div>
       </div>

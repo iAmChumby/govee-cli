@@ -21,6 +21,7 @@ import { INDETERMINATE_PALETTE } from "@/lib/motion-engine/palette";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { Panel } from "@/components/ui/panel";
+import { Pressable } from "@/components/ui/pressable";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /* ------------------------------------------------------------- gradient */
@@ -237,7 +238,7 @@ export function MiniSwatches({
       {PAINT_SWATCHES.map((hex) => {
         const active = activeHex?.toUpperCase() === hex.toUpperCase();
         return (
-          <button
+          <Pressable
             key={hex}
             type="button"
             title={hex}

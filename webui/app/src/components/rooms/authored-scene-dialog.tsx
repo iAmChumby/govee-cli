@@ -10,6 +10,9 @@ import {
   DialogContent,
   DialogDescription,
   DialogTitle,
+  Input,
+  Pressable,
+  Select,
   Slider,
   Switch,
 } from "@/components/ui";
@@ -72,7 +75,7 @@ function Segmented({
       {options.map((m) => {
         const active = m === value;
         return (
-          <button
+          <Pressable
             key={m}
             type="button"
             role="radio"
@@ -90,7 +93,7 @@ function Segmented({
             >
               {MODE_LABEL[m]}
             </span>
-          </button>
+          </Pressable>
         );
       })}
     </div>
@@ -115,7 +118,7 @@ function DiyPicker({
     <div>
       <label className="block">
         <span className={cn(LABEL_CLASS, "mb-1.5")}>DIY scene</span>
-        <select
+        <Select
           value={draft.diyValue === null ? "" : String(draft.diyValue)}
           onChange={(e) => {
             const value = Number(e.target.value);
@@ -137,7 +140,7 @@ function DiyPicker({
               {s.name}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
       {scenes.isError ? (
         <p role="alert" className="mt-1.5 font-mono text-data leading-snug text-ember">
@@ -382,7 +385,7 @@ function EditorBody({
         <label className="block">
           <span className={cn(LABEL_CLASS, "mb-1.5")}>name</span>
           {isNew ? (
-            <input
+            <Input
               type="text"
               value={name}
               onChange={(e) => {

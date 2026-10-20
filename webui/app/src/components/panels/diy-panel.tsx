@@ -15,6 +15,7 @@ import * as React from "react";
 
 import { api, type DiyScene } from "@/lib/api";
 import { useApplyMutation, useDiyScenes } from "@/lib/queries";
+import { Pressable } from "@/components/ui/pressable";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/cn";
 import {
@@ -106,7 +107,7 @@ function DiyRow({ scene, active, pending, onApply }: DiyRowProps) {
   const gradient = React.useMemo(() => nameToGradient(scene.name), [scene.name]);
 
   return (
-    <button
+    <Pressable
       type="button"
       onClick={() => onApply(scene.name)}
       aria-pressed={active}
@@ -138,6 +139,6 @@ function DiyRow({ scene, active, pending, onApply }: DiyRowProps) {
           playing
         </span>
       ) : null}
-    </button>
+    </Pressable>
   );
 }

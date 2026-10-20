@@ -33,6 +33,7 @@ import { api } from "@/lib/api";
 import { useSegmentCalibration } from "@/lib/queries";
 import { useToast } from "@/components/ui/toaster";
 import { Button } from "@/components/ui/button";
+import { Pressable } from "@/components/ui/pressable";
 import {
   Dialog,
   DialogContent,
@@ -185,7 +186,7 @@ export function CalibrationWizard({ refId, geometry, segmentCount, open, onOpenC
                   <span className="flex-1 font-mono text-data text-mid">
                     position {position} · segment {segId}
                   </span>
-                  <button
+                  <Pressable
                     type="button"
                     aria-label={`Move segment ${segId} up`}
                     disabled={position === 0 || step === "saving"}
@@ -193,8 +194,8 @@ export function CalibrationWizard({ refId, geometry, segmentCount, open, onOpenC
                     className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-btn border border-hairline text-mid transition-colors duration-motion-150 hover:border-hairline-strong hover:text-hi disabled:pointer-events-none disabled:opacity-30"
                   >
                     <ChevronUp size={13} strokeWidth={1.75} aria-hidden />
-                  </button>
-                  <button
+                  </Pressable>
+                  <Pressable
                     type="button"
                     aria-label={`Move segment ${segId} down`}
                     disabled={position === order.length - 1 || step === "saving"}
@@ -202,7 +203,7 @@ export function CalibrationWizard({ refId, geometry, segmentCount, open, onOpenC
                     className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-btn border border-hairline text-mid transition-colors duration-motion-150 hover:border-hairline-strong hover:text-hi disabled:pointer-events-none disabled:opacity-30"
                   >
                     <ChevronDown size={13} strokeWidth={1.75} aria-hidden />
-                  </button>
+                  </Pressable>
                 </li>
               ))}
             </ul>

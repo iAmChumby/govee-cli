@@ -10,6 +10,7 @@ import {
   DialogContent,
   DialogDescription,
   DialogTitle,
+  Input,
 } from "@/components/ui";
 import { ApiError, type RoomSceneCaptureResult } from "@/lib/api";
 import { useCaptureRoom, useDeleteRoom, useDevices } from "@/lib/queries";
@@ -129,7 +130,7 @@ export function CaptureRoomDialog({
                 <span className="mb-1.5 block text-label uppercase leading-none tracking-micro text-mid">
                   name
                 </span>
-                <input
+                <Input
                   type="text"
                   value={name}
                   onChange={(e) => {

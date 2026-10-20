@@ -23,6 +23,7 @@ import {
 } from "@/lib/queries";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
+import { Pressable } from "@/components/ui/pressable";
 import { Spinner } from "@/components/ui/spinner";
 import { StatusDot } from "@/components/ui/status-dot";
 import { cn } from "@/lib/cn";
@@ -232,12 +233,13 @@ interface StopButtonProps {
 
 /**
  * Danger ghost — ember outline and text on the panel surface. Built as a
- * raw button so the ember hover states never fight the shared Button
+ * `Pressable` (the presentational button) rather than the shared `Button`
+ * variant so the ember hover states never fight the shared Button
  * variant classes in stylesheet order.
  */
 function StopButton({ busy, onStop, label }: StopButtonProps) {
   return (
-    <button
+    <Pressable
       type="button"
       onClick={onStop}
       disabled={busy}
@@ -247,7 +249,7 @@ function StopButton({ busy, onStop, label }: StopButtonProps) {
     >
       {busy ? <Spinner /> : <Square size={10} strokeWidth={2} aria-hidden />}
       stop
-    </button>
+    </Pressable>
   );
 }
 

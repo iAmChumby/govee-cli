@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import { Pencil, Plus, TriangleAlert } from "lucide-react";
 
-import { Button, Panel, SectionLabel, Skeleton, Switch } from "@/components/ui";
+import { Button, Panel, Pressable, SectionLabel, Skeleton, Switch } from "@/components/ui";
 import { useToast } from "@/components/ui/toaster";
 import { ApiError, api, type DeviceSummary, type ScheduleList, type ScheduleRule } from "@/lib/api";
 import { useDevices, useExternalSchedules, useSchedules } from "@/lib/queries";
@@ -102,7 +102,7 @@ function RuleRow({
         </div>
 
         {/* The hit area grows on coarse pointers; the bordered ink stays 28px. */}
-        <button
+        <Pressable
           type="button"
           aria-label={`Edit rule ${rule.name}`}
           onClick={onEdit}
@@ -111,7 +111,7 @@ function RuleRow({
           <span className="inline-flex h-7 w-7 items-center justify-center rounded-btn border border-hairline text-mid transition-colors duration-motion-150 group-hover:border-hairline-strong group-hover:bg-accent-dim group-hover:text-hi">
             <Pencil size={13} strokeWidth={1.5} aria-hidden />
           </span>
-        </button>
+        </Pressable>
 
         <div className={cn("col-span-3 space-y-1.5", !rule.enabled && "opacity-55")}>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">

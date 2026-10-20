@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "motion/react";
 
-import { Chip, Odometer, Panel, Slider, StatusDot, Switch } from "@/components/ui";
+import { Chip, Odometer, Panel, Pressable, Slider, StatusDot, Switch } from "@/components/ui";
 import { LampStage } from "@/lib/lamp3d/LampStage";
 import { prefersColorTemp, type Hsl } from "@/components/stage/color";
 import { QUICK_COLORS } from "@/lib/color-tokens";
@@ -408,7 +408,7 @@ export function DevicePlate({ device }: { device: DeviceSummary }) {
           {QUICK_COLORS.map((hex) => {
             const active = device.color?.hex.toUpperCase() === hex;
             return (
-              <button
+              <Pressable
                 key={hex}
                 type="button"
                 title={hex}
@@ -428,7 +428,7 @@ export function DevicePlate({ device }: { device: DeviceSummary }) {
                     borderColor: active ? hex : undefined,
                   }}
                 />
-              </button>
+              </Pressable>
             );
           })}
           {/* Below sm the dock wraps (§11.6 T33), and this rule ends up as the
@@ -444,7 +444,7 @@ export function DevicePlate({ device }: { device: DeviceSummary }) {
           {TEMP_PRESETS.map((kelvin) => {
             const active = device.color_temp_k === kelvin;
             return (
-              <button
+              <Pressable
                 key={kelvin}
                 type="button"
                 aria-pressed={active}
@@ -457,7 +457,7 @@ export function DevicePlate({ device }: { device: DeviceSummary }) {
                 )}
               >
                 {kelvin}
-              </button>
+              </Pressable>
             );
           })}
         </div>

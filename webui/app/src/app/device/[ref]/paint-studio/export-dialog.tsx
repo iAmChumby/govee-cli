@@ -31,6 +31,8 @@ import type { Capabilities, EffectCreateRequest, SegmentCalibration } from "@/li
 import { api } from "@/lib/api";
 import { useApplyMutation, useCreateEffect } from "@/lib/queries";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Pressable } from "@/components/ui/pressable";
 import {
   Dialog,
   DialogContent,
@@ -158,7 +160,7 @@ export function ExportDialog({
             <label htmlFor="effect-name" className="mb-1.5 block font-mono text-micro uppercase tracking-micro text-low">
               name
             </label>
-            <input
+            <Input
               id="effect-name"
               type="text"
               value={name}
@@ -176,7 +178,7 @@ export function ExportDialog({
               </span>
               <div role="group" aria-label="Export transport" className="flex items-center gap-1">
                 {(["ble", "cloud"] as Transport[]).map((t) => (
-                  <button
+                  <Pressable
                     key={t}
                     type="button"
                     aria-pressed={transport === t}
@@ -191,7 +193,7 @@ export function ExportDialog({
                     }
                   >
                     {t === "ble" ? "ble · full rate" : "cloud · 2fps cap"}
-                  </button>
+                  </Pressable>
                 ))}
               </div>
             </div>

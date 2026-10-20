@@ -4,7 +4,7 @@ import * as React from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
 
-import { Button, Panel, SectionLabel, Skeleton } from "@/components/ui";
+import { Button, Input, Panel, Pressable, SectionLabel, Skeleton } from "@/components/ui";
 import { useToast } from "@/components/ui/toaster";
 import { api, ApiError, type CityMatch, type CitySearch, type ScheduleList, type ScheduleLocation } from "@/lib/api";
 import { useSchedules } from "@/lib/queries";
@@ -230,7 +230,7 @@ export function LocationSection() {
             <form onSubmit={handleSearch} noValidate className="space-y-3">
               <div className="flex items-end gap-2 max-sm:flex-col max-sm:items-stretch">
                 <Field label="city" className="min-w-0 flex-1" hint="e.g. Rochester; Enter to search">
-                  <input
+                  <Input
                     type="search"
                     value={cityQuery}
                     onChange={(e) => {
@@ -269,7 +269,7 @@ export function LocationSection() {
                     <ul className="divide-y divide-hairline rounded-btn border border-hairline">
                       {result.matches.map((match) => (
                         <li key={`${match.label}|${match.latitude}|${match.longitude}`}>
-                          <button
+                          <Pressable
                             type="button"
                             disabled={pick.isPending}
                             onClick={() => pick.mutate(match)}
@@ -279,7 +279,7 @@ export function LocationSection() {
                             <span className="break-words font-mono text-data leading-snug text-mid">
                               {`${match.timezone ?? "timezone not given"} · ${formatCoords(match.latitude, match.longitude)}`}
                             </span>
-                          </button>
+                          </Pressable>
                         </li>
                       ))}
                     </ul>
@@ -309,7 +309,7 @@ export function LocationSection() {
 
             <div className="grid gap-4 sm:grid-cols-3">
               <Field label="latitude" error={errors.lat} hint="decimal degrees, north positive">
-                <input
+                <Input
                   type="number"
                   value={form.lat}
                   onChange={(e) => {
@@ -326,7 +326,7 @@ export function LocationSection() {
               </Field>
 
               <Field label="longitude" error={errors.lon} hint="decimal degrees, east positive">
-                <input
+                <Input
                   type="number"
                   value={form.lon}
                   onChange={(e) => {
@@ -346,7 +346,7 @@ export function LocationSection() {
                 label="timezone"
                 hint={location ? `using ${formatZone(location)}` : undefined}
               >
-                <input
+                <Input
                   type="text"
                   value={form.tz}
                   onChange={(e) => setForm((prev) => ({ ...prev, tz: e.target.value }))}

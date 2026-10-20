@@ -16,6 +16,7 @@ import { PaintBucket, Paintbrush, Pipette, Redo2, Repeat, Trash2, Undo2, Wand2 }
 
 import { cn } from "@/lib/cn";
 import { IconButton } from "@/components/ui/icon-button";
+import { Pressable } from "@/components/ui/pressable";
 import { HexField, SwatchRow } from "../color-picker";
 import type { SymmetryAxis } from "./tools/symmetry";
 import type { ToolId } from "./use-paint-canvas";
@@ -111,7 +112,7 @@ export function PaletteBar({
         <Repeat size={13} strokeWidth={1.6} className="text-low" aria-hidden />
         <div role="group" aria-label="Symmetry" className="flex items-center gap-1">
           {SYMMETRY_OPTIONS.map((opt) => (
-            <button
+            <Pressable
               key={opt.id}
               type="button"
               aria-pressed={symmetry === opt.id}
@@ -124,7 +125,7 @@ export function PaletteBar({
               )}
             >
               {opt.label}
-            </button>
+            </Pressable>
           ))}
         </div>
       </div>

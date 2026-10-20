@@ -28,6 +28,7 @@ import { AlertTriangle } from "lucide-react";
 
 import { cn } from "@/lib/cn";
 import { Chip } from "@/components/ui/chip";
+import { Pressable } from "@/components/ui/pressable";
 import { useSegmentCalibration } from "@/lib/queries";
 import {
   applyMotion,
@@ -229,7 +230,7 @@ export function DualPreview({
                 measured 20px tall on a phone. The padding that makes it a
                 44px target goes on the button; the chip's border, fill and
                 20px height stay on the span. */}
-            <button
+            <Pressable
               type="button"
               aria-pressed={showIntent}
               onClick={() => setShowIntent((v) => !v)}
@@ -245,7 +246,7 @@ export function DualPreview({
               >
                 artist&rsquo;s intent {showIntent ? "on" : "off"}
               </span>
-            </button>
+            </Pressable>
           </div>
           <StaticGrid geometry={geometry} colors={canvasColors} className="self-start" />
           <p className="font-mono text-data leading-relaxed text-low">

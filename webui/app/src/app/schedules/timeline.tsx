@@ -32,6 +32,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Pressable,
   StatusDot,
   SunGlyph,
 } from "@/components/ui";
@@ -143,7 +144,7 @@ const MarkerDot = React.forwardRef<
   }
 >(function MarkerDot({ pct, tone, dashed, className, onClick, label }, ref) {
   return (
-    <button
+    <Pressable
       ref={ref}
       type="button"
       aria-label={label}
@@ -362,7 +363,7 @@ export function ScheduleTimeline({
         {/* wake-ramp duration band */}
         {!crontabUnreadable && wakeRampEntry && bandStartPct !== null ? (
           <WakeRampPopover entry={wakeRampEntry} devices={devices}>
-            <button
+            <Pressable
               type="button"
               aria-label={`wake-ramp — ${statusUnknown ? "status unknown" : todayWillRun ? "will run today" : "will not run today"}`}
               // The button is a transparent hit box; the band ink is the inner
@@ -391,7 +392,7 @@ export function ScheduleTimeline({
                   borderStyle: todayWillRun && !statusUnknown ? "solid" : "dashed",
                 }}
               />
-            </button>
+            </Pressable>
           </WakeRampPopover>
         ) : null}
 
@@ -507,7 +508,7 @@ export function ScheduleTimeline({
         <ul className="mt-2 space-y-1">
           {selected.map((r) => (
             <li key={r.id}>
-              <button
+              <Pressable
                 type="button"
                 onClick={() => onSelectRule?.(r.id)}
                 className="min-h-7 w-full cursor-pointer rounded-chip border border-hairline px-2 py-1 text-left font-mono text-data leading-snug text-mid hover:border-hairline-strong hover:text-hi pointer-coarse:min-h-11"
@@ -515,7 +516,7 @@ export function ScheduleTimeline({
                 <span data-volatile={isSun(parseWhen(r.time)?.kind ?? "clock") ? "true" : undefined}>
                   {dotLabel(r)}
                 </span>
-              </button>
+              </Pressable>
             </li>
           ))}
         </ul>

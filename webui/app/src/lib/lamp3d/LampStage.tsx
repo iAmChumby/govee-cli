@@ -26,6 +26,7 @@ import { motion } from "motion/react";
 import { cn } from "@/lib/cn";
 import type { DeviceState, DeviceSummary } from "@/lib/api";
 import { useDeleteActiveMode } from "@/lib/queries";
+import { Pressable } from "@/components/ui/pressable";
 import { UnknownModeChooser } from "@/components/stage/mode-picker";
 import { brightnessGlow, type ResolvedLampState } from "./active-mode";
 import { type PointerInputKind, shouldClaimGesture } from "./controls";
@@ -103,7 +104,7 @@ function ActiveModeReset({ deviceRef }: { deviceRef: string }) {
   }, [deleteActiveMode, deviceRef]);
 
   return (
-    <button
+    <Pressable
       type="button"
       aria-label="Not what I see — reset active mode"
       title="Not what I see — reset"
@@ -112,7 +113,7 @@ function ActiveModeReset({ deviceRef }: { deviceRef: string }) {
       className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-low transition-colors duration-motion-150 hover:text-hi active:scale-95 disabled:opacity-40"
     >
       <RotateCcw aria-hidden className="h-3.5 w-3.5" />
-    </button>
+    </Pressable>
   );
 }
 
