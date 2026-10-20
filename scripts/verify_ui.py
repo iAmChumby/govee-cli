@@ -16,6 +16,9 @@ touches the real devices or the running production services.
     python3 scripts/verify_ui.py --keep            # leave the screenshots for review
     python3 scripts/verify_ui.py --owner-states    # also: owner strip per GOVEE_WEBUI_MOCK_OWNER
     python3 scripts/verify_ui.py --no-location     # also: sun rules with no location set
+    python3 scripts/verify_ui.py --scroll-only --base http://127.0.0.1:6456
+                                                   # only the document-scroll guard, against
+                                                   # an app that is already running
 
 Default checks always run. ``--owner-states`` and ``--no-location`` ADD passes
 after them, each restarting only the scratch sidecar; they never replace a check.
@@ -44,6 +47,7 @@ import sys
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
@@ -67,6 +71,17 @@ VIEWPORTS = {"phone": (IPHONE, True), "desktop": (DESKTOP, False)}
 # A touch target smaller than this, on a coarse pointer, is what the measurement
 # pass reports. Apple's HIG and WCAG 2.5.5 both use 44 CSS px.
 MIN_TARGET = 44
+
+# The routes the document-scroll guard walks. The app frame is one viewport tall
+# and `main` is the scroller, so the DOCUMENT must never scroll: a document that
+# scrolls as well is the double scrollbar (a page scrollbar beside the panel's
+# own). The device console is added once its ref is read from the mock.
+SCROLL_ROUTES = (
+    ("dashboard", "/"),
+    ("rooms", "/rooms"),
+    ("schedules", "/schedules"),
+    ("settings", "/settings"),
+)
 
 OWNER_STATES = ("unset", "daemon", "stale", "nobody")
 
@@ -478,10 +493,63 @@ _MEASURE_JS = """() => {
 }"""
 
 
+# The document-scroll guard's measurement.
+#
+# `document.scrollingElement` is the root element, and its scrollHeight is the
+# viewport's scrolling area. The console's own scroller is `main`, so the
+# document must measure exactly one viewport tall; anything more is a second
+# scrollbar on the page.
+#
+# The `escapes` list is the diagnosis. An absolutely positioned box is clipped
+# by an ancestor's overflow ONLY when that ancestor is in its containing-block
+# chain — the nearest POSITIONED ancestor. When there is none, the containing
+# block is the initial containing block (the document itself) and no ancestor's
+# overflow can clip it: it escapes the scroller and the app frame, and its
+# position in the document becomes part of the document's scrollable overflow.
+# That is the failure this guard exists to catch, so it is named, not guessed.
+_DOCUMENT_SCROLL_JS = """() => {
+  const se = document.scrollingElement;
+  const vh = se.clientHeight;
+  const escapes = [];
+  for (const el of document.querySelectorAll('body *')) {
+    const cs = getComputedStyle(el);
+    // Only an ABSOLUTELY positioned box can escape a non-containing-block
+    // ancestor's clip. A relatively positioned box keeps its parent's
+    // containing block and is clipped like any in-flow box; a fixed box is
+    // clipped by the viewport and never stretches the document.
+    if (cs.position !== 'absolute') continue;
+    const r = el.getBoundingClientRect();
+    if (r.bottom <= vh + 0.5) continue;
+    let p = el.parentElement;
+    let positioned = null;
+    while (p) {
+      const pcs = getComputedStyle(p);
+      if (pcs.position !== 'static') { positioned = p; break; }
+      p = p.parentElement;
+    }
+    if (positioned !== null) continue;  // a positioned ancestor can clip it
+    escapes.push({
+      tag: el.tagName.toLowerCase(),
+      cls: String(el.className).slice(0, 90),
+      top: Math.round(r.top), bottom: Math.round(r.bottom),
+      text: (el.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 40),
+    });
+  }
+  escapes.sort((a, b) => b.bottom - a.bottom);
+  return {
+    scrollHeight: se.scrollHeight,
+    clientHeight: se.clientHeight,
+    scrollWidth: se.scrollWidth,
+    clientWidth: se.clientWidth,
+    escapes: escapes.slice(0, 5),
+  };
+}"""
+
+
 class Checker:
     """Shared state for one run: the browser, the failures, and the shots dir."""
 
-    def __init__(self, shots: pathlib.Path, stack: Stack):
+    def __init__(self, shots: pathlib.Path, stack: Stack | None):
         self.shots = shots
         self.stack = stack
         self.base = f"http://127.0.0.1:{WEB_PORT}"
@@ -541,6 +609,135 @@ class Checker:
         )
         if overflow > 2:
             self.fail(f"{label} overflows horizontally by {overflow}px")
+
+    def check_document_scroll(self, data: dict, label: str) -> None:
+        """The DOCUMENT must not scroll.
+
+        The app frame is `h-dvh` with an inner `overflow-y-auto`, so `main` is
+        the scroller and the document is exactly one viewport tall. A document
+        that scrolls as well is the double scrollbar: the page's own bar
+        beside the panel's.
+        """
+        if data["scrollHeight"] <= data["clientHeight"]:
+            return
+        detail = ""
+        if data["escapes"]:
+            e = data["escapes"][0]
+            detail = (
+                f" — escapes the app frame: <{e['tag']} class={e['cls']!r}> "
+                f"top={e['top']} bottom={e['bottom']} text={e['text']!r}"
+            )
+        self.fail(
+            f"{label}: the DOCUMENT scrolls vertically — scrollingElement.scrollHeight "
+            f"{data['scrollHeight']} > clientHeight {data['clientHeight']}{detail}"
+        )
+
+    def _first_device_ref(self) -> str | None:
+        """The mock's first device ref, read through the app's own API."""
+        try:
+            with urllib.request.urlopen(f"{self.base}/api/v1/devices", timeout=10) as r:
+                payload = json.loads(r.read().decode("utf-8"))
+        except Exception as e:  # noqa: BLE001 - the guard reports, never raises
+            print(f"  scroll guard: cannot read the device list ({e}); device route skipped")
+            return None
+        devices = payload.get("devices", []) if isinstance(payload, dict) else payload
+        if not devices:
+            return None
+        return devices[0].get("ref") or devices[0].get("id")
+
+    def _settled_scroll(self, page, samples: int = 10, gap_ms: int = 400) -> dict:
+        """The document scroll size, once the page has settled.
+
+        The entrance animation translates the page's panels for a few hundred
+        milliseconds, and a translated box IS part of the document's scrollable
+        overflow while it moves — so a reading taken during the animation
+        measures the animation, not the page. Poll until the number stops
+        moving and report THAT number: the page at rest is what this gate is
+        about, and a gate that flips on a half-finished animation is a gate
+        that cannot be trusted. The largest value seen on the way is printed,
+        so a transient overflow is visible in the log even though it is not
+        what fails the run.
+        """
+        best: dict = {}
+        last: dict | None = None
+        settled: dict | None = None
+        stable = 0
+        for _ in range(samples):
+            data = page.evaluate(_DOCUMENT_SCROLL_JS)
+            if data["scrollHeight"] > best.get("scrollHeight", 0):
+                best = data
+            if last is not None and data["scrollHeight"] == last["scrollHeight"]:
+                stable += 1
+                if stable >= 2:
+                    settled = data
+                    break
+            else:
+                stable = 0
+            last = data
+            page.wait_for_timeout(gap_ms)
+        settled = settled or last or best
+        if best["scrollHeight"] > settled["scrollHeight"]:
+            print(
+                f"    (transient while the entrance animation ran: "
+                f"scrollHeight {best['scrollHeight']} -> settled {settled['scrollHeight']})"
+            )
+        return settled
+
+    def document_scroll_pass(self) -> None:
+        """Every route, at 1440x900 and 390x844: the document must not scroll."""
+        routes = list(SCROLL_ROUTES)
+        ref = self._first_device_ref()
+        if ref:
+            routes.append(("device", "/device/" + urllib.parse.quote(ref)))
+        for vp_name in ("desktop", "phone"):
+            viewport, mobile = VIEWPORTS[vp_name]
+            ctx = self.browser.new_context(
+                viewport=viewport,
+                device_scale_factor=3 if mobile else 1,
+                is_mobile=mobile, has_touch=mobile,
+                color_scheme="dark",
+            )
+            ctx.add_init_script("window.localStorage.setItem('theme', 'dark')")
+            page = ctx.new_page()
+            for name, path in routes:
+                self.where = f"scroll:{vp_name}:{name}"
+                page.goto(self.base + path, wait_until="networkidle", timeout=45_000)
+                self._wait_for_content(page)
+                data = self._settled_scroll(page)
+                print(
+                    f"  scroll {vp_name}:{name}: document scrollHeight={data['scrollHeight']} "
+                    f"clientHeight={data['clientHeight']}"
+                )
+                self.check_document_scroll(data, f"{vp_name}:{name}")
+            ctx.close()
+
+    def _wait_for_content(self, page, timeout: int = 20_000) -> None:
+        """Wait for the page's placeholders to be replaced by the real content.
+
+        The console renders a Skeleton while its data is in flight, and the
+        overflowing element is rendered WITH that data — so a reading taken
+        over the placeholders measures a page that has not arrived yet, and
+        the number it gives is the one thing the guard must never do: agree
+        with a page that has not finished loading.
+        """
+        try:
+            page.wait_for_function(
+                """() => {
+                    for (const el of document.querySelectorAll(
+                        '.animate-skeleton-breathe, .animate-skeleton, .animate-pulse')) {
+                      const cs = getComputedStyle(el);
+                      if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+                      const r = el.getBoundingClientRect();
+                      if (r.width > 0 && r.height > 0) return false;
+                    }
+                    return true;
+                }""",
+                timeout=timeout,
+            )
+        except Exception:
+            # A page with no skeleton (or a stuck one) is measured anyway; the
+            # scroll numbers are reported, and the failure names them.
+            pass
 
     # -- default checks -----------------------------------------------------
 
@@ -851,6 +1048,7 @@ class Checker:
         self.desktop_pass()
         self.interaction_pass()
         self.measure_pass()
+        self.document_scroll_pass()
         if "owner-states" in extras:
             self.owner_state_pass()
         if "no-location" in extras:
@@ -870,10 +1068,18 @@ def start_stack(log_dir: pathlib.Path, tz: str | None = None) -> list[subprocess
     return [p for p in (stack.api, stack.web) if p is not None]
 
 
-def run_checks(shots: pathlib.Path, stack: Stack, extras: set[str]) -> list[str]:
+def run_checks(
+    shots: pathlib.Path,
+    stack: Stack | None,
+    extras: set[str],
+    base: str | None = None,
+    only: str | None = None,
+) -> list[str]:
     from playwright.sync_api import sync_playwright
 
     ck = Checker(shots, stack)
+    if base:
+        ck.base = base
 
     with sync_playwright() as p:
         # Assert the browser is talking to the mock, not production. Without
@@ -894,7 +1100,10 @@ def run_checks(shots: pathlib.Path, stack: Stack, extras: set[str]) -> list[str]
 
         ck.browser = p.chromium.launch()
         try:
-            ck.run(extras)
+            if only == "scroll":
+                ck.document_scroll_pass()
+            else:
+                ck.run(extras)
         finally:
             ck.browser.close()
 
@@ -933,12 +1142,27 @@ def main() -> int:
         help="set TZ=ZONE in the sidecar's environment (e.g. America/New_York), so a run on a "
              "Windows workstation computes schedules in the production zone",
     )
+    ap.add_argument(
+        "--base", default=None, metavar="URL",
+        help="check an app that is ALREADY running (it must still answer the mock sidecar) "
+             "instead of building one and booting a stack",
+    )
+    ap.add_argument(
+        "--scroll-only", action="store_true",
+        help="run only the document-scroll guard: every route at 1440x900 and 390x844 must "
+             "leave the document exactly one viewport tall",
+    )
     args = ap.parse_args()
     extras: set[str] = set()
     if args.owner_states:
         extras.add("owner-states")
     if args.no_location:
         extras.add("no-location")
+    if args.scroll_only:
+        extras = set()
+        if args.owner_states or args.no_location:
+            print("--scroll-only runs alone; the extra passes need a stack it does not start")
+            return 2
 
     shots = REPO / ".verify-ui"
     if shots.exists():
@@ -946,15 +1170,23 @@ def main() -> int:
     shots.mkdir()
     log_dir = pathlib.Path(tempfile.mkdtemp(prefix="verify-ui-"))
 
-    stack = Stack(log_dir, tz=args.tz)
+    stack: Stack | None = None
     failures: list[str] = []
     try:
-        print(f"starting mock stack (api :{API_PORT}, web :{WEB_PORT})...")
-        stack.build()
-        stack.start_api("default")
-        stack.start_web()
+        if args.base:
+            print(f"using the running app at {args.base} (no build, no stack)")
+        else:
+            print(f"starting mock stack (api :{API_PORT}, web :{WEB_PORT})...")
+            stack = Stack(log_dir, tz=args.tz)
+            stack.build()
+            stack.start_api("default")
+            stack.start_web()
         print("running checks...")
-        failures = run_checks(shots, stack, extras)
+        failures = run_checks(
+            shots, stack, extras,
+            base=args.base,
+            only="scroll" if args.scroll_only else None,
+        )
     except Failure as e:
         print(f"\nSETUP FAILED: {e}")
         for log in sorted(log_dir.glob("*.log")):
@@ -962,7 +1194,8 @@ def main() -> int:
             print(f"\n--- {log.name} ---\n" + "\n".join(tail))
         return 2
     finally:
-        stack.stop_all()
+        if stack is not None:
+            stack.stop_all()
 
     if failures:
         print(f"\n{len(failures)} PROBLEM(S):")

@@ -59,8 +59,18 @@ export default function RootLayout({
           <ClientNavTracker />
           <SWRegister />
           {/* Persistent app frame: chrome mounts once and survives every
-              route change — no header replays, no status-strip resets. */}
-          <div className="flex h-dvh flex-col overflow-hidden bg-bg">
+              route change — no header replays, no status-strip resets.
+
+              `relative` is load-bearing, not decoration. The frame's
+              `overflow-hidden` is what keeps the console exactly one
+              viewport tall, and an absolutely positioned box is clipped by
+              an ancestor's overflow ONLY when that ancestor is in its
+              containing-block chain — the nearest POSITIONED ancestor. With
+              the frame unpositioned, every `position: absolute` box in the
+              app (Tailwind's `sr-only` labels among them) takes the document
+              as its containing block, escapes both the scroller and the
+              frame, and stretches the document: the double scrollbar. */}
+          <div className="relative flex h-dvh flex-col overflow-hidden bg-bg">
             <TopBar />
             <div className="flex min-h-0 flex-1">{children}</div>
             <StatusStrip />
