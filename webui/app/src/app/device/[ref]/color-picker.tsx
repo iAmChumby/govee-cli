@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import { cn } from "@/lib/cn";
+import { Input, Pressable } from "@/components/ui";
 import { PAINT_SWATCHES, type PaintSwatch } from "@/lib/color-tokens";
 import { COLOR_DIALOG_COALESCE_MS, useTrailingCommit } from "./use-trailing-commit";
 
@@ -52,7 +53,7 @@ export function SwatchRow({ activeHex, onPick, ariaGroupLabel = "Curated colors"
           // on the inner `span`, fixed at 28px unconditionally, so "the
           // swatch circles must still LOOK the same size" holds even
           // where the button around them has grown.
-          <button
+          <Pressable
             key={hex}
             type="button"
             title={hex}
@@ -69,7 +70,7 @@ export function SwatchRow({ activeHex, onPick, ariaGroupLabel = "Curated colors"
               )}
               style={{ background: hex }}
             />
-          </button>
+          </Pressable>
         );
       })}
     </div>
@@ -108,7 +109,7 @@ export function NativeColorInput({ value, onPick, className }: NativeColorInputP
     // (now 44px) box. Firefox has no equivalent wrapper pseudo-element
     // to pad, so `::-moz-color-swatch` is inset with a margin instead —
     // best-effort, not pixel-verified there.
-    <input
+    <Input
       type="color"
       aria-label="Custom color picker"
       value={value}
@@ -147,7 +148,7 @@ export function HexField({ onCommit, className }: HexFieldProps) {
         }
       }}
     >
-      <input
+      <Input
         type="text"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}

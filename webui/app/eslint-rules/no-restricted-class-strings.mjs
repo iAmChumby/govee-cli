@@ -26,8 +26,24 @@ export const PROBES = ["11", "11px", "150"];
 export const CLASS_STRING_PATTERNS = [
   {
     id: "text-size",
-    source: String.raw`text-\[[0-9.]+px\]`,
-    message: "Arbitrary type size: use a --text-* rung (#27) instead of text-[Npx].",
+    // An arbitrary TYPE SIZE, in any of the three units a size can be
+    // typed in: `text-[11px]`, `text-[1.5rem]`, `text-[0.9em]`.
+    //
+    // The review of wave 6b found the hole: the pattern matched `px`
+    // only, so a raw size in `rem` or `em` — the same raw value, typed
+    // in another unit — walked straight through the gate that exists to
+    // keep raw values out. A denominator that only counts one spelling
+    // of a value is not a denominator.
+    //
+    // What it still does NOT match, on purpose: `text-[color:var(--x)]`.
+    // That is a COLOUR, not a size; the bracket holds no length. The
+    // `dimension` pattern below skips every `text-` bracket for the same
+    // reason, so a colour in a bracket stays legal and is not
+    // double-reported.
+    source: String.raw`text-\[[0-9.]+(px|rem|em)\]`,
+    message:
+      "Arbitrary type size: use a --text-* rung (#27) instead of " +
+      "text-[Npx], text-[Nrem] or text-[Nem].",
   },
   {
     id: "duration",
@@ -36,8 +52,24 @@ export const CLASS_STRING_PATTERNS = [
   },
   {
     id: "dimension",
-    source: String.raw`(?<!text-)\[[0-9.]+(px|rem|em|ch|vh|vw|dvh|svh|lvh|%)\]`,
-    message: "Bracketed dimension: declare it on the type/space scale (#27) instead.",
+    // A bracketed dimension is a raw length typed by hand: either a
+    // number with a unit (`[86px]`, `[55vh]`) or a `var()` reference
+    // (`[var(--relative-owner-strip-width)]`).
+    //
+    // The var() branch was added in wave 6b (PR review L-2). The old
+    // pattern matched only a number-with-unit, so a bracketed var()
+    // reference walked straight through the gate — a raw value wearing a
+    // token's name, invisible to the rule that exists to keep raw values
+    // out. Eight call sites had already learned to use that escape.
+    //
+    // The fix has two halves and both are needed: the pattern now SEES
+    // the shape, and the seven relative measures are bridged into
+    // Tailwind's spacing namespace so the eight call sites can say
+    // `w-relative-owner-strip-width` — a name — instead.
+    source: String.raw`(?<!text-)\[(?:[0-9.]+(?:px|rem|em|ch|vh|vw|dvh|svh|lvh|%)|[^\]]*var\([^\]]*)\]`,
+    message:
+      "Bracketed dimension: declare it on the type/space scale (#27) " +
+      "instead — a var() reference is still a bracketed value.",
   },
   {
     id: "outline",

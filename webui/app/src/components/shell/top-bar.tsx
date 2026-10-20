@@ -45,7 +45,7 @@ export function TopBar() {
       initial="hidden"
       animate="show"
       variants={fadeUp}
-      className="flex h-12 shrink-0 items-center gap-4 border-b border-hairline bg-bg px-4 pointer-coarse:pt-[var(--safe-top)]"
+      className="flex h-12 shrink-0 items-center gap-4 border-b border-hairline bg-bg px-4 pointer-coarse:pt-safe-top"
     >
       {/* wordmark. The tagline stays `hidden ... sm:inline` below md per §11.5's
           table: it is static branding duplicated by the "filament" wordmark

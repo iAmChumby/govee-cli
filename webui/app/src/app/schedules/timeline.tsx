@@ -32,6 +32,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Pressable,
   StatusDot,
   SunGlyph,
 } from "@/components/ui";
@@ -143,7 +144,7 @@ const MarkerDot = React.forwardRef<
   }
 >(function MarkerDot({ pct, tone, dashed, className, onClick, label }, ref) {
   return (
-    <button
+    <Pressable
       ref={ref}
       type="button"
       aria-label={label}
@@ -362,7 +363,7 @@ export function ScheduleTimeline({
         {/* wake-ramp duration band */}
         {!crontabUnreadable && wakeRampEntry && bandStartPct !== null ? (
           <WakeRampPopover entry={wakeRampEntry} devices={devices}>
-            <button
+            <Pressable
               type="button"
               aria-label={`wake-ramp — ${statusUnknown ? "status unknown" : todayWillRun ? "will run today" : "will not run today"}`}
               // The button is a transparent hit box; the band ink is the inner
@@ -370,11 +371,19 @@ export function ScheduleTimeline({
               // the box is >=44x44 (ink width + 19px each side, 44px tall at
               // y=44..88 of the 96px rail) while the ink stays 28px tall at
               // y=52..80, and the dot row's boxes end at y=44 so nothing overlaps.
-              className="group absolute bottom-1 top-8 w-[var(--band-w)] cursor-pointer pointer-coarse:bottom-0 pointer-coarse:top-11 pointer-coarse:-ml-space-19 pointer-coarse:w-[calc(var(--band-w)+38px)]"
+              className="group absolute bottom-1 top-8 w-band-w cursor-pointer pointer-coarse:bottom-0 pointer-coarse:top-11 pointer-coarse:-ml-space-19 pointer-coarse:w-band-w-touch"
               style={
                 {
                   left: `${bandStartPct}%`,
                   "--band-w": bandEndPct !== null ? `${Math.max(1.5, bandEndPct - bandStartPct)}%` : "8px",
+                  // The coarse-pointer hit box is the band's own width plus
+                  // 19px of finger room on each side. It is declared HERE,
+                  // on the element that owns --band-w, because a custom
+                  // property resolves its var() references where it is
+                  // DECLARED: a :root-level `--band-w-touch` would be
+                  // computed against a :root that has no --band-w, and
+                  // would inherit down as an invalid value.
+                  "--band-w-touch": "calc(var(--band-w) + 38px)",
                 } as React.CSSProperties
               }
             >
@@ -391,7 +400,7 @@ export function ScheduleTimeline({
                   borderStyle: todayWillRun && !statusUnknown ? "solid" : "dashed",
                 }}
               />
-            </button>
+            </Pressable>
           </WakeRampPopover>
         ) : null}
 
@@ -507,7 +516,7 @@ export function ScheduleTimeline({
         <ul className="mt-2 space-y-1">
           {selected.map((r) => (
             <li key={r.id}>
-              <button
+              <Pressable
                 type="button"
                 onClick={() => onSelectRule?.(r.id)}
                 className="min-h-7 w-full cursor-pointer rounded-chip border border-hairline px-2 py-1 text-left font-mono text-data leading-snug text-mid hover:border-hairline-strong hover:text-hi pointer-coarse:min-h-11"
@@ -515,7 +524,7 @@ export function ScheduleTimeline({
                 <span data-volatile={isSun(parseWhen(r.time)?.kind ?? "clock") ? "true" : undefined}>
                   {dotLabel(r)}
                 </span>
-              </button>
+              </Pressable>
             </li>
           ))}
         </ul>

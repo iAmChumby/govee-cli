@@ -338,10 +338,38 @@ def record(base: str) -> dict:
     try:
         import subprocess
 
-        result["_meta"]["commit"] = subprocess.run(
+        head = subprocess.run(
             ["git", "-C", str(ROOT), "rev-parse", "HEAD"],
             capture_output=True, text=True, check=False,
         ).stdout.strip() or None
+
+        # L-4 (PR #16's review): `_meta.commit` used to be written as
+        # `rev-parse HEAD` and nothing else, so a snapshot recorded with
+        # the wave's files still sitting in the working tree pointed at
+        # the merge base — the data was the branch's, the pointer was not.
+        # The pointer is only allowed to name a commit when the recorded
+        # tree IS that commit: if any identity input is dirty, the commit
+        # is dropped rather than made to lie, and the dirty files are
+        # named so the next person knows why.
+        dirty: list[str] = []
+        for rel in sorted(result["inputs"]):
+            status = subprocess.run(
+                ["git", "-C", str(ROOT), "status", "--porcelain", "--", rel],
+                capture_output=True, text=True, check=False,
+            ).stdout.strip()
+            if status:
+                dirty.append(rel)
+
+        result["_meta"]["commit"] = None if dirty else head
+        result["_meta"]["dirty_inputs"] = dirty
+        if dirty:
+            print(
+                "WARNING: the identity inputs are not committed; the recorded "
+                "styles do NOT come from the commit below. Commit them (or "
+                "re-record from a clean tree) before trusting `_meta.commit`:\n  "
+                + "\n  ".join(dirty),
+                file=sys.stderr,
+            )
     except OSError:
         pass
 

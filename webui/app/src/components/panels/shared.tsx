@@ -21,6 +21,7 @@ import { INDETERMINATE_PALETTE } from "@/lib/motion-engine/palette";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/chip";
 import { Panel } from "@/components/ui/panel";
+import { Pressable } from "@/components/ui/pressable";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /* ------------------------------------------------------------- gradient */
@@ -96,7 +97,7 @@ export function EmptyState({ title, hint }: EmptyStateProps) {
     <div className="rounded-card border border-dashed border-hairline px-6 py-10 text-center">
       <p className="text-data leading-snug text-mid">{title}</p>
       {hint ? (
-        <p className="mx-auto mt-1.5 max-w-[var(--relative-caption-measure)] font-mono text-micro leading-relaxed text-low">
+        <p className="mx-auto mt-1.5 max-w-relative-caption-measure font-mono text-micro leading-relaxed text-low">
           {hint}
         </p>
       ) : null}
@@ -237,7 +238,7 @@ export function MiniSwatches({
       {PAINT_SWATCHES.map((hex) => {
         const active = activeHex?.toUpperCase() === hex.toUpperCase();
         return (
-          <button
+          <Pressable
             key={hex}
             type="button"
             title={hex}

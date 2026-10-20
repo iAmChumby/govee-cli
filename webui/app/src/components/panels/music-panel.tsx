@@ -35,6 +35,7 @@ import { useApplyMutation, useDeviceState, useMusicModes } from "@/lib/queries";
 import { Button } from "@/components/ui/button";
 import { Odometer } from "@/components/ui/odometer";
 import { Panel } from "@/components/ui/panel";
+import { Pressable } from "@/components/ui/pressable";
 import { SectionLabel } from "@/components/ui/section-label";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
@@ -261,7 +262,7 @@ function MusicControls({ deviceRef, modes, active }: MusicControlsProps) {
           {modes.map((m) => {
             const isActive = m.key === effectiveMode;
             return (
-              <button
+              <Pressable
                 key={m.key}
                 type="button"
                 title={`mode ${m.value}`}
@@ -275,7 +276,7 @@ function MusicControls({ deviceRef, modes, active }: MusicControlsProps) {
                 )}
               >
                 {m.key}
-              </button>
+              </Pressable>
             );
           })}
         </div>
@@ -298,7 +299,7 @@ function MusicControls({ deviceRef, modes, active }: MusicControlsProps) {
             showBubble
             className="flex-1"
           />
-          <span className="w-[var(--relative-time-column-width)] text-right">
+          <span className="w-relative-time-column-width text-right">
             <Odometer value={sensitivity} pad={3} className="text-body text-hi" />
           </span>
         </div>

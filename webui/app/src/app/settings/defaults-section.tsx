@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import { ChevronDown } from "lucide-react";
 
-import { Button, Panel, SectionLabel, Skeleton } from "@/components/ui";
+import { Button, Input, Panel, SectionLabel, Select, Skeleton } from "@/components/ui";
 import { useToast } from "@/components/ui/toaster";
 import { ApiError, type DeviceSummary } from "@/lib/api";
 import { useDevices } from "@/lib/queries";
@@ -115,7 +115,7 @@ export function DefaultsSection() {
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="default device" hint="used when a command names no device">
                 <span className="relative block">
-                  <select
+                  <Select
                     value={form.mac}
                     onChange={(e) => setForm((prev) => ({ ...prev, mac: e.target.value }))}
                     className={cn(INPUT_CLASS, "cursor-pointer appearance-none pr-8 font-mono")}
@@ -126,7 +126,7 @@ export function DefaultsSection() {
                         {d.name ?? d.ref}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                   <ChevronDown
                     size={13}
                     strokeWidth={1.5}
@@ -137,7 +137,7 @@ export function DefaultsSection() {
               </Field>
 
               <Field label="default timeout" error={errors.timeout} hint="seconds per cloud call">
-                <input
+                <Input
                   type="number"
                   value={form.timeout}
                   onChange={(e) => {
@@ -152,7 +152,7 @@ export function DefaultsSection() {
               </Field>
 
               <Field label="default brightness" error={errors.brightness} hint="percent, 0–100">
-                <input
+                <Input
                   type="number"
                   value={form.brightness}
                   onChange={(e) => {
@@ -168,7 +168,7 @@ export function DefaultsSection() {
               </Field>
 
               <Field label="default color" error={errors.color} hint="hex like #FF8800">
-                <input
+                <Input
                   type="text"
                   value={form.color}
                   onChange={(e) => {

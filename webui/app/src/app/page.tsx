@@ -11,7 +11,7 @@ import {
   Terminal,
 } from "lucide-react";
 
-import { IconButton, Panel, SectionLabel, Skeleton, StatusDot } from "@/components/ui";
+import { IconButton, Input, Panel, Pressable, SectionLabel, Skeleton, StatusDot } from "@/components/ui";
 import type { DeviceSummary } from "@/lib/api";
 import { useDevices, useGroups, useHealth } from "@/lib/queries";
 import { cn } from "@/lib/cn";
@@ -107,7 +107,7 @@ function GroupRailButton({ name }: { name: string }) {
   const members = groups.data?.[name] ?? [];
 
   return (
-    <button
+    <Pressable
       type="button"
       title={`${members.length} member${members.length === 1 ? "" : "s"}`}
       className="flex w-full cursor-pointer items-center gap-2.5 rounded-btn px-2.5 py-2 text-body text-mid transition-colors duration-motion-150 hover:bg-accent-dim hover:text-hi"
@@ -116,7 +116,7 @@ function GroupRailButton({ name }: { name: string }) {
       <span className="ml-auto font-mono text-data text-low">
         {members.length}
       </span>
-    </button>
+    </Pressable>
   );
 }
 
@@ -180,7 +180,7 @@ export default function ConsolePage() {
                       aria-hidden
                       className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-low"
                     />
-                    <input
+                    <Input
                       type="text"
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
@@ -210,7 +210,7 @@ export default function ConsolePage() {
                   aria-hidden
                   className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-low"
                 />
-                <input
+                <Input
                   type="text"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}

@@ -14,6 +14,8 @@ import * as React from "react";
 import { api, type Snapshot } from "@/lib/api";
 import { useApplyMutation, useSnapshots } from "@/lib/queries";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Pressable } from "@/components/ui/pressable";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/cn";
 import {
@@ -119,7 +121,7 @@ export function SnapshotsPanel({ deviceRef }: { deviceRef: string }) {
         <span className="text-label uppercase leading-none tracking-micro text-mid">
           apply by id
         </span>
-        <input
+        <Input
           type="text"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -168,7 +170,7 @@ interface SnapshotRowProps {
 
 function SnapshotRow({ snapshot, active, pending, onApply }: SnapshotRowProps) {
   return (
-    <button
+    <Pressable
       type="button"
       onClick={() => onApply(snapshot.name)}
       aria-pressed={active}
@@ -196,6 +198,6 @@ function SnapshotRow({ snapshot, active, pending, onApply }: SnapshotRowProps) {
           applied
         </span>
       ) : null}
-    </button>
+    </Pressable>
   );
 }

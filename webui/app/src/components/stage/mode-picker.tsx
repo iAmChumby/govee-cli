@@ -35,6 +35,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { SectionLabel } from "@/components/ui/section-label";
+import { Pressable } from "@/components/ui/pressable";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/cn";
 import { springSnappy } from "@/lib/motion";
@@ -214,7 +215,7 @@ export function UnknownModeChooser({ deviceRef }: UnknownModeChooserProps) {
           stage stops guessing.
         </DialogDescription>
 
-        <div className="mt-4 max-h-[var(--relative-mode-list-height)] space-y-4 overflow-y-auto pr-1">
+        <div className="mt-4 max-h-relative-mode-list-height space-y-4 overflow-y-auto pr-1">
           <OptionGroup
             title="basics"
             options={FIXED_OPTIONS}
@@ -269,18 +270,19 @@ export function UnknownModeChooser({ deviceRef }: UnknownModeChooserProps) {
 
         <div className="mt-5 flex justify-end border-t border-hairline pt-3">
           <DialogClose asChild>
-            <button
+            <Pressable
               type="button"
-              // Kept as a raw <button>, not the shared `Button` component
-              // (T36 brief) — swapping it would change its desktop size,
-              // which this file does not own the blast radius for.
+              // Kept as a `Pressable` (the presentational button), not the
+              // shared `Button` component (T36 brief) — swapping it would
+              // change its desktop size, which this file does not own the
+              // blast radius for.
               // `pointer-coarse:` bumps it past the 44px floor via padding
               // alone; the fine-pointer geometry (px-3 py-1.5, ~26-28px) is
               // untouched.
               className="rounded-btn border border-hairline px-3 py-1.5 font-medium uppercase tracking-caps text-micro text-mid transition-colors duration-motion-150 hover:border-hairline-strong hover:text-hi pointer-coarse:min-h-11 pointer-coarse:px-4 pointer-coarse:py-3"
             >
               cancel
-            </button>
+            </Pressable>
           </DialogClose>
         </div>
       </DialogContent>

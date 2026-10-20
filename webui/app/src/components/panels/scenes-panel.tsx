@@ -20,6 +20,8 @@ import { Search } from "lucide-react";
 import { api, type FirmwareScene } from "@/lib/api";
 import { useApplyMutation, useScenes } from "@/lib/queries";
 import { Chip } from "@/components/ui/chip";
+import { Input } from "@/components/ui/input";
+import { Pressable } from "@/components/ui/pressable";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/cn";
 import { fadeFast, springStandard } from "@/lib/motion";
@@ -89,7 +91,7 @@ export function ScenesPanel({ deviceRef }: { deviceRef: string }) {
           aria-hidden
           className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-low"
         />
-        <input
+        <Input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -175,7 +177,7 @@ function SceneCard({ scene, active, pending, onApply }: SceneCardProps) {
   const gradient = React.useMemo(() => nameToGradient(scene.name), [scene.name]);
 
   return (
-    <button
+    <Pressable
       type="button"
       onClick={() => onApply(scene.name)}
       aria-pressed={active}
@@ -207,6 +209,6 @@ function SceneCard({ scene, active, pending, onApply }: SceneCardProps) {
           {active ? <span className="normal-case tracking-normal text-accent">· playing</span> : null}
         </span>
       </span>
-    </button>
+    </Pressable>
   );
 }

@@ -26,6 +26,7 @@ import { motion } from "motion/react";
 import { cn } from "@/lib/cn";
 import type { DeviceState, DeviceSummary } from "@/lib/api";
 import { useDeleteActiveMode } from "@/lib/queries";
+import { Pressable } from "@/components/ui/pressable";
 import { UnknownModeChooser } from "@/components/stage/mode-picker";
 import { brightnessGlow, type ResolvedLampState } from "./active-mode";
 import { type PointerInputKind, shouldClaimGesture } from "./controls";
@@ -78,7 +79,7 @@ function StaticSilhouette({ resolved }: { resolved: ResolvedLampState }) {
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center">
       <div
-        className="h-[var(--relative-stage-halo-height)] w-[var(--relative-stage-halo-width)] rounded-stage-halo transition-colors duration-motion-300"
+        className="h-relative-stage-halo-height w-relative-stage-halo-width rounded-stage-halo transition-colors duration-motion-300"
         style={{ backgroundColor: color, opacity }}
       />
     </div>
@@ -103,7 +104,7 @@ function ActiveModeReset({ deviceRef }: { deviceRef: string }) {
   }, [deleteActiveMode, deviceRef]);
 
   return (
-    <button
+    <Pressable
       type="button"
       aria-label="Not what I see — reset active mode"
       title="Not what I see — reset"
@@ -112,7 +113,7 @@ function ActiveModeReset({ deviceRef }: { deviceRef: string }) {
       className="flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-full text-low transition-colors duration-motion-150 hover:text-hi active:scale-95 disabled:opacity-40"
     >
       <RotateCcw aria-hidden className="h-3.5 w-3.5" />
-    </button>
+    </Pressable>
   );
 }
 
@@ -539,7 +540,7 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
               rescue them because touch has no hover (CLAUDE.md). Measured at
               390px: "madisonnnn — DIY scene, assumed, colour unknown, 0s ago"
               overflowed and lost its tail, so the one caption whose text may
-              never go missing was the one being cut. `max-w-[var(--relative-stage-caption-width)]` keeps it
+              never go missing was the one being cut. `max-w-relative-stage-caption-width` keeps it
               clear of the chooser control sharing this row, and `leading-snug`
               replaces `leading-none` so wrapped lines do not collide. */}
           {resolved.caption === "mode unknown — no ledger record" ? (
@@ -549,7 +550,7 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
               animate={{ opacity: [0.5, 1, 0.5, 1] }}
               transition={{ duration: 1, ease: "easeInOut" }}
               className={cn(
-                "relative z-20 min-w-0 max-w-[var(--relative-stage-caption-width)] rounded-chip border border-hairline bg-bg/95 px-1.5 py-0.5 font-mono leading-snug tracking-micro text-low pointer-coarse:whitespace-normal pointer-coarse:break-words",
+                "relative z-20 min-w-0 max-w-relative-stage-caption-width rounded-chip border border-hairline bg-bg/95 px-1.5 py-0.5 font-mono leading-snug tracking-micro text-low pointer-coarse:whitespace-normal pointer-coarse:break-words",
                 "text-data",
               )}
             >
@@ -558,7 +559,7 @@ export function LampStage({ state, variant = "full", className }: LampStageProps
           ) : (
             <span
               className={cn(
-                "relative z-20 min-w-0 max-w-[var(--relative-stage-caption-width)] rounded-chip border border-hairline bg-bg/95 px-1.5 py-0.5 font-mono leading-snug tracking-micro text-low pointer-coarse:whitespace-normal pointer-coarse:break-words",
+                "relative z-20 min-w-0 max-w-relative-stage-caption-width rounded-chip border border-hairline bg-bg/95 px-1.5 py-0.5 font-mono leading-snug tracking-micro text-low pointer-coarse:whitespace-normal pointer-coarse:break-words",
                 "text-data",
               )}
             >

@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import { ChevronDown, Plus, RadioTower } from "lucide-react";
 
-import { Button, Chip, Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle, Panel, SectionLabel, Skeleton, StatusDot } from "@/components/ui";
+import { Button, Chip, Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle, Input, Panel, SectionLabel, Select, Skeleton, StatusDot } from "@/components/ui";
 import { useToast } from "@/components/ui/toaster";
 import { ApiError, api } from "@/lib/api";
 import { useDevices } from "@/lib/queries";
@@ -105,7 +105,7 @@ function AddDeviceDialog({
 
         <form onSubmit={handleSubmit} noValidate className="mt-5 space-y-4">
           <Field label="device id" error={errors.mac} hint="8-octet cloud id, e.g. 50:CE:E8:6E:80:C6:50:3F">
-            <input
+            <Input
               type="text"
               value={draft.mac}
               onChange={(e) => {
@@ -122,7 +122,7 @@ function AddDeviceDialog({
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="model" error={errors.model}>
               <span className="relative block">
-                <select
+                <Select
                   value={draft.model}
                   onChange={(e) => setDraft((prev) => ({ ...prev, model: e.target.value }))}
                   className={cn(INPUT_CLASS, "cursor-pointer appearance-none pr-8 font-mono")}
@@ -132,7 +132,7 @@ function AddDeviceDialog({
                       {model}
                     </option>
                   ))}
-                </select>
+                </Select>
                 <ChevronDown
                   size={13}
                   strokeWidth={1.5}
@@ -143,7 +143,7 @@ function AddDeviceDialog({
             </Field>
 
             <Field label="name" hint="optional friendly name">
-              <input
+              <Input
                 type="text"
                 value={draft.name}
                 onChange={(e) => setDraft((prev) => ({ ...prev, name: e.target.value }))}
@@ -155,7 +155,7 @@ function AddDeviceDialog({
           </div>
 
           <Field label="static mac" hint="optional BLE address, e.g. E8:6E:80:C6:50:3F">
-            <input
+            <Input
               type="text"
               value={draft.staticMac}
               onChange={(e) => setDraft((prev) => ({ ...prev, staticMac: e.target.value }))}
